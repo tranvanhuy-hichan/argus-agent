@@ -1,8 +1,10 @@
 export interface ProviderCfg {
+  cli?: 'claude' | 'custom'
+  command?: string
   vision?: boolean
   price_in?: number
   price_out?: number
-  type: 'openai' | 'anthropic'
+  type: 'openai' | 'anthropic' | 'cli'
   base_url: string
   model: string
   api_key: string

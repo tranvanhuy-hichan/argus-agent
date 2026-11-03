@@ -7,7 +7,7 @@ import { PermissionMenu } from './PermissionMenu'
 import { EFFORTS, type Effort, type Permission } from './permissions'
 import { useDictation } from './useDictation'
 
-export interface ProviderOption { id: string; model: string; type: 'openai' | 'anthropic' }
+export interface ProviderOption { id: string; model: string; type: 'openai' | 'anthropic' | 'cli' }
 
 interface Props {
   value: string
@@ -56,7 +56,7 @@ export function Composer(p: Props) {
   const matches = useMemo(() => (slash === null ? [] : p.skills.filter((s) => s.enabled && s.eligible).filter((s) => s.name.toLowerCase().includes(slash)).slice(0, 6)), [slash, p.skills])
   const pick = (name: string) => { p.onChange(t('Dùng skill `{name}`: ', { name })); setHi(0); textarea.current?.focus() }
   const current = p.providers.find((x) => x.id === p.provider)
-  const effortOff = current?.type === 'anthropic'
+  const effortOff = current?.type === 'anthropic' || current?.type === 'cli'
 
   useEffect(() => {
     if (!plusOpen) return

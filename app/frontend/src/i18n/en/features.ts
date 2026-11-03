@@ -290,6 +290,21 @@ const dict: Record<string, string> = {
   "Ví dụ npx hoặc đường dẫn tới python.": "For example npx or the path to python.",
   "Xem các model có sẵn": "See available models",
   "Xem thêm dịch vụ": "More services",
+  // --- Nha cung cap CLI
+  "Argus chạy CLI này ở chế độ không giao diện và dùng tài khoản đã đăng nhập sẵn trên máy bạn (hãy chạy CLI một lần trong terminal để đăng nhập). Khóa API trong biến môi trường không được dùng.": "Argus runs this CLI in headless mode and uses the account already logged in on your machine (run the CLI once in a terminal to log in). API keys in environment variables are not used.",
+  "Bất kỳ CLI nào nhận câu hỏi qua stdin và in câu trả lời ra stdout.": "Any CLI that reads the question from stdin and prints the answer to stdout.",
+  "CLI khác": "Other CLI",
+  "Công cụ riêng của CLI bị tắt: Argus vẫn tự điều khiển công cụ nên phê duyệt, kế hoạch và trí nhớ hoạt động như thường. Mỗi bước mở một tiến trình CLI nên chậm hơn API trực tiếp, và không xem được ảnh.": "The CLI's own tools are turned off: Argus still drives the tools, so approvals, plans and memory work as usual. Each step starts a CLI process, so it is slower than a direct API, and it cannot see images.",
+  "Để trống để dùng model mặc định của CLI.": "Leave empty to use the CLI's default model.",
+  "Để trống nếu `claude` đã nằm trong PATH.": "Leave empty if `claude` is already on your PATH.",
+  "Dùng CLI đã đăng nhập": "Uses a logged-in CLI",
+  "Dùng CLI đã đăng nhập (không cần API key)": "Use a logged-in CLI (no API key)",
+  "Dùng tài khoản Claude đã đăng nhập sẵn trong CLI, không cần API key.": "Uses the Claude account already logged in to the CLI. No API key needed.",
+  "Đường dẫn lệnh claude (tùy chọn)": "Path to the claude command (optional)",
+  "Hãy đọc điều khoản của hãng về việc dùng gói thuê bao theo cách này. Nếu không chắc, dùng API key.": "Read the vendor's terms about using a subscription plan this way. If unsure, use an API key.",
+  "Lệnh chạy CLI": "CLI command",
+  "Nhận câu hỏi qua stdin, in câu trả lời ra stdout. Ví dụ: my-cli --quiet": "Reads the question from stdin and prints the answer to stdout. Example: my-cli --quiet",
+  "Đã thêm {name}. Hãy chắc CLI đã đăng nhập (chạy nó một lần trong terminal), rồi bấm Lưu thay đổi.": "Added {name}. Make sure the CLI is logged in (run it once in a terminal), then press Save changes.",
 }
 
 export default dict

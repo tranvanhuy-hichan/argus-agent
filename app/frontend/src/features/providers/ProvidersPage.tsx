@@ -17,6 +17,9 @@ import { t, tk } from '@/lib/i18n.ts'
 const openai = (base_url: string, model: string, api_key_env = ''): ProviderCfg => ({ type: 'openai', base_url, model, api_key: '', api_key_env, temperature: 0.7 })
 // Model mac dinh chi la goi y; bam "Tai danh sach" de lay model that tu nha cung cap.
 const CUSTOM = tk('Tùy chỉnh (OpenAI-compatible)')
+const cli = (kind: 'claude' | 'custom', model = ''): ProviderCfg => ({ type: 'cli', cli: kind, command: '', base_url: '', model, api_key: '', api_key_env: '', temperature: 0.7 })
+const CLAUDE_CLI = 'Claude Code (CLI)'
+const OTHER_CLI = tk('CLI khác')
 const PRESETS: Record<string, ProviderCfg> = {
   'Ollama (local)': openai('http://localhost:11434/v1', 'qwen2.5:3b'),
   'LM Studio (local)': openai('http://localhost:1234/v1', 'local-model'),
@@ -34,12 +37,14 @@ const PRESETS: Record<string, ProviderCfg> = {
   'Fireworks AI': openai('https://api.fireworks.ai/inference/v1', 'accounts/fireworks/models/llama-v3p3-70b-instruct', 'FIREWORKS_API_KEY'),
   'Alibaba Qwen (DashScope)': openai('https://dashscope-intl.aliyuncs.com/compatible-mode/v1', 'qwen-plus', 'DASHSCOPE_API_KEY'),
   [CUSTOM]: openai('http://', ''),
+  [CLAUDE_CLI]: cli('claude', 'sonnet'),
+  [OTHER_CLI]: cli('custom'),
 }
 
 type TestResult = { ok: boolean; reply?: string; error?: string; latency_ms?: number }
 
 /** Dich vu hien o muc "Them mo hinh AI": nhom, mo ta ngan cho nguoi khong chuyen, va mau cau hinh. */
-const SERVICES: { preset: string; label: string; desc: string; group: 'local' | 'cloud'; brand: Brand | null }[] = [
+const SERVICES: { preset: string; label: string; desc: string; group: 'local' | 'cloud' | 'cli'; brand: Brand | null }[] = [
   { preset: 'Ollama (local)', label: 'Ollama', desc: tk('Chạy ngay trên máy bạn, miễn phí, không gửi dữ liệu đi đâu.'), group: 'local', brand: 'ollama' },
   { preset: 'LM Studio (local)', label: 'LM Studio', desc: tk('Phần mềm chạy model trên máy bạn, có giao diện dễ dùng.'), group: 'local', brand: 'lmstudio' },
   { preset: 'Google Gemini', label: 'Google Gemini', desc: tk('Mạnh, nhanh, có hạn mức dùng thử. Dễ bắt đầu nhất.'), group: 'cloud', brand: 'gemini' },
@@ -48,6 +53,8 @@ const SERVICES: { preset: string; label: string; desc: string; group: 'local' | 
   { preset: 'DeepSeek', label: 'DeepSeek', desc: tk('Giá rẻ, mạnh về suy luận và code.'), group: 'cloud', brand: 'deepseek' },
   { preset: 'OpenRouter', label: 'OpenRouter', desc: tk('Một khóa dùng được hàng trăm model của nhiều hãng.'), group: 'cloud', brand: 'openrouter' },
   { preset: 'Groq', label: 'Groq', desc: tk('Trả lời cực nhanh.'), group: 'cloud', brand: 'groq' },
+  { preset: CLAUDE_CLI, label: 'Claude Code', desc: tk('Dùng tài khoản Claude đã đăng nhập sẵn trong CLI, không cần API key.'), group: 'cli', brand: 'claude' },
+  { preset: OTHER_CLI, label: tk('CLI khác'), desc: tk('Bất kỳ CLI nào nhận câu hỏi qua stdin và in câu trả lời ra stdout.'), group: 'cli', brand: null },
   { preset: CUSTOM, label: tk('Dịch vụ khác'), desc: tk('Bất kỳ dịch vụ nào tương thích OpenAI (nhập địa chỉ và khóa).'), group: 'cloud', brand: null },
 ]
 // Cac dich vu chi nam trong "Xem them": van co logo hang.
@@ -56,6 +63,7 @@ const OTHER_PRESETS = Object.keys(PRESETS).filter((k) => !SERVICES.some((s) => s
 
 const isLocal = (p: ProviderCfg) => /localhost|127\.0\.0\.1/.test(p.base_url)
 const brandOf = (p: ProviderCfg): Brand | null => {
+  if (p.type === 'cli') return p.cli === 'claude' ? 'claude' : null
   const hit = Object.entries(PRESETS).find(([, c]) => c.base_url === p.base_url && c.type === p.type)?.[0]
   return hit ? (EXTRA_BRANDS[hit] ?? null) : null
 }
@@ -77,8 +85,9 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
   })
   const set = <K extends keyof ProviderCfg>(k: K, v: ProviderCfg[K]) => onChange({ ...p, [k]: v })
   const isOllama = p.type === 'openai' && p.base_url.includes('11434')
-  const needsKey = !isLocal(p) && !hasKey(p)
-  const svc = SERVICES.find((x) => PRESETS[x.preset]?.base_url === p.base_url && PRESETS[x.preset]?.type === p.type)
+  const isCli = p.type === 'cli'
+  const needsKey = !isCli && !isLocal(p) && !hasKey(p)
+  const svc = SERVICES.find((x) => PRESETS[x.preset]?.base_url === p.base_url && PRESETS[x.preset]?.type === p.type && PRESETS[x.preset]?.cli === p.cli)
 
   return (
     <Card className={cn(isDefault && 'border-accent/50')}>
@@ -88,7 +97,7 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{name}</span>
             {isDefault && <Badge tone="accent"><Star className="size-3" />{t('Đang dùng chính')}</Badge>}
-            {needsKey ? <Badge tone="warn"><KeyRound className="size-3" />{t('Cần khóa API')}</Badge> : isLocal(p) ? <Badge>{t('Chạy trên máy bạn')}</Badge> : <Badge tone="ok">{t('Đã có khóa')}</Badge>}
+            {isCli ? <Badge tone="info">{t('Dùng CLI đã đăng nhập')}</Badge> : needsKey ? <Badge tone="warn"><KeyRound className="size-3" />{t('Cần khóa API')}</Badge> : isLocal(p) ? <Badge>{t('Chạy trên máy bạn')}</Badge> : <Badge tone="ok">{t('Đã có khóa')}</Badge>}
           </div>
           <p className="mt-0.5 truncate font-mono text-xs text-muted">{p.model || t('(chưa chọn model)')}</p>
         </div>
@@ -107,6 +116,25 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
       </div>
       {open && (
         <div className="space-y-4 border-t border-line p-4">
+          {isCli ? (
+            <div className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Field label={t('Model')} hint={t('Để trống để dùng model mặc định của CLI.')}>
+                  <Input value={p.model} onChange={(e) => set('model', e.target.value)} list={`models-${name}`} placeholder="sonnet" />
+                  {p.cli === 'claude' && <datalist id={`models-${name}`}>{['sonnet', 'opus', 'haiku'].map((m) => <option key={m} value={m} />)}</datalist>}
+                </Field>
+                <Field label={p.cli === 'custom' ? t('Lệnh chạy CLI') : t('Đường dẫn lệnh claude (tùy chọn)')} hint={p.cli === 'custom' ? t('Nhận câu hỏi qua stdin, in câu trả lời ra stdout. Ví dụ: my-cli --quiet') : t('Để trống nếu `claude` đã nằm trong PATH.')}>
+                  <Input value={p.command ?? ''} onChange={(e) => set('command', e.target.value)} className="font-mono" placeholder={p.cli === 'custom' ? 'my-cli --quiet' : 'claude'} />
+                </Field>
+              </div>
+              <div className="space-y-1.5 rounded-lg border border-line bg-panel2 p-3 text-xs text-muted">
+                <p>{t('Argus chạy CLI này ở chế độ không giao diện và dùng tài khoản đã đăng nhập sẵn trên máy bạn (hãy chạy CLI một lần trong terminal để đăng nhập). Khóa API trong biến môi trường không được dùng.')}</p>
+                <p>{t('Công cụ riêng của CLI bị tắt: Argus vẫn tự điều khiển công cụ nên phê duyệt, kế hoạch và trí nhớ hoạt động như thường. Mỗi bước mở một tiến trình CLI nên chậm hơn API trực tiếp, và không xem được ảnh.')}</p>
+                <p className="text-warn">{t('Hãy đọc điều khoản của hãng về việc dùng gói thuê bao theo cách này. Nếu không chắc, dùng API key.')}</p>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="grid gap-4 lg:grid-cols-2">
             {p.type === 'anthropic' || !isLocal(p) ? (
               <Field label={t('Khóa API')} hint={needsKey ? t('Dán khóa lấy từ trang của nhà cung cấp. Khóa được mã hóa khi lưu.') : t('Đã lưu. Để nguyên nếu không đổi.')}>
@@ -135,6 +163,8 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
               <label className="flex items-center gap-2 text-xs text-muted lg:col-span-2"><input type="checkbox" className="accent-[var(--accent)]" checked={allModels} onChange={(e) => setAllModels(e.target.checked)} />{t('Khi xem model, hiện cả loại không dùng để chat (giọng nói, embedding, ảnh, video)')}</label>
             </div>
           </details>
+          </>
+          )}
         </div>
       )}
     </Card>
@@ -175,7 +205,7 @@ export function ProvidersPage() {
     while (draft.providers[n]) n = `${base}${i++}`
     setDraft({ ...draft, providers: { ...draft.providers, [n]: { ...PRESETS[preset] } } })
     setOpenCards((s) => new Set(s).add(n))
-    toast(t('Đã thêm {name}. Điền khóa API rồi bấm Lưu thay đổi.', { name: n }))
+    toast(PRESETS[preset].type === 'cli' ? t('Đã thêm {name}. Hãy chắc CLI đã đăng nhập (chạy nó một lần trong terminal), rồi bấm Lưu thay đổi.', { name: n }) : t('Đã thêm {name}. Điền khóa API rồi bấm Lưu thay đổi.', { name: n }))
   }
   const remove = (n: string) => {
     if (names.length < 2) return toast(t('Cần ít nhất một mô hình'), 'bad')
@@ -205,9 +235,9 @@ export function ProvidersPage() {
       <section className="mb-8">
         <h2 className="text-sm font-semibold">{t('Thêm mô hình AI')}</h2>
         <p className="mb-3 mt-0.5 text-xs text-muted">{t('Bấm vào một dịch vụ để thêm. Dịch vụ đám mây cần khóa API (lấy trên trang của họ); loại chạy trên máy bạn thì không cần.')}</p>
-        {(['local', 'cloud'] as const).map((g) => (
+        {(['local', 'cloud', 'cli'] as const).map((g) => (
           <div key={g} className="mb-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted/80">{g === 'local' ? t('Chạy trên máy bạn') : t('Dịch vụ đám mây')}</p>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted/80">{g === 'local' ? t('Chạy trên máy bạn') : g === 'cloud' ? t('Dịch vụ đám mây') : t('Dùng CLI đã đăng nhập (không cần API key)')}</p>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {SERVICES.filter((x) => x.group === g).map((x) => <Tile key={x.preset} brand={x.brand} label={t(x.label)} desc={t(x.desc)} onClick={() => add(x.preset)} />)}
             </div>
