@@ -17,3 +17,10 @@ workspace/skills/*
 !workspace/skills/example/
 
 .DS_Store
+
+# goi cai dat
+*.egg-info/
+
+# ban sao luu cuc bo (chua cau hinh va du lieu)
+backups/
+.restore-*/

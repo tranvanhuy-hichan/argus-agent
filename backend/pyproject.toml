@@ -1,7 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "personal-agent"
-version = "0.2.0"
-description = "Personal AI agent gateway with web UI (OpenClaw-style)"
+name = "argus-agent"
+version = "0.3.0"
+description = "Argus Agent: personal AI agent gateway with web UI, CLI, skills, MCP and Telegram"
+license = {text = "AGPL-3.0-or-later"}
+authors = [{name = "tranvanhuy-hichan"}]
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",
@@ -10,4 +16,21 @@ dependencies = [
   "pyyaml>=6",
   "croniter>=2",
   "mcp>=2,<3",
+  "pypdf>=4",
+  "openpyxl>=3.1",
+  "cryptography>=42",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+keyring = ["keyring>=24"]  # luu khoa chu vao keychain cua he dieu hanh
+
+[project.scripts]
+argus = "argus.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["argus*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
