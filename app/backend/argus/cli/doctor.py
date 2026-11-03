@@ -161,6 +161,13 @@ def check_providers(offline: bool) -> list[Check]:
     out = []
     for name, p in cfg.providers.items():
         tag = f"{name}" + (" ★" if name == cfg.default_provider else "")
+        if p.type == "cli":  # dung CLI da dang nhap san: chi kiem tra co lenh, khong goi mang (tranh ton luot dung)
+            from ..services import cli_provider
+
+            exe = cli_provider.find(p)
+            out.append(Check(g, tag, "ok" if exe else "fail", f"CLI: {exe}" if exe else L("không tìm thấy lệnh CLI", "CLI command not found"),
+                             "" if exe else L("Cài CLI và đăng nhập một lần trong terminal (vd. chạy `claude`)", "Install the CLI and log in once in a terminal (e.g. run `claude`)")))
+            continue
         key = p.api_key or os.environ.get(p.api_key_env or "", "")
         if not _is_local(p.base_url) and p.type == "openai" and not key or (p.type == "anthropic" and not key):
             out.append(Check(g, tag, "fail", L("thiếu API key", "missing API key"), L(f"Đặt key trong Providers hoặc biến môi trường {p.api_key_env or '<TÊN>'}", f"Set the key in Providers or the {p.api_key_env or '<NAME>'} environment variable")))

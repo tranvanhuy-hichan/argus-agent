@@ -45,6 +45,26 @@ def render(items: list[dict]) -> str:
     return "\n".join(f"{it['id']}. {MARK[it['status']]} {it['text']}" + (f"  ({it['note']})" if it["note"] else "") for it in items)
 
 
+def auto_advance(sid: str) -> list[dict] | None:
+    """Agent vua lam mot viec khac ngoai plan_*: neu chua co buoc nao dang lam thi danh dau buoc dau tien chua xong la in_progress (model hay quen goi plan_update)."""
+    items = get(sid)
+    if not items or any(it["status"] == "in_progress" for it in items):
+        return None
+    for it in items:
+        if it["status"] == "pending":
+            it["status"] = "in_progress"
+            return _save(sid, items)
+    return None
+
+
+def hint(sid: str) -> str:
+    """Nhac model (chi gui cho model, khong hien cho nguoi dung) cap nhat buoc dang lam."""
+    cur = next((it for it in get(sid) if it["status"] == "in_progress"), None)
+    if not cur:
+        return ""
+    return f"\n\n[Kế hoạch: bước {cur['id']} đang làm. Khi xong bước này hãy gọi plan_update(step={cur['id']}, status=\"done\") rồi sang bước tiếp theo.]"
+
+
 def progress(items: list[dict]) -> tuple[int, int]:
     return sum(it["status"] == "done" for it in items), len(items)
 

@@ -46,19 +46,32 @@ def _parse_args(raw) -> dict:
         return {}
 
 
+SKIP_SIGNATURE = "skip_thought_signature_validator"
+
+
 class OpenAICompat:
     """Ollama, OpenAI, OpenRouter, Groq... (moi API tuong thich OpenAI)."""
 
     def __init__(self, cfg: ProviderCfg):
         self.cfg = cfg
 
+    def _is_gemini(self) -> bool:
+        return "generativelanguage.googleapis.com" in self.cfg.base_url
+
+    def _wire_call(self, c: dict, first: bool) -> dict:
+        w = {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": json.dumps(c["args"])}}
+        if self._is_gemini():
+            # Gemini 3 bat buoc gui lai thought_signature cua loi goi ham; lich su cu (hoac do model khac sinh) khong co thi dung gia tri bo qua kiem tra
+            extra = c.get("extra_content") or ({"google": {"thought_signature": SKIP_SIGNATURE}} if first else None)
+            if extra:
+                w["extra_content"] = extra
+        return w
+
     def _wire(self, messages: list[dict]) -> list[dict]:
         out = []
         for m in messages:
             if m.get("tool_calls"):
-                m = {"role": "assistant", "content": m["content"], "tool_calls": [
-                    {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": json.dumps(c["args"])}}
-                    for c in m["tool_calls"]]}
+                m = {"role": "assistant", "content": m["content"], "tool_calls": [self._wire_call(c, i == 0) for i, c in enumerate(m["tool_calls"])]}
             if m.get("images"):
                 parts = [{"type": "text", "text": m["content"]}] + [
                     {"type": "image_url", "image_url": {"url": f"data:{i['mime']};base64,{i['b64']}"}} for i in m["images"]]
@@ -110,12 +123,15 @@ class OpenAICompat:
                                 calls.append({"id": "", "name": "", "args": ""})
                             slot = calls[by_index[idx]]
                             slot["name"] = fn.get("name") or slot["name"]
+                            if tc.get("extra_content"):  # Gemini: thought_signature phai duoc gui lai o luot sau
+                                slot["extra_content"] = tc["extra_content"]
                             a = fn.get("arguments")
                             if a:
                                 slot["args"] = (slot["args"] + a) if isinstance(a, str) and isinstance(slot["args"], str) else a
         except httpx.HTTPError as e:
             raise ProviderError(f"{type(e).__name__}: {e}", transient=_transient(e)) from e
-        tool_calls = [{"id": c["id"] or f"call_{i}", "name": c["name"], "args": _parse_args(c["args"])} for i, c in enumerate(calls) if c["name"]]
+        tool_calls = [{"id": c["id"] or f"call_{i}", "name": c["name"], "args": _parse_args(c["args"]), **({"extra_content": c["extra_content"]} if c.get("extra_content") else {})}
+                      for i, c in enumerate(calls) if c["name"]]
         yield {"type": "final", "content": content, "tool_calls": tool_calls, "usage": usage}
 
 
@@ -165,6 +181,10 @@ class Anthropic:
 
 
 def make_provider(cfg: ProviderCfg):
+    if cfg.type == "cli":
+        from .cli_provider import CliProvider
+
+        return CliProvider(cfg)
     return {"openai": OpenAICompat, "anthropic": Anthropic}[cfg.type](cfg)
 
 
@@ -173,6 +193,10 @@ NON_CHAT = re.compile(r"(tts|embed|imagen|veo|whisper|moderation|dall-e|transcri
 
 def list_models(cfg: ProviderCfg, only_chat: bool = True) -> list[str]:
     """Hoi chinh nha cung cap xem co nhung model nao (OpenAI-compatible: /models; Anthropic: /v1/models)."""
+    if cfg.type == "cli":
+        from .cli_provider import CLAUDE_MODELS
+
+        return CLAUDE_MODELS if cfg.cli == "claude" else []
     key = _key(cfg)
     if cfg.type == "anthropic":
         url, headers = "https://api.anthropic.com/v1/models?limit=100", {"x-api-key": key, "anthropic-version": "2023-06-01"}

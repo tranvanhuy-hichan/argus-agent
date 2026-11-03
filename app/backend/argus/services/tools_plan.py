@@ -20,7 +20,8 @@ def _need_session(ctx: ToolContext) -> str:
 def plan_set(ctx, steps):
     if isinstance(steps, str):
         steps = [s for s in steps.splitlines() if s.strip()]
-    return _publish(ctx, plans.set_items(_need_session(ctx), list(steps)))
+    out = _publish(ctx, plans.set_items(_need_session(ctx), list(steps)))
+    return out + "\nHãy bắt đầu bước 1. Sau MỖI bước hoàn thành, gọi plan_update(step, status=\"done\") để người dùng thấy tiến độ."
 
 
 @tool("plan_update", "Cập nhật trạng thái một bước của kế hoạch (pending, in_progress, done, blocked) kèm ghi chú ngắn nếu cần.",

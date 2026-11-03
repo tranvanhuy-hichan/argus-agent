@@ -19,6 +19,10 @@ def tmp_env(tmp_path, monkeypatch):
     ws.mkdir()
     cfg = cfgmod.Config()
     cfg.agent.workspace = str(ws)
+    cfg.memory.embeddings = "off"  # tin nhan trong test khong duoc nhung ngam (luong nen se ghi nham vao DB cua test sau); test tri nho tu bat lai
     cfgmod.save(cfg)
     dbmod.init()
-    return tmp_path
+    yield tmp_path
+    # luong nen lap chi muc tri nho dung DB_PATH hien tai: cho no ghi het vao DB cua test nay truoc khi monkeypatch tra DB_PATH ve cu
+    from argus.services import memory_index
+    memory_index.flush(15)

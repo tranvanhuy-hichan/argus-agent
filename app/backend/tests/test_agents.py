@@ -302,3 +302,24 @@ def test_subagent_sessions_hidden_from_chat_list(client, llm):
     jobs._update(jid, session_id=sessions.create("con", source="subagent"))
     titles = [s["id"] for s in client.get("/api/sessions").json()]
     assert visible in titles and jobs.get(jid)["session_id"] not in titles
+
+
+def test_plan_progress_is_nudged_and_auto_started(llm):
+    seen = {}
+
+    def rule(messages, tool_names):
+        if last_is_tool(messages):
+            if "bước 1 đang làm" in messages[-1]["content"]:
+                seen["tool_msg"] = messages[-1]["content"]
+                return {"content": "xong"}
+            return {"calls": [call("list_dir", path=".")]}
+        return {"calls": [call("plan_set", steps=["buoc 1", "buoc 2"])]}
+
+    llm(rule)
+    sid, events = run_chat()
+    items = plans.get(sid)
+    assert items[0]["status"] == "in_progress" and items[1]["status"] == "pending"  # tu dong bat dau buoc 1 khi agent lam viec khac
+    assert any(e["type"] == "plan" and e["items"][0]["status"] == "in_progress" for e in events)
+    assert 'plan_update(step=1, status="done")' in seen["tool_msg"]  # model duoc nhac cap nhat
+    shown = next(e for e in events if e["type"] == "tool_result" and "bước 1 đang làm" not in e["result"] and e["result"] != "")
+    assert "Kế hoạch: bước" not in "".join(e["result"] for e in events if e["type"] == "tool_result" and e["id"] == shown["id"])  # nguoi dung khong thay loi nhac

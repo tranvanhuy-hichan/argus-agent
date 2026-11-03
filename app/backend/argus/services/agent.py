@@ -84,6 +84,25 @@ def apply_permission(ctx: tools.ToolContext, mode: str) -> str:
     return ""
 
 
+STALE_CHARS = 800  # ket qua cong cu cu hon luot hien tai: dai hon muc nay thi bi rut gon khi gui cho model
+STALE_BROWSER_CHARS = 350  # anh chup trang cu da bi trang moi thay the, chi can nho tieu de/URL
+
+
+def shrink_stale(messages: list[dict]) -> list[dict]:
+    """Rut gon ket qua cong cu cu (chi ban gui di, khong sua lich su da luu). Ket qua cua luot goi cong cu gan nhat giu nguyen."""
+    last = max((i for i, m in enumerate(messages) if m["role"] == "assistant" and m.get("tool_calls")), default=-1)
+    names = {c["id"]: c["name"] for m in messages if m.get("tool_calls") for c in m["tool_calls"]}
+    out = []
+    for i, m in enumerate(messages):
+        if m["role"] == "tool" and i < last:
+            limit = STALE_BROWSER_CHARS if names.get(m.get("tool_call_id", ""), "").startswith("browser_") else STALE_CHARS
+            c = m["content"]
+            if len(c) > limit:
+                m = {**m, "content": c[:limit].rstrip() + f"\n…(đã rút gọn {len(c) - limit} ký tự của kết quả cũ; gọi lại công cụ nếu cần)"}
+        out.append(m)
+    return out
+
+
 def _window(history: list[dict], limit: int) -> list[dict]:
     rest = history[-limit:]
     while rest and (rest[0]["role"] == "tool" or rest[0].get("tool_calls")):
@@ -133,6 +152,9 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
                             env=skillmod.env_for(skills, cfg), enabled=cfg.agent.tools_enabled, skills={n: s for n, s in skills.items() if s.active},
                             sandbox={"mode": cfg.agent.exec_sandbox, "image": cfg.agent.sandbox_image, "network": cfg.agent.sandbox_network})
     ctx.depth = depth
+    # khong gui dinh nghia cua cong cu khong dung duoc (moi cong cu ton ~100 token o MOI luot goi mo hinh)
+    hidden = [n for n in tools.TOOLS if (n.startswith("computer_") and not cfg.computer.enabled) or (n.startswith("browser_") and not cfg.browser.enabled)]
+    ctx.enabled = {**ctx.enabled, **{n: False for n in hidden}}
     ctx.session_id, ctx.permission, ctx.provider, ctx.emit, ctx.cancel = sid, permission if permission in ("default", "readonly", "guarded", "full") else "default", provider, emit, cancel
     ctx.extra = mcp_client.manager.tool_defs()
     if only_tools is not None:  # gioi han tool cho rieng luot nay (dung cho API ben ngoai)
@@ -172,7 +194,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
             emit(ui_event("status", "Đang gọi {name} · {model}…", name=name, model=pcfg.model) if step == 0
                  else ui_event("status", "{name} đang xử lý kết quả tool…", name=name))
             try:
-                for ev in _stream_with_retry(name, pcfg, messages, tools.schemas(ctx), emit, cancel, effort):
+                for ev in _stream_with_retry(name, pcfg, shrink_stale(messages), tools.schemas(ctx), emit, cancel, effort):
                     if ev["type"] in ("delta", "thinking"):
                         started = True
                         emit(ev)
@@ -224,7 +246,12 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
             usage.record_tool(c["name"], ok, ms, sid)
             dec = decision.get("last") or ("full_access" if permission == "full" and tdef and tdef.risk in ("exec", "mcp", "file", "network") else "auto")
             audit.record(sid, source, c["name"], c["args"], dec, ok, ms, out)
-            tmsg = {"role": "tool", "tool_call_id": c["id"], "content": out}
+            nudge = ""
+            if not c["name"].startswith("plan_"):
+                if (items := plans.auto_advance(sid)) is not None:
+                    emit({"type": "plan", "items": items})
+                nudge = plans.hint(sid)  # chi gui cho model
+            tmsg = {"role": "tool", "tool_call_id": c["id"], "content": out + nudge}
             messages.append(tmsg)
             sessions.add_message(sid, tmsg)
             emit({"type": "tool_result", "id": c["id"], "result": out[:4000], "ok": ok, "duration_ms": ms, "decision": dec})

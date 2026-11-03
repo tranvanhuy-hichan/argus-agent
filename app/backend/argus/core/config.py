@@ -12,7 +12,9 @@ MASK = "***"
 
 
 class ProviderCfg(BaseModel):
-    type: Literal["openai", "anthropic"] = "openai"
+    type: Literal["openai", "anthropic", "cli"] = "openai"  # cli: dung CLI da dang nhap san (khong can API key)
+    cli: Literal["claude", "custom"] = "claude"  # type=cli: CLI nao
+    command: str = ""  # type=cli: duong dan toi `claude`, hoac (cli=custom) ca dong lenh nhan prompt qua stdin va in tra loi ra stdout
     base_url: str = ""
     model: str = ""
     api_key: str = ""
