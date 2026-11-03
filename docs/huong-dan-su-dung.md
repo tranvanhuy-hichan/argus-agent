@@ -219,11 +219,14 @@ Trang **Mô hình AI** là nơi chọn "bộ não" cho agent.
 - **Thêm mô hình AI**: bấm một ô dịch vụ.
   - *Chạy trên máy bạn* (miễn phí, riêng tư): **Ollama**, **LM Studio**. Cần cài sẵn và tải model về máy.
   - *Dịch vụ đám mây* (cần khóa API lấy từ trang của họ): **Google Gemini**, **Claude**, **OpenAI**, **DeepSeek**, **OpenRouter**, **Groq**, và "Dịch vụ khác" cho mọi dịch vụ tương thích OpenAI. Mục "Xem thêm dịch vụ" còn có vLLM, Mistral, xAI, Cerebras, Together, Fireworks, Qwen.
+- *Dùng CLI đã đăng nhập (không cần API key)*: **Claude Code** dùng tài khoản Claude đã đăng nhập sẵn trên máy bạn (cần cài `claude` và chạy nó một lần trong terminal để đăng nhập), và **CLI khác** cho mọi chương trình nhận câu hỏi qua stdin và in câu trả lời ra stdout. Đây là cách thứ hai để xác thực, bên cạnh API key: bạn chọn một trong hai bằng cách bấm ô tương ứng (Claude dùng API key, hay Claude Code dùng CLI). Xem lưu ý bên dưới.
 - **Mô hình dự phòng**: nếu mô hình chính lỗi hoặc quá tải, agent tự chuyển sang các mô hình bạn tick, theo thứ tự.
 
 Sau khi đổi, nhớ bấm **Lưu thay đổi** ở góc phải trên.
 
 Trong **Chỉnh sửa → Tùy chọn nâng cao** có: địa chỉ máy chủ (Base URL), lấy khóa từ biến môi trường, độ sáng tạo (temperature), giá token để ước tính chi phí, và công tắc **"Model hiểu được ảnh"** (chỉ bật nếu mô hình hỗ trợ).
+
+**Về mô hình dùng CLI.** Argus chạy CLI ở chế độ không giao diện và tắt công cụ riêng của nó; Argus vẫn tự điều khiển công cụ nên phê duyệt, kế hoạch và trí nhớ hoạt động như thường. Đổi lại, mỗi bước mở một tiến trình CLI nên chậm hơn (khoảng 3 giây mỗi bước), không xem được ảnh và không có ô chọn "mức nỗ lực". Biến `ANTHROPIC_API_KEY` trong môi trường bị bỏ qua để CLI dùng đúng tài khoản đăng nhập. **Hãy đọc điều khoản của hãng** về việc dùng gói thuê bao theo cách này (Anthropic từng cấm dùng token đăng nhập của gói thuê bao trong ứng dụng bên thứ ba; Argus không lấy token, chỉ chạy chính CLI chính thức, nhưng bạn nên tự xác nhận). Nếu không chắc, dùng API key.
 
 **Chọn mô hình nào?** Mô hình nhỏ chạy trên máy (như qwen2.5:3b) miễn phí và riêng tư nhưng yếu, hay quên và gọi công cụ kém. Việc nhiều bước, giao việc cho agent con, hoặc điều khiển trình duyệt nên dùng mô hình đám mây mạnh hơn.
 

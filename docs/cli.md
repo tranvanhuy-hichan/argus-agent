@@ -166,7 +166,7 @@ argus doctor [--fix] [--offline] [--json]
 | `--offline` | Bỏ qua các kiểm tra cần mạng (gọi mô hình, Telegram) và việc khởi chạy thử trình duyệt |
 | `--json` | In kết quả dạng JSON |
 
-Mỗi dòng có biểu tượng: `✓` ổn, `!` cảnh báo, `✗` lỗi, `·` thông tin. Mã thoát là 1 nếu có lỗi (`✗`).
+Với mô hình dùng CLI, doctor chỉ kiểm tra lệnh (`claude`…) có trong `PATH` chứ không gọi mô hình (tránh tốn lượt dùng). Mỗi dòng có biểu tượng: `✓` ổn, `!` cảnh báo, `✗` lỗi, `·` thông tin. Mã thoát là 1 nếu có lỗi (`✗`).
 
 ### `argus config`
 
