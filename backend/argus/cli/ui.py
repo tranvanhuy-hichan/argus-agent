@@ -87,7 +87,7 @@ def fmt_ts(ts: float | None) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Menu chon bang phim (mui ten len/xuong, Space, Enter) theo kieu OpenClaw / clack.
+# Menu chon bang phim (mui ten len/xuong, Space, Enter) theo kieu cac CLI hien dai.
 # Chi chay tren terminal POSIX that; khi nhan qua pipe/CI/Windows thi lui ve kieu go so.
 # ---------------------------------------------------------------------------
 import re

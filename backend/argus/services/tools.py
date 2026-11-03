@@ -1,4 +1,4 @@
-"""Registry tool. Ten tool theo OpenClaw (read/write/exec/web_fetch) de skill ClawHub chay duoc."""
+"""Registry tool. Ten tool (read/write/exec/web_fetch) trung voi ten ma skill ClawHub thuong goi, de skill chay duoc."""
 import html
 import ipaddress
 import json

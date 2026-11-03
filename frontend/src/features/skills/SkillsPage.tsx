@@ -21,7 +21,7 @@ import { t } from '@/lib/i18n.ts'
 export function missingText(m: string): string {
   const [kind, ...rest] = m.split(':')
   const v = rest.join(':')
-  return ({ bin: t('Thiếu lệnh: {v}', { v }), anyBin: t('Cần một trong: {v}', { v: v.replace(/\|/g, ', ') }), env: t('Thiếu biến môi trường: {v}', { v }), os: t('Chỉ hỗ trợ: {v}', { v }), config: t('Cần cấu hình OpenClaw: {v}', { v }) } as Record<string, string>)[kind] ?? m
+  return ({ bin: t('Thiếu lệnh: {v}', { v }), anyBin: t('Cần một trong: {v}', { v: v.replace(/\|/g, ', ') }), env: t('Thiếu biến môi trường: {v}', { v }), os: t('Chỉ hỗ trợ: {v}', { v }), config: t('Cần cấu hình riêng: {v}', { v }) } as Record<string, string>)[kind] ?? m
 }
 
 export function SkillIcon({ emoji }: { emoji?: string }) {
@@ -60,7 +60,7 @@ export function SkillsPage() {
     <Page>
       <PageHeader
         title={t('Kỹ năng')}
-        subtitle={t('Gói hướng dẫn chuyên biệt cho agent. Tương thích định dạng skill của OpenClaw/ClawHub.')}
+        subtitle={t('Gói hướng dẫn chuyên biệt cho agent. Tương thích định dạng skill của ClawHub.')}
         action={<Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" />{t('Tạo skill')}</Button>}
       />
       <Tabs

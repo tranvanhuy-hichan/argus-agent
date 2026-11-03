@@ -1,13 +1,13 @@
 # Argus Agent
 
-Trợ lý AI cá nhân chạy trên máy bạn, kiến trúc kiểu OpenClaw: gateway chạy nền, giao diện web, **CLI `argus`**, skill dạng `SKILL.md`, bộ nhớ bằng markdown, tool, MCP, Telegram và automations.
+Trợ lý AI cá nhân chạy trên máy bạn: gateway chạy nền, giao diện web, **CLI `argus`**, skill dạng `SKILL.md`, bộ nhớ bằng markdown, tool, MCP, Telegram và automations.
 
 ## Tính năng
 
 - **Model**: Ollama và server local (LM Studio, vLLM), Gemini, Claude, OpenAI, OpenRouter, DeepSeek, Mistral, xAI, Groq, Cerebras, Together, Fireworks, Qwen và mọi API tương thích OpenAI. Có fallback, tự thử lại khi lỗi 429/503, ước tính chi phí.
 - **Chat**: panel Workspace bên phải (Files, Terminal, Hoạt động), mọi lần gọi tool/MCP hiện ngay trong chat, hiển thị "suy nghĩ" của model, đính kèm file/ảnh, nhập bằng giọng nói, sửa và tạo lại tin nhắn, lệnh `/skill`, tìm kiếm hội thoại. Mỗi phiên có thư mục làm việc riêng (`workspace/sessions/<id>/`).
 - **Quyền theo hội thoại** (cạnh nút +): Mặc định, Chỉ đọc, Hỏi trước, Toàn quyền; chọn model và mức suy luận ngay trong khung nhập.
-- **Skills**: đọc định dạng skill của OpenClaw, duyệt, cài và cập nhật từ [ClawHub](https://clawhub.ai).
+- **Skills**: đọc định dạng skill `SKILL.md` (tương thích [ClawHub](https://clawhub.ai)), duyệt, cài và cập nhật từ ClawHub.
 - **MCP client**: nối MCP server của bạn (stdio, HTTP, SSE); tool xuất hiện dưới dạng `tênserver__têntool`.
 - **Cho app khác gọi agent**: `POST /v1/run` với API token, hoặc MCP server (`agent_run`) dùng được trong Claude Code, Cursor...
 - **Chủ động**: Automations (cron), Heartbeat (agent tự kiểm tra `HEARTBEAT.md` và nhắn khi cần), Hộp thư thông báo, kênh **Telegram** (nút phê duyệt ngay trong chat, nhận/gửi file).

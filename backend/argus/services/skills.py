@@ -1,4 +1,4 @@
-"""Doc, kiem tra dieu kien, cai dat skill theo dinh dang OpenClaw (SKILL.md + metadata)."""
+"""Doc, kiem tra dieu kien, cai dat skill theo dinh dang SKILL.md cua ClawHub (frontmatter + metadata)."""
 import io
 import json
 import os
@@ -15,7 +15,7 @@ import yaml
 
 from ..core.config import Config
 
-META_KEYS = ("openclaw", "clawdbot", "clawdis")  # tai lieu ghi openclaw, nhung skill tren ClawHub van dung clawdbot
+META_KEYS = ("openclaw", "clawdbot", "clawdis")  # cac ten khoa metadata ma skill tren ClawHub dang dung (can doc het de tuong thich)
 MAX_DEPTH = 6
 MAX_ZIP_FILES, MAX_ZIP_BYTES = 500, 20 * 1024 * 1024
 OS_ALIAS = {"darwin": "darwin", "macos": "darwin", "linux": "linux", "win32": "win32", "windows": "win32"}
@@ -108,7 +108,7 @@ def _gate(meta: dict, cfg: Config, name: str) -> list[str]:
         provided = var in os.environ or (entry and (entry.env.get(var) or (meta.get("primaryEnv") == var and entry.api_key)))
         if not provided:
             missing.append(f"env:{var}")
-    missing += [f"config:{c}" for c in req.get("config", [])]  # khong the dap ung (cau hinh rieng cua OpenClaw)
+    missing += [f"config:{c}" for c in req.get("config", [])]  # khong the dap ung (cau hinh rieng cua ung dung khac, Argus khong co)
     return missing
 
 

@@ -46,7 +46,7 @@ export function WorkspacePage() {
   const f = FILES.find((x) => x.id === tab)!
   return (
     <Page>
-      <PageHeader title={t('Không gian làm việc')} subtitle={t('Các file markdown định hình agent, giống cách OpenClaw tổ chức workspace.')} />
+      <PageHeader title={t('Không gian làm việc')} subtitle={t('Các file markdown định hình tính cách và bộ nhớ của agent.')} />
       <Tabs value={tab} onChange={setTab} tabs={FILES.map((x) => ({ id: x.id, label: x.label }))} />
       <div className="mt-5"><Editor key={f.id} file={f.id} hint={f.hint} /></div>
     </Page>

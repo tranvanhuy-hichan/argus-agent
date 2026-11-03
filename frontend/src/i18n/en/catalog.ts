@@ -118,9 +118,9 @@ const dict: Record<string, string> = {
   'Cần một trong: {v}': 'Needs one of: {v}',
   'Thiếu biến môi trường: {v}': 'Missing environment variable: {v}',
   'Chỉ hỗ trợ: {v}': 'Only supported on: {v}',
-  'Cần cấu hình OpenClaw: {v}': 'Requires OpenClaw config: {v}',
+  'Cần cấu hình riêng: {v}': 'Requires extra configuration: {v}',
   'Đã cập nhật skill': 'Skill updated',
-  'Gói hướng dẫn chuyên biệt cho agent. Tương thích định dạng skill của OpenClaw/ClawHub.': 'Specialized instruction packs for the agent. Compatible with the OpenClaw/ClawHub skill format.',
+  'Gói hướng dẫn chuyên biệt cho agent. Tương thích định dạng skill của ClawHub.': 'Specialized instruction packs for the agent. Compatible with the ClawHub skill format.',
   'Tạo skill': 'Create skill',
   'Khám phá ClawHub': 'Explore ClawHub',
   'Lọc skill đã cài…': 'Filter installed skills…',
@@ -140,7 +140,7 @@ const dict: Record<string, string> = {
   'Đã lưu {file}': 'Saved {file}',
   '{n} ký tự': '{n} characters',
   ' · chỉ 4000 ký tự cuối được đưa vào prompt': ' · only the last 4000 characters go into the prompt',
-  'Các file markdown định hình agent, giống cách OpenClaw tổ chức workspace.': 'Markdown files that shape the agent, like how OpenClaw organizes its workspace.',
+  'Các file markdown định hình tính cách và bộ nhớ của agent.': "Markdown files that shape the agent's persona and memory.",
   'Không gian làm việc': 'Workspace',
 }
 
