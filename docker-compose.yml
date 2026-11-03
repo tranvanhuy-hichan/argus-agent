@@ -1,12 +1,12 @@
 services:
   argus:
     build: .
-    user: "${ARGUS_UID:-1000}:${ARGUS_GID:-1000}"   # de file trong ./data va ./workspace thuoc ve ban, khong phai root (dat ARGUS_UID=$(id -u) neu khac 1000)
+    user: "${ARGUS_UID:-1000}:${ARGUS_GID:-1000}"   # de file trong ./user-data thuoc ve ban, khong phai root (dat ARGUS_UID=$(id -u) neu khac 1000)
     ports:
       - "127.0.0.1:8787:8787"   # chi mo cho may nay; doi neu can dung tu may khac (va dat mat khau + HTTPS)
     volumes:
-      - ./data:/app/data
-      - ./workspace:/app/workspace
+      - ./user-data/data:/app/data
+      - ./user-data/workspace:/app/workspace
     extra_hosts:
       - "host.docker.internal:host-gateway"   # de goi Ollama tren may chu: http://host.docker.internal:11434/v1
     restart: unless-stopped

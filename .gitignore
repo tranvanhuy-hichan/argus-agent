@@ -3,24 +3,17 @@
 node_modules/
 __pycache__/
 *.pyc
-frontend/dist/
-frontend/*.tsbuildinfo
-
-# du lieu cuc bo va bi mat (config.json chua API key)
-config.json
-data/
-
-# workspace ca nhan: chi giu SOUL.md va skill mau; skill tai tu ClawHub khong dua len repo
-workspace/MEMORY.md
-workspace/USER.md
-workspace/skills/*
-!workspace/skills/example/
-
+app/frontend/dist/
+app/frontend/*.tsbuildinfo
+*.egg-info/
 .DS_Store
 
-# goi cai dat
-*.egg-info/
-
-# ban sao luu cuc bo (chua cau hinh va du lieu)
-backups/
+# DU LIEU CA NHAN (config.json chua API key, DB, bo nho, file cua cac phien, ban sao luu): khong bao gio dua len repo
+user-data/
 .restore-*/
+
+# bo cuc cu (truoc khi tach user-data/): neu con nam o goc repo thi van khong duoc commit
+/config.json
+/data/
+/workspace/
+/backups/

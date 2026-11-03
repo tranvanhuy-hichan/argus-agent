@@ -3,7 +3,7 @@
 cd "$(dirname "$0")"
 ARGUS=".venv/bin/argus"
 if [ ! -x "$ARGUS" ]; then
-  echo "Chua cai Argus. Chay: python3 -m venv .venv && .venv/bin/pip install -e backend" >&2
+  echo "Chua cai Argus. Chay: python3 -m venv .venv && .venv/bin/pip install -e app/backend" >&2
   exit 1
 fi
 case "${1:-start}" in

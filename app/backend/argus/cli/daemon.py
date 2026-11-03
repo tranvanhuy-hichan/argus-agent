@@ -109,8 +109,8 @@ def ensure_frontend(build: bool = True) -> None:
                 return
         ok(L("Đã build giao diện.", "UI built."))
     else:
-        warn(L("Giao diện web chưa được build (cần Node.js: cd frontend && npm install && npm run build). Server vẫn chạy, chỉ có API.",
-               "The web UI is not built (needs Node.js: cd frontend && npm install && npm run build). The server still runs, API only."))
+        warn(L("Giao diện web chưa được build (cần Node.js: cd app/frontend && npm install && npm run build). Server vẫn chạy, chỉ có API.",
+               "The web UI is not built (needs Node.js: cd app/frontend && npm install && npm run build). The server still runs, API only."))
 
 
 def start(host: str, port: int, foreground: bool = False, build: bool = True) -> int:
@@ -278,7 +278,7 @@ def dev(port: int) -> int:
     """Chay che do phat trien: backend tu nap lai + Vite (cong 5173)."""
     web = CODE_ROOT / "frontend"
     if not shutil.which("npm") or not (web / "package.json").exists():
-        bad(L("Cần Node.js và thư mục frontend/ để chạy chế độ phát triển.", "Node.js and the frontend/ folder are required for dev mode."))
+        bad(L("Cần Node.js và thư mục app/frontend/ để chạy chế độ phát triển.", "Node.js and the app/frontend/ folder are required for dev mode."))
         return 1
     env = _server_env()
     env["ARGUS_DEV_ORIGINS"] = "http://localhost:5173,http://127.0.0.1:5173"

@@ -8,7 +8,7 @@ from .paths import CODE_ROOT
 
 def template_dir() -> Path:
     """Noi giu SOUL.md va skill mau. Docker dat ARGUS_TEMPLATE vi thu muc workspace thuong bi mount de len."""
-    return Path(getenv("TEMPLATE") or CODE_ROOT / "workspace")
+    return Path(getenv("TEMPLATE") or CODE_ROOT / "templates" / "workspace")
 
 
 def ensure_workspace(cfg: Config) -> None:
