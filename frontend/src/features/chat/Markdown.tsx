@@ -1,5 +1,6 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
+import { t } from '@/lib/i18n.ts'
 
 function Code({ code, lang }: { code: string; lang: string }) {
   const [copied, setCopied] = useState(false)
@@ -13,7 +14,7 @@ function Code({ code, lang }: { code: string; lang: string }) {
           }}
           className="flex items-center gap-1 hover:text-fg"
         >
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}{copied ? 'Đã chép' : 'Chép'}
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}{copied ? t('Đã chép') : t('Chép')}
         </button>
       </div>
       <pre className="overflow-x-auto p-3 font-mono text-[12.5px] leading-relaxed"><code>{code}</code></pre>

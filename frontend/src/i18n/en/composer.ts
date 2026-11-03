@@ -1,0 +1,28 @@
+const dict: Record<string, string> = {
+  'Quyền': 'Permissions',
+  'Mặc định': 'Default',
+  'Theo chính sách đã cấu hình trong Cài đặt.': 'Follow the policy configured in Settings.',
+  'Chỉ đọc': 'Read only',
+  'Chỉ đọc file trong phiên; chặn ghi file, lệnh shell và tool thay đổi dữ liệu.': 'Read files in this conversation; writing files, shell commands and state-changing tools are blocked.',
+  'Hỏi trước': 'Guarded',
+  'Hỏi bạn trước mỗi lần ghi file, chạy lệnh, gọi tool MCP hay gửi yêu cầu HTTP thay đổi dữ liệu.': 'Asks you before every file write, shell command, MCP call or state-changing HTTP request.',
+  'Toàn quyền': 'Full access',
+  'Không hỏi xác nhận; file và lệnh không bị giới hạn (trừ sandbox Docker nếu bật).': 'No confirmations; files and commands are unrestricted (except the Docker sandbox, if enabled).',
+  'Chỉ áp dụng cho hội thoại hiện tại.': 'Applies to this conversation only.',
+  'Toàn quyền: agent sẽ chạy lệnh và đọc/ghi file mà không hỏi bạn. Chỉ bật khi bạn tin tưởng yêu cầu của mình. Tiếp tục?': 'Full access: the agent will run commands and read/write files without asking you. Only enable it when you trust your request. Continue?',
+  'Tự động': 'Auto',
+  'Thấp': 'Low',
+  'Vừa': 'Medium',
+  'Cao': 'High',
+  'Mức suy luận': 'Reasoning effort',
+  'Chưa hỗ trợ với provider Anthropic': 'Not supported with Anthropic yet',
+  'Thêm': 'Add',
+  'Đính kèm tệp': 'Attach files',
+  'Dùng một skill': 'Use a skill',
+  'Nói để nhập': 'Dictate',
+  'Dừng ghi âm': 'Stop dictation',
+  'gửi yêu cầu HTTP thay đổi dữ liệu': 'send a state-changing HTTP request',
+  'Toàn quyền (không hỏi)': 'Full access (no prompt)',
+}
+
+export default dict

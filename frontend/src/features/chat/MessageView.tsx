@@ -1,32 +1,73 @@
 import { useState } from 'react'
-import { Bot, ChevronRight, ShieldAlert, Terminal, Wrench, TriangleAlert, Info } from 'lucide-react'
+import { Bot, Brain, Cable, Check, ChevronRight, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { t, tk } from '@/lib/i18n.ts'
+import { T } from '@/lib/T.tsx'
 import { cn } from '@/lib/utils'
 import { Markdown } from './Markdown'
-import type { Item } from './useChat'
+import type { Item, ToolItem } from './useChat'
 
-const KIND_LABEL: Record<string, string> = { mcp: 'gọi tool MCP', exec: 'chạy lệnh shell', file_read: 'đọc file ngoài workspace', file_write: 'ghi file ngoài workspace' }
+const KIND_LABEL: Record<string, string> = { http_request: tk('gửi yêu cầu HTTP thay đổi dữ liệu'), mcp: tk('gọi tool MCP'), exec: tk('chạy lệnh shell'), file_read: tk('đọc file ngoài workspace'), file_write: tk('ghi file') }
+const RISK_ICON = { exec: Terminal, file: FileText, network: Globe, mcp: Cable } as const
 
-function ToolCard({ item }: { item: Extract<Item, { kind: 'tool' }> }) {
+export const fmtMs = (ms?: number) => (ms === undefined ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`)
+
+export function toolSummary(tool: ToolItem): string {
+  if (tool.name === 'exec') return String(tool.args.command ?? '')
+  if (typeof tool.args.path === 'string') return tool.args.path
+  if (typeof tool.args.url === 'string') return tool.args.url
+  if (typeof tool.args.query === 'string') return tool.args.query
+  return JSON.stringify(tool.args)
+}
+
+function DecisionBadge({ d }: { d?: string }) {
+  if (d === 'approved') return <Badge tone="ok">{t('Đã cho phép')}</Badge>
+  if (d === 'denied') return <Badge tone="bad">{t('Bị từ chối')}</Badge>
+  return null
+}
+
+function ToolCard({ item, onOpenFile }: { item: ToolItem; onOpenFile: (p: string) => void }) {
   const [open, setOpen] = useState(false)
   const running = item.result === undefined
-  const summary = item.name === 'exec' ? String(item.args.command ?? '') : JSON.stringify(item.args)
+  const Icon = (item.risk && RISK_ICON[item.risk as keyof typeof RISK_ICON]) || Wrench
+  const server = item.risk === 'mcp' ? item.name.split('__')[0] : null
+  const path = (item.name === 'write' || item.name === 'edit') && typeof item.args.path === 'string' && !item.args.path.startsWith('/') ? item.args.path : null
   return (
     <div className="fade-in ml-10 rounded-lg border border-line bg-panel text-[13px]">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2 text-left" aria-expanded={open}>
-        <ChevronRight className={cn('size-3.5 shrink-0 text-muted transition', open && 'rotate-90')} />
-        {item.name === 'exec' ? <Terminal className="size-3.5 shrink-0 text-muted" /> : <Wrench className="size-3.5 shrink-0 text-muted" />}
-        <span className="font-medium">{item.name}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted">{summary}</span>
-        {running ? <Badge tone="info">đang chạy</Badge> : item.ok === false ? <Badge tone="bad">lỗi</Badge> : <Badge tone="ok">xong</Badge>}
-      </button>
+      <div className="flex w-full items-center gap-2 px-3 py-2">
+        <button onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
+          <ChevronRight className={cn('size-3.5 shrink-0 text-muted transition', open && 'rotate-90')} />
+          <Icon className="size-3.5 shrink-0 text-muted" />
+          <span className="font-medium">{server ? item.name.slice(server.length + 2) : item.name}</span>
+          {server && <Badge tone="info">MCP · {server}</Badge>}
+          <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted">{toolSummary(item)}</span>
+        </button>
+        <DecisionBadge d={item.decision} />
+        {item.duration !== undefined && <span className="text-[11px] tabular-nums text-muted">{fmtMs(item.duration)}</span>}
+        {running ? <Badge tone="info">{t('đang chạy')}</Badge> : item.ok === false ? <Badge tone="bad">{t('lỗi')}</Badge> : <Badge tone="ok">{t('xong')}</Badge>}
+        {path && <button onClick={() => onOpenFile(path)} className="rounded border border-line px-1.5 py-0.5 text-[11px] text-accent hover:bg-panel2">{t('Mở file')}</button>}
+      </div>
       {open && (
         <div className="space-y-2 border-t border-line p-3">
           <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-muted">{JSON.stringify(item.args, null, 2)}</pre>
-          {item.result !== undefined && <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-bg p-2 font-mono text-xs">{item.result || '(trống)'}</pre>}
+          {item.result !== undefined && <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-bg p-2 font-mono text-xs">{item.result || t('(trống)')}</pre>}
         </div>
       )}
+    </div>
+  )
+}
+
+function Thinking({ text, streaming }: { text: string; streaming: boolean }) {
+  const [open, setOpen] = useState(false)
+  const show = open || streaming
+  return (
+    <div className="fade-in ml-10 text-[13px]">
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 text-muted hover:text-fg" aria-expanded={show}>
+        <Brain className={cn('size-3.5', streaming && 'animate-pulse text-accent')} />{streaming ? t('Đang suy nghĩ…') : t('Đã suy nghĩ')}
+        <ChevronRight className={cn('size-3 transition', show && 'rotate-90')} />
+      </button>
+      {show && <p className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap border-l-2 border-line pl-3 text-xs italic text-muted">{text}</p>}
     </div>
   )
 }
@@ -34,40 +75,78 @@ function ToolCard({ item }: { item: Extract<Item, { kind: 'tool' }> }) {
 function ApprovalCard({ item, onDecide }: { item: Extract<Item, { kind: 'approval' }>; onDecide: (aid: string, ok: boolean) => void }) {
   return (
     <div className="fade-in ml-10 rounded-lg border border-warn/40 bg-warn/5 p-3.5">
-      <div className="flex items-center gap-2 text-sm font-medium"><ShieldAlert className="size-4 text-warn" />Agent muốn {KIND_LABEL[item.approvalKind] ?? item.approvalKind}</div>
+      <div className="flex items-center gap-2 text-sm font-medium"><ShieldAlert className="size-4 text-warn" /><T k="Agent muốn {action}" v={{ action: KIND_LABEL[item.approvalKind] ? t(KIND_LABEL[item.approvalKind]) : item.approvalKind }} /></div>
       <pre className="my-2.5 overflow-x-auto whitespace-pre-wrap rounded-md bg-bg p-2.5 font-mono text-xs">{item.detail}</pre>
       {item.status === 'pending' ? (
         <div className="flex gap-2">
-          <Button size="sm" variant="primary" onClick={() => onDecide(item.aid, true)}>Cho phép</Button>
-          <Button size="sm" onClick={() => onDecide(item.aid, false)}>Từ chối</Button>
+          <Button size="sm" variant="primary" onClick={() => onDecide(item.aid, true)}>{t('Cho phép')}</Button>
+          <Button size="sm" onClick={() => onDecide(item.aid, false)}>{t('Từ chối')}</Button>
         </div>
       ) : (
-        <Badge tone={item.status === 'allowed' ? 'ok' : 'bad'}>{item.status === 'allowed' ? 'Đã cho phép' : 'Đã từ chối'}</Badge>
+        <Badge tone={item.status === 'allowed' ? 'ok' : 'bad'}>{item.status === 'allowed' ? t('Đã cho phép') : t('Đã từ chối')}</Badge>
       )}
     </div>
   )
 }
 
-export function MessageView({ item, onDecide }: { item: Item; onDecide: (aid: string, ok: boolean) => void }) {
+interface Props {
+  item: Item
+  onDecide: (aid: string, ok: boolean) => void
+  onOpenFile: (path: string) => void
+  isLastUser?: boolean
+  isLastAssistant?: boolean
+  canAct?: boolean
+  onEdit?: (text: string) => void
+  onRegenerate?: () => void
+}
+
+export function MessageView({ item, onDecide, onOpenFile, isLastUser, isLastAssistant, canAct, onEdit, onRegenerate }: Props) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
   switch (item.kind) {
     case 'user':
       return (
-        <div className="fade-in flex justify-end">
-          <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent/15 px-4 py-2.5">{item.text}</div>
+        <div className="fade-in group flex flex-col items-end gap-1">
+          {editing ? (
+            <div className="w-full max-w-[85%] space-y-2">
+              <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} className="w-full rounded-xl border border-accent bg-panel p-3 text-sm focus:outline-none" aria-label={t('Sửa tin nhắn')} />
+              <div className="flex justify-end gap-2">
+                <Button size="sm" onClick={() => setEditing(false)}><X className="size-3.5" />{t('Hủy')}</Button>
+                <Button size="sm" variant="primary" disabled={!draft.trim()} onClick={() => { setEditing(false); onEdit?.(draft) }}><Check className="size-3.5" />{t('Gửi lại')}</Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent/15 px-4 py-2.5">{item.text}</div>
+              {item.attachments && item.attachments.length > 0 && (
+                <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+                  {item.attachments.map((a) => <button key={a} onClick={() => onOpenFile(a)} className="flex items-center gap-1 rounded-md border border-line bg-panel px-2 py-0.5 text-[11px] text-muted hover:text-fg"><Paperclip className="size-3" />{a.split('/').pop()}</button>)}
+                </div>
+              )}
+              {isLastUser && canAct && <button onClick={() => { setDraft(item.text); setEditing(true) }} className="flex items-center gap-1 text-[11px] text-muted opacity-0 transition hover:text-fg focus:opacity-100 group-hover:opacity-100"><Pencil className="size-3" />{t('Sửa và gửi lại')}</button>}
+            </>
+          )}
         </div>
       )
     case 'assistant':
       return (
-        <div className="fade-in flex gap-3">
+        <div className="fade-in group flex gap-3">
           <div className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-accent text-accent-fg"><Bot className="size-4" /></div>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className={cn(item.streaming && 'caret')}><Markdown text={item.text} /></div>
-            {item.provider && !item.streaming && <p className="mt-1.5 text-[11px] text-muted">via {item.provider}</p>}
+            {!item.streaming && (
+              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted">
+                {item.provider && <span>{t('qua {provider}', { provider: item.provider })}{item.duration ? ` · ${fmtMs(item.duration)}` : ''}</span>}
+                {isLastAssistant && canAct && <button onClick={onRegenerate} className="flex items-center gap-1 hover:text-fg"><RefreshCw className="size-3" />{t('Tạo lại')}</button>}
+              </div>
+            )}
           </div>
         </div>
       )
+    case 'thinking':
+      return <Thinking text={item.text} streaming={item.streaming} />
     case 'tool':
-      return <ToolCard item={item} />
+      return <ToolCard item={item} onOpenFile={onOpenFile} />
     case 'approval':
       return <ApprovalCard item={item} onDecide={onDecide} />
     case 'notice':

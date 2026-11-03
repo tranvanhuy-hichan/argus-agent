@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
-import type { ApiToken, AppConfig, ConfigResponse, Dashboard, Job, McpServerInfo, SessionInfo, Skill } from './types'
+import type { ApiToken, AppConfig, ConfigResponse, Dashboard, HeartbeatStatus, Job, McpServerInfo, SessionInfo, Skill, SkillUpdate } from './types'
 
 export const useConfig = () => useQuery({ queryKey: ['config'], queryFn: () => api.get<ConfigResponse>('/api/config') })
 export const useSkills = () => useQuery({ queryKey: ['skills'], queryFn: () => api.get<Skill[]>('/api/skills') })
@@ -12,6 +12,8 @@ export const useMcp = () => useQuery({
   refetchInterval: (q) => (q.state.data?.some((s) => s.status === 'connecting') ? 1500 : 10_000),
 })
 export const useTokens = () => useQuery({ queryKey: ['tokens'], queryFn: () => api.get<ApiToken[]>('/api/tokens') })
+export const useHeartbeat = () => useQuery({ queryKey: ['heartbeat'], queryFn: () => api.get<HeartbeatStatus>('/api/heartbeat'), refetchInterval: 10_000 })
+export const useSkillUpdates = () => useQuery({ queryKey: ['skill-updates'], queryFn: () => api.get<SkillUpdate[]>('/api/skills/updates'), staleTime: 300_000 })
 export const useDashboard = (days: number) => useQuery({ queryKey: ['dashboard', days], queryFn: () => api.get<Dashboard>(`/api/dashboard?days=${days}`), refetchInterval: 30_000 })
 
 export function useSaveConfig() {

@@ -12,6 +12,7 @@ import { useConfig } from '@/lib/queries'
 import type { SkillDetail } from '@/lib/types'
 import { errMsg } from '@/lib/utils'
 import { missingText } from './SkillsPage'
+import { t } from '@/lib/i18n.ts'
 
 export function SkillModal({ name, onClose }: { name: string | null; onClose: () => void }) {
   const qc = useQueryClient()
@@ -26,23 +27,23 @@ export function SkillModal({ name, onClose }: { name: string | null; onClose: ()
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['skills'] }); void qc.invalidateQueries({ queryKey: ['config'] }); void qc.invalidateQueries({ queryKey: ['skill', name] }) }
   const saveEnv = useMutation({
     mutationFn: () => api.put(`/api/skills/${name}/config`, { enabled: entry?.enabled ?? true, api_key: entry?.api_key ?? '', env }),
-    onSuccess: () => { toast('Đã lưu cấu hình skill'); refresh() },
+    onSuccess: () => { toast(t('Đã lưu cấu hình skill')); refresh() },
     onError: (e) => toast(errMsg(e), 'bad'),
   })
   const remove = useMutation({
     mutationFn: () => api.del(`/api/skills/${name}`),
-    onSuccess: () => { toast('Đã xóa skill'); refresh(); onClose() },
+    onSuccess: () => { toast(t('Đã xóa skill')); refresh(); onClose() },
     onError: (e) => toast(errMsg(e), 'bad'),
   })
 
   const d = detail.data
   const envVars = d?.requires.env ?? []
   return (
-    <Modal open={!!name} onClose={onClose} wide title={d ? `${d.emoji} ${d.name}`.trim() : 'Skill'}
+    <Modal open={!!name} onClose={onClose} wide title={d ? `${d.emoji} ${d.name}`.trim() : t('Skill')}
       footer={d && (
         <>
-          <Button variant="danger" onClick={() => { if (confirm(`Xóa skill "${d.name}" khỏi workspace?`)) remove.mutate() }} loading={remove.isPending}><Trash2 className="size-4" />Xóa</Button>
-          <Button onClick={onClose}>Đóng</Button>
+          <Button variant="danger" onClick={() => { if (confirm(t('Xóa skill "{name}" khỏi workspace?', { name: d.name }))) remove.mutate() }} loading={remove.isPending}><Trash2 className="size-4" />{t('Xóa')}</Button>
+          <Button onClick={onClose}>{t('Đóng')}</Button>
         </>
       )}
     >
@@ -51,13 +52,13 @@ export function SkillModal({ name, onClose }: { name: string | null; onClose: ()
           <p className="text-sm text-muted">{d.description}</p>
           <div className="flex flex-wrap gap-2">
             {d.origin && <Badge tone="info">ClawHub · {d.origin.owner}/{d.origin.slug}{d.origin.version ? ` v${d.origin.version}` : ''}</Badge>}
-            {d.homepage && <a href={d.homepage} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-xs text-info hover:underline">Trang chủ <ExternalLink className="size-3" /></a>}
+            {d.homepage && <a href={d.homepage} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-xs text-info hover:underline">{t('Trang web')} <ExternalLink className="size-3" /></a>}
           </div>
 
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Điều kiện chạy</h3>
+            <h3 className="mb-2 text-sm font-semibold">{t('Điều kiện chạy')}</h3>
             {d.eligible ? (
-              <p className="flex items-center gap-2 text-sm text-ok"><CircleCheck className="size-4" />Đã đủ điều kiện</p>
+              <p className="flex items-center gap-2 text-sm text-ok"><CircleCheck className="size-4" />{t('Đã đủ điều kiện')}</p>
             ) : (
               <ul className="space-y-1">{d.missing.map((m) => <li key={m} className="flex items-center gap-2 text-sm text-warn"><CircleAlert className="size-4" />{missingText(m)}</li>)}</ul>
             )}
@@ -65,20 +66,20 @@ export function SkillModal({ name, onClose }: { name: string | null; onClose: ()
 
           {envVars.length > 0 && (
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold">Biến môi trường</h3>
+              <h3 className="text-sm font-semibold">{t('Biến môi trường')}</h3>
               {envVars.map((v) => (
-                <Field key={v} label={v} hint={d.primary_env === v ? 'Khóa chính của skill' : undefined}>
-                  <Input type="password" autoComplete="off" value={env[v] ?? ''} onChange={(e) => setEnv({ ...env, [v]: e.target.value })} placeholder="Nhập giá trị…" />
+                <Field key={v} label={v} hint={d.primary_env === v ? t('Khóa chính của skill') : undefined}>
+                  <Input type="password" autoComplete="off" value={env[v] ?? ''} onChange={(e) => setEnv({ ...env, [v]: e.target.value })} placeholder={t('Nhập giá trị…')} />
                 </Field>
               ))}
-              <Button variant="primary" size="sm" loading={saveEnv.isPending} onClick={() => saveEnv.mutate()}>Lưu</Button>
+              <Button variant="primary" size="sm" loading={saveEnv.isPending} onClick={() => saveEnv.mutate()}>{t('Lưu')}</Button>
             </section>
           )}
 
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Nội dung SKILL.md</h3>
+            <h3 className="mb-2 text-sm font-semibold">{t('Nội dung SKILL.md')}</h3>
             <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-bg p-3 font-mono text-xs leading-relaxed">{d.body}</pre>
-            {d.files.length > 1 && <p className="mt-2 text-xs text-muted">File đi kèm: {d.files.join(', ')}</p>}
+            {d.files.length > 1 && <p className="mt-2 text-xs text-muted">{t('File đi kèm')}: {d.files.join(', ')}</p>}
           </section>
         </div>
       )}

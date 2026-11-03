@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { t } from '@/lib/i18n.ts'
 import { cn } from '@/lib/utils'
 
 export function Modal({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
@@ -20,7 +21,7 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h2 className="text-base font-semibold">{title}</h2>
-          <button onClick={onClose} aria-label="Đóng" className="rounded-md p-1 text-muted hover:bg-panel2 hover:text-fg"><X className="size-4" /></button>
+          <button onClick={onClose} aria-label={t('Đóng')} className="rounded-md p-1 text-muted hover:bg-panel2 hover:text-fg"><X className="size-4" /></button>
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3.5">{footer}</div>}

@@ -8,6 +8,8 @@ import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { Tabs } from '@/components/ui/Tabs'
 import { useDashboard } from '@/lib/queries'
 import { fmtDateTime, fmtNum, timeAgo } from '@/lib/utils'
+import { t } from '@/lib/i18n.ts'
+import { T } from '@/lib/T.tsx'
 
 function Stat({ icon: Icon, label, value, sub, tone }: { icon: LucideIcon; label: string; value: ReactNode; sub?: ReactNode; tone?: string }) {
   return (
@@ -29,28 +31,28 @@ export function DashboardPage() {
   if (q.error) return <Page><ErrorNote error={q.error} /></Page>
   if (!q.data) return <Loading />
   const d = q.data
-  const t = d.totals
-  const empty = t.llm_calls === 0
+  const tot = d.totals
+  const empty = tot.llm_calls === 0
 
   return (
     <Page>
-      <PageHeader title="Dashboard" subtitle="Tổng quan hoạt động của agent." action={
-        <div className="w-64"><Tabs value={days} onChange={setDays} tabs={[{ id: '7', label: '7 ngày' }, { id: '30', label: '30 ngày' }, { id: '90', label: '90 ngày' }]} /></div>
+      <PageHeader title={t('Bảng điều khiển')} subtitle={t('Tổng quan hoạt động của agent.')} action={
+        <div className="w-64"><Tabs value={days} onChange={setDays} tabs={[{ id: '7', label: t('{n} ngày', { n: 7 }) }, { id: '30', label: t('{n} ngày', { n: 30 }) }, { id: '90', label: t('{n} ngày', { n: 90 }) }]} /></div>
       } />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={MessageSquare} label="Tin nhắn" value={fmtNum(t.messages)} sub={`${t.sessions} hội thoại`} />
-        <Stat icon={Coins} label="Token" value={fmtNum(t.prompt_tokens + t.completion_tokens)} sub={`${fmtNum(t.prompt_tokens)} vào · ${fmtNum(t.completion_tokens)} ra`} />
-        <Stat icon={Wrench} label="Gọi tool" value={fmtNum(t.tool_calls)} sub={t.tool_errors ? `${t.tool_errors} lỗi` : 'không có lỗi'} tone={t.tool_errors ? 'var(--warn)' : undefined} />
-        <Stat icon={Activity} label="Độ trễ TB / lần gọi LLM" value={`${(t.avg_latency_ms / 1000).toFixed(1)}s`} sub={`${t.llm_calls} lần gọi${t.llm_errors ? ` · ${t.llm_errors} lỗi` : ''}`} tone={t.llm_errors ? 'var(--bad)' : undefined} />
+        <Stat icon={MessageSquare} label={t('Tin nhắn')} value={fmtNum(tot.messages)} sub={t('{n} hội thoại', { n: tot.sessions })} />
+        <Stat icon={Coins} label="Token" value={fmtNum(tot.prompt_tokens + tot.completion_tokens)} sub={t('{in} vào · {out} ra', { in: fmtNum(tot.prompt_tokens), out: fmtNum(tot.completion_tokens) }) + (tot.cost > 0 ? ` · ≈ $${tot.cost.toFixed(4)}` : '')} />
+        <Stat icon={Wrench} label={t('Gọi tool')} value={fmtNum(tot.tool_calls)} sub={tot.tool_errors ? t('{n} lỗi', { n: tot.tool_errors }) : t('không có lỗi')} tone={tot.tool_errors ? 'var(--warn)' : undefined} />
+        <Stat icon={Activity} label={t('Độ trễ TB / lần gọi LLM')} value={`${(tot.avg_latency_ms / 1000).toFixed(1)}s`} sub={t('{n} lần gọi', { n: tot.llm_calls }) + (tot.llm_errors ? ` · ${t('{n} lỗi', { n: tot.llm_errors })}` : '')} tone={tot.llm_errors ? 'var(--bad)' : undefined} />
       </div>
 
       {empty ? (
-        <Card className="mt-4 p-8 text-center text-sm text-muted">Chưa có dữ liệu trong khoảng thời gian này. Hãy <Link to="/chat" className="text-accent hover:underline">chat với agent</Link> để bắt đầu.</Card>
+        <Card className="mt-4 p-8 text-center text-sm text-muted"><T k="Chưa có dữ liệu trong khoảng thời gian này. Hãy {link} để bắt đầu." v={{ link: <Link to="/chat" className="text-accent hover:underline">{t('chat với agent')}</Link> }} /></Card>
       ) : (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Card>
-            <CardHeader title="Token theo ngày" />
+            <CardHeader title={t('Token theo ngày')} />
             <div className="h-64 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={d.series}>
@@ -60,7 +62,7 @@ export function DashboardPage() {
                   <CartesianGrid stroke="var(--line)" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={dayLabel} {...axis} />
                   <YAxis tickFormatter={fmtNum} width={40} {...axis} />
-                  <Tooltip {...tip} labelFormatter={(l) => String(l)} formatter={(v, n) => [fmtNum(Number(v)), n === 'prompt' ? 'Vào' : 'Ra']} />
+                  <Tooltip {...tip} labelFormatter={(l) => String(l)} formatter={(v, n) => [fmtNum(Number(v)), n === 'prompt' ? t('Vào') : t('Ra')]} />
                   <Area isAnimationActive={false} type="monotone" dataKey="prompt" stackId="1" stroke="var(--accent)" fill="url(#gp)" strokeWidth={2} />
                   <Area isAnimationActive={false} type="monotone" dataKey="completion" stackId="1" stroke="var(--info)" fill="var(--info)" fillOpacity={0.15} strokeWidth={2} />
                 </AreaChart>
@@ -68,14 +70,14 @@ export function DashboardPage() {
             </div>
           </Card>
           <Card>
-            <CardHeader title="Lượt gọi LLM và tool theo ngày" />
+            <CardHeader title={t('Lượt gọi LLM và tool theo ngày')} />
             <div className="h-64 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={d.series}>
                   <CartesianGrid stroke="var(--line)" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={dayLabel} {...axis} />
                   <YAxis allowDecimals={false} width={30} {...axis} />
-                  <Tooltip {...tip} formatter={(v, n) => [String(v), n === 'calls' ? 'LLM' : 'Tool']} />
+                  <Tooltip {...tip} formatter={(v, n) => [String(v), n === 'calls' ? 'LLM' : t('Công cụ')]} />
                   <Bar isAnimationActive={false} dataKey="calls" fill="var(--accent)" radius={[4, 4, 0, 0]} />
                   <Bar isAnimationActive={false} dataKey="tools" fill="var(--info)" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -87,26 +89,26 @@ export function DashboardPage() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Provider / model" />
-          {d.by_provider.length === 0 ? <p className="p-5 text-sm text-muted">Chưa có dữ liệu.</p> : (
+          <CardHeader title={t('Nhà cung cấp / model')} />
+          {d.by_provider.length === 0 ? <p className="p-5 text-sm text-muted">{t('Chưa có dữ liệu.')}</p> : (
             <table className="w-full text-sm">
-              <thead className="text-left text-xs text-muted"><tr><th className="px-5 py-2 font-medium">Provider</th><th className="py-2 font-medium">Lần gọi</th><th className="py-2 font-medium">Token</th><th className="py-2 font-medium">Độ trễ</th><th className="px-5 py-2 text-right font-medium">Lỗi</th></tr></thead>
+              <thead className="text-left text-xs text-muted"><tr><th className="px-5 py-2 font-medium">{t('Nhà cung cấp')}</th><th className="py-2 font-medium">{t('Lần gọi')}</th><th className="py-2 font-medium">Token</th><th className="py-2 font-medium">{t('Độ trễ')}</th><th className="py-2 font-medium">{t('Chi phí ≈')}</th><th className="px-5 py-2 text-right font-medium">{t('Lỗi')}</th></tr></thead>
               <tbody>{d.by_provider.map((p) => (
                 <tr key={p.provider + p.model} className="border-t border-line">
                   <td className="px-5 py-2.5"><span className="font-medium">{p.provider}</span> <span className="text-xs text-muted">{p.model}</span></td>
-                  <td className="tabular-nums">{p.calls}</td><td className="tabular-nums">{fmtNum(p.tokens)}</td><td className="tabular-nums">{(p.latency / 1000).toFixed(1)}s</td>
+                  <td className="tabular-nums">{p.calls}</td><td className="tabular-nums">{fmtNum(p.tokens)}</td><td className="tabular-nums">{(p.latency / 1000).toFixed(1)}s</td><td className="tabular-nums text-muted">{p.cost > 0 ? `$${p.cost.toFixed(4)}` : '—'}</td>
                   <td className="px-5 text-right">{p.errors ? <Badge tone="bad">{p.errors}</Badge> : <span className="text-muted">0</span>}</td>
                 </tr>))}</tbody>
             </table>
           )}
         </Card>
         <Card>
-          <CardHeader title="Tool dùng nhiều nhất" />
-          {d.top_tools.length === 0 ? <p className="p-5 text-sm text-muted">Chưa có dữ liệu.</p> : (
+          <CardHeader title={t('Tool dùng nhiều nhất')} />
+          {d.top_tools.length === 0 ? <p className="p-5 text-sm text-muted">{t('Chưa có dữ liệu.')}</p> : (
             <ul className="p-2">{d.top_tools.map((x) => (
               <li key={x.name} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-panel2">
                 <span className="font-mono text-[13px]">{x.name}</span>
-                <span className="flex items-center gap-2 tabular-nums">{x.errors > 0 && <Badge tone="bad">{x.errors} lỗi</Badge>}{x.n}</span>
+                <span className="flex items-center gap-2 tabular-nums">{x.errors > 0 && <Badge tone="bad">{t('{n} lỗi', { n: x.errors })}</Badge>}{x.n}</span>
               </li>))}</ul>
           )}
         </Card>
@@ -114,21 +116,21 @@ export function DashboardPage() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card className="p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold"><Puzzle className="size-4 text-muted" />Skills</div>
-          <p className="mt-3 text-3xl font-semibold tabular-nums">{d.skills.active}<span className="text-base font-normal text-muted"> / {d.skills.total} đang hoạt động</span></p>
-          {d.skills.needs_setup > 0 && <p className="mt-1 text-sm text-warn">{d.skills.needs_setup} skill cần thiết lập</p>}
-          <Link to="/skills" className="mt-3 inline-block text-sm text-accent hover:underline">Quản lý skills →</Link>
+          <div className="flex items-center gap-2 text-sm font-semibold"><Puzzle className="size-4 text-muted" />{t('Kỹ năng')}</div>
+          <p className="mt-3 text-3xl font-semibold tabular-nums">{d.skills.active}<span className="text-base font-normal text-muted"> {t('/ {n} đang hoạt động', { n: d.skills.total })}</span></p>
+          {d.skills.needs_setup > 0 && <p className="mt-1 text-sm text-warn">{t('{n} skill cần thiết lập', { n: d.skills.needs_setup })}</p>}
+          <Link to="/skills" className="mt-3 inline-block text-sm text-accent hover:underline">{t('Quản lý skills →')}</Link>
         </Card>
         <Card className="p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold"><Timer className="size-4 text-muted" />Automations</div>
-          <p className="mt-3 text-3xl font-semibold tabular-nums">{d.automations.enabled}<span className="text-base font-normal text-muted"> / {d.automations.total} đang bật</span></p>
-          <p className="mt-1 flex items-center gap-1 text-sm text-muted"><Clock className="size-3.5" />Lần chạy tới: {fmtDateTime(d.automations.next)}</p>
-          <Link to="/automations" className="mt-3 inline-block text-sm text-accent hover:underline">Quản lý automations →</Link>
+          <div className="flex items-center gap-2 text-sm font-semibold"><Timer className="size-4 text-muted" />{t('Tự động hóa')}</div>
+          <p className="mt-3 text-3xl font-semibold tabular-nums">{d.automations.enabled}<span className="text-base font-normal text-muted"> {t('/ {n} đang bật', { n: d.automations.total })}</span></p>
+          <p className="mt-1 flex items-center gap-1 text-sm text-muted"><Clock className="size-3.5" />{t('Lần chạy tới: {when}', { when: fmtDateTime(d.automations.next) })}</p>
+          <Link to="/automations" className="mt-3 inline-block text-sm text-accent hover:underline">{t('Quản lý automations →')}</Link>
         </Card>
         <Card>
-          <CardHeader title="Hội thoại gần đây" />
-          <ul className="p-2">{d.recent_sessions.length === 0 && <li className="px-3 py-2 text-sm text-muted">Chưa có.</li>}{d.recent_sessions.map((s) => (
-            <li key={s.id}><Link to="/chat" className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm hover:bg-panel2"><span className="truncate">{s.title}</span><span className="shrink-0 text-xs text-muted">{timeAgo(s.updated)}</span></Link></li>))}</ul>
+          <CardHeader title={t('Hội thoại gần đây')} />
+          <ul className="p-2">{d.recent_sessions.length === 0 && <li className="px-3 py-2 text-sm text-muted">{t('Chưa có.')}</li>}{d.recent_sessions.map((s) => (
+            <li key={s.id}><Link to={`/chat?session=${s.id}`} className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm hover:bg-panel2"><span className="truncate">{s.title}</span><span className="shrink-0 text-xs text-muted">{timeAgo(s.updated)}</span></Link></li>))}</ul>
         </Card>
       </div>
     </Page>

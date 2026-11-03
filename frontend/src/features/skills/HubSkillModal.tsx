@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import { api } from '@/lib/api'
 import type { HubDetail, HubSkill, Skill } from '@/lib/types'
 import { errMsg, fmtNum } from '@/lib/utils'
+import { t } from '@/lib/i18n.ts'
 
 export function HubSkillModal({ skill, installed, onClose }: { skill: HubSkill | null; installed: boolean; onClose: () => void }) {
   const qc = useQueryClient()
@@ -20,7 +21,7 @@ export function HubSkillModal({ skill, installed, onClose }: { skill: HubSkill |
   const install = useMutation({
     mutationFn: () => api.post<{ skill: Skill; suspicious: boolean }>('/api/clawhub/install', { slug: skill!.slug, owner: skill!.owner, overwrite: installed }),
     onSuccess: (r) => {
-      toast(r.skill.eligible ? `Đã cài ${r.skill.name}` : `Đã cài ${r.skill.name} — cần thiết lập thêm trong tab Đã cài`)
+      toast(r.skill.eligible ? t('Đã cài {name}', { name: r.skill.name }) : t('Đã cài {name} — cần thiết lập thêm trong tab Đã cài', { name: r.skill.name }))
       void qc.invalidateQueries({ queryKey: ['skills'] })
       onClose()
     },
@@ -34,9 +35,9 @@ export function HubSkillModal({ skill, installed, onClose }: { skill: HubSkill |
     <Modal open={!!skill} onClose={onClose} wide title={skill ? `${skill.name} · @${skill.owner}` : ''}
       footer={
         <>
-          <Button onClick={onClose}>Đóng</Button>
+          <Button onClick={onClose}>{t('Đóng')}</Button>
           <Button variant="primary" disabled={!d || !!blocked} loading={install.isPending} onClick={() => install.mutate()}>
-            <Download className="size-4" />{installed ? 'Cài lại / cập nhật' : 'Cài đặt'}
+            <Download className="size-4" />{installed ? t('Cài lại / cập nhật') : t('Cài đặt')}
           </Button>
         </>
       }
@@ -48,17 +49,17 @@ export function HubSkillModal({ skill, installed, onClose }: { skill: HubSkill |
             {d.version && <Badge>v{d.version}</Badge>}
             <Badge><Download className="size-3" />{fmtNum(d.downloads)}</Badge>
             {d.license && <Badge>{d.license}</Badge>}
-            {installed && <Badge tone="ok">Đã cài</Badge>}
-            {blocked ? <Badge tone="bad"><ShieldAlert className="size-3" />Bị chặn</Badge> : flagged ? <Badge tone="warn"><ShieldAlert className="size-3" />Bị gắn cờ đáng ngờ</Badge> : <Badge tone="ok"><ShieldCheck className="size-3" />Chưa có cảnh báo</Badge>}
+            {installed && <Badge tone="ok">{t('Đã cài')}</Badge>}
+            {blocked ? <Badge tone="bad"><ShieldAlert className="size-3" />{t('Bị chặn')}</Badge> : flagged ? <Badge tone="warn"><ShieldAlert className="size-3" />{t('Bị gắn cờ đáng ngờ')}</Badge> : <Badge tone="ok"><ShieldCheck className="size-3" />{t('Chưa có cảnh báo')}</Badge>}
           </div>
-          {(flagged || blocked) && <p className="rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">{d.moderation?.summary || 'ClawHub đã gắn cờ skill này. Không nên cài nếu bạn không hiểu rõ nội dung.'}</p>}
+          {(flagged || blocked) && <p className="rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">{d.moderation?.summary || t('ClawHub đã gắn cờ skill này. Không nên cài nếu bạn không hiểu rõ nội dung.')}</p>}
           <p className="rounded-lg border border-line bg-panel2 px-3 py-2 text-xs text-muted">
-            Skill chỉ là văn bản hướng dẫn cho agent, nhưng hướng dẫn đó có thể bảo agent chạy lệnh hoặc gọi API. Lệnh shell vẫn cần bạn bấm “Cho phép” (khi bật xác nhận). Hãy đọc nội dung bên dưới trước khi cài.
+            {t('Skill chỉ là văn bản hướng dẫn cho agent, nhưng hướng dẫn đó có thể bảo agent chạy lệnh hoặc gọi API. Lệnh shell vẫn cần bạn bấm “Cho phép” (khi bật xác nhận). Hãy đọc nội dung bên dưới trước khi cài.')}
           </p>
-          {d.changelog && <p className="text-xs text-muted">Changelog: {d.changelog}</p>}
+          {d.changelog && <p className="text-xs text-muted">{t('Nhật ký thay đổi')}: {d.changelog}</p>}
           <section>
             <h3 className="mb-2 text-sm font-semibold">SKILL.md</h3>
-            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-bg p-3 font-mono text-xs leading-relaxed">{d.skill_md ?? '(không xem trước được)'}</pre>
+            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-bg p-3 font-mono text-xs leading-relaxed">{d.skill_md ?? t('(không xem trước được)')}</pre>
           </section>
         </div>
       )}

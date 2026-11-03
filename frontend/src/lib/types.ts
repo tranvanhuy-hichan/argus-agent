@@ -1,4 +1,7 @@
 export interface ProviderCfg {
+  vision?: boolean
+  price_in?: number
+  price_out?: number
   type: 'openai' | 'anthropic'
   base_url: string
   model: string
@@ -20,17 +23,21 @@ export interface AppConfig {
   default_provider: string
   fallback: string[]
   providers: Record<string, ProviderCfg>
-  agent: { workspace: string; max_steps: number; max_history: number; confirm_exec: boolean; tools_enabled: Record<string, boolean> }
+  agent: { workspace: string; max_steps: number; max_history: number; confirm_exec: boolean; tools_enabled: Record<string, boolean>; compact_chars: number; exec_sandbox: 'none' | 'docker'; sandbox_image: string; sandbox_network: boolean }
+  heartbeat: { enabled: boolean; interval_minutes: number; provider: string | null }
+  auth: { has_password: boolean }
   skills: Record<string, SkillEntry>
   mcp_servers: Record<string, McpServerCfg>
   clawhub_url: string
 }
 export interface ToolInfo { name: string; description: string; risk: 'safe' | 'file' | 'exec' | 'network' | 'mcp' }
-export interface ConfigResponse { config: AppConfig; tools: ToolInfo[] }
+export interface SecretsStatus { enabled: boolean; source: 'env' | 'keychain' | 'file' | 'none'; encrypted: number; plaintext: number; failed: string[] }
+export interface ConfigResponse { config: AppConfig; tools: ToolInfo[]; secrets?: SecretsStatus }
 
 export interface SessionInfo { id: string; title: string; updated: number; created: number; source: string; turns: number }
 export interface ToolCall { id: string; name: string; args: Record<string, unknown> }
-export interface WireMessage { role: 'user' | 'assistant' | 'tool'; content: string; tool_calls?: ToolCall[]; tool_call_id?: string }
+export interface WireMessage { role: 'user' | 'assistant' | 'tool'; content: string; tool_calls?: ToolCall[]; tool_call_id?: string; attachments?: string[] }
+export interface FileEntry { path: string; dir: boolean; size: number; mtime: number }
 
 export interface Skill {
   name: string; description: string; path: string; enabled: boolean; eligible: boolean; missing: string[]
@@ -51,14 +58,19 @@ export interface HubDetail extends HubSkill {
 
 export interface Job {
   id: string; name: string; schedule: string; prompt: string; provider: string | null; enabled: boolean
-  last_run: number | null; last_status: 'ok' | 'error' | null; last_output: string | null; next_run: number | null
+  last_run: number | null; last_status: 'ok' | 'error' | null; last_output: string | null; next_run: number | null; notify: boolean
 }
+export interface AuditItem { id: number; ts: number; session_id: string | null; source: string; tool: string; args: string; decision: string; ok: boolean; duration_ms: number; result: string }
+export interface NotificationItem { id: number; ts: number; title: string; body: string; source: string; session_id: string | null; read: boolean }
+export interface TelegramStatus { running: boolean; error: string; bot: string; enabled: boolean; has_token: boolean; allowed_users: number[]; api_base: string }
+export interface HeartbeatStatus { enabled: boolean; interval_minutes: number; running: boolean; last_run: number | null; last_status: 'ok' | 'alert' | 'error' | null; last_output: string | null; next_run: number | null }
+export interface SkillUpdate { name: string; current: string | null; latest: string }
 
 export interface Dashboard {
   days: number
-  totals: { llm_calls: number; prompt_tokens: number; completion_tokens: number; avg_latency_ms: number; llm_errors: number; tool_calls: number; tool_errors: number; sessions: number; messages: number }
+  totals: { llm_calls: number; prompt_tokens: number; completion_tokens: number; avg_latency_ms: number; llm_errors: number; tool_calls: number; tool_errors: number; sessions: number; messages: number; cost: number }
   series: { date: string; calls: number; prompt: number; completion: number; tools: number }[]
-  by_provider: { provider: string; model: string; calls: number; tokens: number; latency: number; errors: number }[]
+  by_provider: { provider: string; model: string; calls: number; tokens: number; latency: number; errors: number; cost: number }[]
   top_tools: { name: string; n: number; errors: number; avg_ms: number }[]
   skills: { total: number; active: number; needs_setup: number }
   automations: { total: number; enabled: number; next: number | null }
