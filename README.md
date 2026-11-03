@@ -5,15 +5,21 @@ Trợ lý AI cá nhân chạy trên máy bạn: gateway chạy nền, giao diệ
 ## Tính năng
 
 - **Model**: Ollama và server local (LM Studio, vLLM), Gemini, Claude, OpenAI, OpenRouter, DeepSeek, Mistral, xAI, Groq, Cerebras, Together, Fireworks, Qwen và mọi API tương thích OpenAI. Có fallback, tự thử lại khi lỗi 429/503, ước tính chi phí.
-- **Chat**: panel Workspace bên phải (Files, Terminal, Hoạt động), mọi lần gọi tool/MCP hiện ngay trong chat, hiển thị "suy nghĩ" của model, đính kèm file/ảnh, nhập bằng giọng nói, sửa và tạo lại tin nhắn, lệnh `/skill`, tìm kiếm hội thoại. Mỗi phiên có thư mục làm việc riêng (`workspace/sessions/<id>/`).
+- **Chat**: panel Workspace bên phải (Files, Terminal, Hoạt động), mọi lần gọi tool/MCP hiện ngay trong chat, hiển thị "suy nghĩ" của model, đính kèm file/ảnh, nhập bằng giọng nói, sửa và tạo lại tin nhắn, lệnh `/skill`, tìm kiếm hội thoại. Mỗi phiên có thư mục làm việc riêng (`user-data/workspace/sessions/<id>/`).
 - **Quyền theo hội thoại** (cạnh nút +): Mặc định, Chỉ đọc, Hỏi trước, Toàn quyền; chọn model và mức suy luận ngay trong khung nhập.
 - **Skills**: đọc định dạng skill `SKILL.md` (tương thích [ClawHub](https://clawhub.ai)), duyệt, cài và cập nhật từ ClawHub.
 - **MCP client**: nối MCP server của bạn (stdio, HTTP, SSE); tool xuất hiện dưới dạng `tênserver__têntool`.
 - **Cho app khác gọi agent**: `POST /v1/run` với API token, hoặc MCP server (`agent_run`) dùng được trong Claude Code, Cursor...
 - **Chủ động**: Automations (cron), Heartbeat (agent tự kiểm tra `HEARTBEAT.md` và nhắn khi cần), Hộp thư thông báo, kênh **Telegram** (nút phê duyệt ngay trong chat, nhận/gửi file).
 - **Bộ nhớ**: `MEMORY.md`, tìm kiếm toàn văn mọi hội thoại cũ (`memory_search`), tự tóm tắt hội thoại dài.
-- **Song ngữ Việt/Anh**: đổi ngôn ngữ ở đầu thanh bên (và CLI theo `--lang`). Thêm chuỗi mới: bọc `t('câu tiếng Việt')` rồi thêm bản Anh vào `frontend/src/i18n/en/`; `npm run i18n:check` bắt chuỗi sót, thiếu bản dịch hoặc dịch xung đột.
+- **Song ngữ Việt/Anh**: đổi ngôn ngữ ở đầu thanh bên (và CLI theo `--lang`). Thêm chuỗi mới: bọc `t('câu tiếng Việt')` rồi thêm bản Anh vào `app/frontend/src/i18n/en/`; `npm run i18n:check` bắt chuỗi sót, thiếu bản dịch hoặc dịch xung đột.
 - **An toàn mặc định**: lệnh shell, file ngoài thư mục phiên và tool MCP hỏi xác nhận; tùy chọn sandbox Docker (không mạng); mật khẩu đăng nhập tùy chọn; nhật ký mọi lần gọi tool; chỉ nhận kết nối từ localhost; token API chỉ lưu bản băm.
+
+## Tài liệu
+
+- [Hướng dẫn sử dụng](docs/huong-dan-su-dung.md): dành cho mọi người dùng
+- [Tài liệu dòng lệnh `argus`](docs/cli.md)
+- [Kiến trúc hệ thống](docs/kien-truc.md): dành cho lập trình viên
 
 ## Cài đặt
 
@@ -21,8 +27,8 @@ Cần Python 3.11+ (và Node 20+ nếu muốn tự build giao diện).
 
 ```bash
 git clone https://github.com/tranvanhuy-hichan/argus-agent.git && cd argus-agent
-python3 -m venv .venv && .venv/bin/pip install -e backend
-(cd frontend && npm install && npm run build)     # giao diện web
+python3 -m venv .venv && .venv/bin/pip install -e app/backend
+(cd app/frontend && npm install && npm run build)     # giao diện web
 .venv/bin/argus onboard                           # trình hướng dẫn: model, an toàn, Telegram, khởi động
 ```
 
@@ -55,9 +61,9 @@ Biến môi trường: `ARGUS_HOME` (thư mục dữ liệu), `ARGUS_PORT`, `ARG
 ## Docker, service, test
 
 ```bash
-docker compose up -d --build         # mở http://127.0.0.1:8787 (dữ liệu ở ./data và ./workspace)
+docker compose up -d --build         # mở http://127.0.0.1:8787 (dữ liệu cá nhân ở ./user-data)
 argus service install                # chạy cùng máy, không cần Docker
-cd backend && pip install -e ".[dev]" && python -m pytest -q
+cd app/backend && pip install -e ".[dev]" && python -m pytest -q
 ```
 
 Tìm Ollama trên máy chủ từ trong container: đặt Base URL là `http://host.docker.internal:11434/v1`.
@@ -68,22 +74,34 @@ Argus Agent là phần mềm tự do theo giấy phép **GNU AGPL-3.0-or-later**
 
 Copyright (C) 2026 tranvanhuy-hichan
 
-## Cấu trúc
+## Cấu trúc thư mục
+
+Dự án tách làm hai phần để không bao giờ nhầm lẫn mã nguồn với dữ liệu của bạn:
 
 ```
-backend/argus/
-  api/        # router FastAPI: chat, skills, providers, tích hợp, API ngoài (/v1)
-  services/   # agent loop, providers, tools, skills, ClawHub, MCP, Telegram, scheduler
-  core/       # cấu hình, SQLite, đường dẫn
-  cli/        # lệnh `argus` (start, doctor, onboard, chat, run, token, skills, service...)
-  mcp_server.py   # MCP server (stdio) đưa agent ra ngoài như một tool
-frontend/src/     # React + TypeScript + Tailwind (features/ theo từng trang, i18n/)
-examples/         # MCP server mẫu để thử tích hợp
-workspace/        # SOUL.md, USER.md, MEMORY.md, skills/ (persona và bộ nhớ của agent)
+argus-agent/
+├── app/                  # MÃ NGUỒN CỐ ĐỊNH: có thể xóa/cài lại bất cứ lúc nào mà không mất gì của bạn
+│   ├── backend/argus/
+│   │   ├── api/          # router FastAPI: chat, skills, providers, tích hợp, API ngoài (/v1)
+│   │   ├── services/     # agent loop, providers, tools, skills, MCP, Telegram, scheduler, trình duyệt…
+│   │   ├── core/         # cấu hình, SQLite, đường dẫn
+│   │   └── cli/          # lệnh `argus` (start, doctor, onboard, chat, run, tasks, memory…)
+│   ├── frontend/src/     # React + TypeScript + Tailwind (features/ theo từng trang, i18n/)
+│   ├── templates/workspace/   # SOUL.md và skill mẫu, dùng để tạo workspace lần đầu
+│   ├── deploy/           # file systemd mẫu
+│   └── examples/         # MCP server mẫu để thử tích hợp
+├── user-data/            # DỮ LIỆU CÁ NHÂN CỦA BẠN: đừng xóa, hãy sao lưu (`argus backup`)
+│   ├── config.json       # cấu hình (API key đã mã hóa)
+│   ├── data/             # cơ sở dữ liệu, khóa chủ (master.key), log
+│   ├── workspace/        # SOUL.md, USER.md, MEMORY.md, skills/, sessions/ (tính cách, bộ nhớ, file của agent)
+│   └── backups/          # các bản sao lưu
+├── Dockerfile, docker-compose.yml, run.sh, .github/, LICENSE, README.md
 ```
+
+Muốn để dữ liệu ở nơi khác (ổ khác, thư mục được đồng bộ…): đặt biến môi trường `ARGUS_HOME=/duong/dan`. Nếu bạn cài từ phiên bản cũ (dữ liệu nằm ngay ở thư mục gốc), Argus vẫn dùng chỗ đó cho tới khi bạn chuyển `config.json`, `data/`, `workspace/`, `backups/` vào `user-data/`.
 
 ## Lưu ý bảo mật
 
 - Skill tải từ internet chỉ là hướng dẫn, nhưng có thể bảo agent chạy lệnh. Đọc `SKILL.md` trước khi cài và giữ xác nhận lệnh shell luôn bật.
 - MCP server stdio chạy lệnh bạn khai báo với quyền của chính bạn. Chỉ thêm server bạn tin tưởng.
-- `config.json` đã được đưa vào `.gitignore`. Mọi khóa bí mật trong đó (API key, token Telegram, biến môi trường/header MCP, khóa skill) được **mã hóa** bằng khóa chủ lấy từ `ARGUS_MASTER_KEY`, keychain hệ điều hành (`pip install keyring` rồi `argus secrets keychain`) hoặc `data/master.key` (quyền 600). Việc này bảo vệ khi file config bị lộ riêng lẻ (gửi kèm báo lỗi, đẩy nhầm lên git, sao lưu rời khóa chủ); **không** bảo vệ khi kẻ tấn công có cả hai file hoặc đang chạy trên máy của bạn. Hãy sao lưu khóa chủ (`argus backup --include-key --encrypt`): mất nó thì không giải mã lại được. `argus doctor` kiểm tra tình trạng này.
+- `user-data/config.json` (cả thư mục `user-data/` đã nằm trong `.gitignore`). Mọi khóa bí mật trong đó (API key, token Telegram, biến môi trường/header MCP, khóa skill) được **mã hóa** bằng khóa chủ lấy từ `ARGUS_MASTER_KEY`, keychain hệ điều hành (`pip install keyring` rồi `argus secrets keychain`) hoặc `user-data/data/master.key` (quyền 600). Việc này bảo vệ khi file config bị lộ riêng lẻ (gửi kèm báo lỗi, đẩy nhầm lên git, sao lưu rời khóa chủ); **không** bảo vệ khi kẻ tấn công có cả hai file hoặc đang chạy trên máy của bạn. Hãy sao lưu khóa chủ (`argus backup --include-key --encrypt`): mất nó thì không giải mã lại được. `argus doctor` kiểm tra tình trạng này.
