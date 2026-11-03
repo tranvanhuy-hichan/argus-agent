@@ -1,0 +1,20 @@
+# Cach de nhat: `argus service install` (tu sinh file nay voi dung duong dan tren may ban).
+# Cai tay:
+#   mkdir -p ~/.config/systemd/user && cp deploy/argus.service ~/.config/systemd/user/
+#   sua WorkingDirectory/ExecStart cho dung may ban, roi:
+#   systemctl --user daemon-reload && systemctl --user enable --now argus
+#   (muon chay ca khi chua dang nhap: loginctl enable-linger $USER)
+[Unit]
+Description=Argus Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/argus-agent
+ExecStart=%h/Projects/argus-agent/.venv/bin/python -m uvicorn argus.main:app --host 127.0.0.1 --port 8787
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
