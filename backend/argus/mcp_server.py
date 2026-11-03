@@ -1,7 +1,7 @@
 """MCP server (stdio) bieu dien agent nay nhu mot tool cho ung dung khac (Claude Code, Cursor, ...).
 
 Chay doc lap, chi goi HTTP toi agent dang chay nen khong phu thuoc code con lai:
-  AGENT_TOKEN=agt_... python mcp_server.py        (AGENT_URL mac dinh http://127.0.0.1:8787)
+  ARGUS_TOKEN=agt_... python mcp_server.py        (ARGUS_URL mac dinh http://127.0.0.1:8787)
 """
 import json
 import os
@@ -10,15 +10,15 @@ import sys
 import httpx
 from mcp.server.mcpserver import MCPServer
 
-URL = os.environ.get("AGENT_URL", "http://127.0.0.1:8787").rstrip("/")
-TOKEN = os.environ.get("AGENT_TOKEN", "")
+URL = (os.environ.get("ARGUS_URL") or os.environ.get("AGENT_URL") or "http://127.0.0.1:8787").rstrip("/")
+TOKEN = os.environ.get("ARGUS_TOKEN") or os.environ.get("AGENT_TOKEN") or ""
 
-mcp = MCPServer("agent", instructions="Giao việc cho trợ lý AI cá nhân chạy trên máy người dùng (có skill, tool và bộ nhớ riêng).")
+mcp = MCPServer("argus", instructions="Giao việc cho trợ lý AI cá nhân chạy trên máy người dùng (có skill, tool và bộ nhớ riêng).")
 
 
 def _call(method: str, path: str, body: dict | None = None, timeout: float = 330) -> dict:
     if not TOKEN:
-        raise RuntimeError("thiếu biến môi trường AGENT_TOKEN (tạo token ở trang Tích hợp)")
+        raise RuntimeError("thiếu biến môi trường ARGUS_TOKEN (tạo token ở trang Tích hợp)")
     r = httpx.request(method, URL + path, json=body, headers={"Authorization": f"Bearer {TOKEN}"}, timeout=timeout)
     if r.status_code >= 400:
         raise RuntimeError(f"agent trả về HTTP {r.status_code}: {r.text[:300]}")

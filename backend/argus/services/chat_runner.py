@@ -20,7 +20,8 @@ def resolve_approval(aid: str, ok: bool) -> bool:
 
 
 def stream_chat(sid: str | None, text: str, provider: str | None, *, approver_override=None, source: str = "chat",
-                only_tools: list[str] | None = None) -> Iterator[dict]:
+                only_tools: list[str] | None = None, attachments: list[str] | None = None, permission: str = "default",
+                effort: str | None = None) -> Iterator[dict]:
     if not sid or not sessions.get(sid):
         sid = sessions.create(text, source=source)
     q: queue.Queue = queue.Queue()
@@ -35,7 +36,7 @@ def stream_chat(sid: str | None, text: str, provider: str | None, *, approver_ov
 
     def worker():
         try:
-            agent.run_turn(sid, text, provider, approver_override or approver, q.put, cancel, only_tools)
+            agent.run_turn(sid, text, provider, approver_override or approver, q.put, cancel, only_tools, source, attachments, permission, effort)
         except Exception as e:  # loi bat ngo khong duoc lam treo luong SSE
             q.put({"type": "error", "message": f"{type(e).__name__}: {e}"})
         q.put({"type": "done"})

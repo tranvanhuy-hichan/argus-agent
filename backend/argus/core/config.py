@@ -1,9 +1,11 @@
 import json
+import os
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from . import secrets
 from .paths import CONFIG_PATH, ROOT
 
 MASK = "***"
@@ -16,6 +18,9 @@ class ProviderCfg(BaseModel):
     api_key: str = ""
     api_key_env: str = ""
     temperature: float = Field(0.7, ge=0, le=2)
+    vision: bool = False  # model nhan duoc anh (gui anh dinh kem dang data URL)
+    price_in: float = Field(0.0, ge=0)  # USD / 1 trieu token vao, de uoc tinh chi phi
+    price_out: float = Field(0.0, ge=0)
 
 
 class AgentCfg(BaseModel):
@@ -24,6 +29,10 @@ class AgentCfg(BaseModel):
     max_history: int = Field(30, ge=4, le=500)
     confirm_exec: bool = True
     tools_enabled: dict[str, bool] = {}
+    compact_chars: int = Field(24000, ge=4000)  # vuot nguong nay thi tom tat phan hoi thoai cu
+    exec_sandbox: Literal["none", "docker"] = "none"
+    sandbox_image: str = "python:3.12-slim"
+    sandbox_network: bool = False
 
 
 class SkillEntry(BaseModel):
@@ -44,6 +53,28 @@ class McpServerCfg(BaseModel):
     confirm: bool = True  # hoi truoc khi goi tool (tru tool danh dau read-only)
 
 
+class HeartbeatCfg(BaseModel):
+    enabled: bool = False
+    interval_minutes: int = Field(60, ge=5, le=1440)
+    provider: str | None = None
+
+
+class TelegramCfg(BaseModel):
+    enabled: bool = False
+    token: str = ""
+    allowed_users: list[int] = []
+    api_base: str = "https://api.telegram.org"
+
+
+class ChannelsCfg(BaseModel):
+    telegram: TelegramCfg = TelegramCfg()
+
+
+class AuthCfg(BaseModel):
+    salt: str = ""
+    password_hash: str = ""
+
+
 class Config(BaseModel):
     default_provider: str = "local"
     fallback: list[str] = []
@@ -53,7 +84,11 @@ class Config(BaseModel):
     agent: AgentCfg = AgentCfg()
     skills: dict[str, SkillEntry] = {}
     mcp_servers: dict[str, McpServerCfg] = {}
+    heartbeat: HeartbeatCfg = HeartbeatCfg()
+    channels: ChannelsCfg = ChannelsCfg()
+    auth: AuthCfg = AuthCfg()
     clawhub_url: str = "https://clawhub.ai"
+    language: Literal["auto", "vi", "en"] = "auto"  # ngon ngu cua CLI (giao dien web tu chon theo trinh duyet)
 
     def workspace_path(self) -> Path:
         p = Path(self.agent.workspace)
@@ -67,12 +102,20 @@ def load() -> Config:
     agent = raw.get("agent", {})
     if "confirm_shell" in agent:  # cau hinh cu
         agent.setdefault("confirm_exec", agent.pop("confirm_shell"))
-    return Config.model_validate(raw)
+    return Config.model_validate(secrets.decrypt_tree(raw))
 
 
-def save(cfg: Config) -> None:
-    CONFIG_PATH.write_text(json.dumps(cfg.model_dump(), indent=2, ensure_ascii=False))
-    CONFIG_PATH.chmod(0o600)
+def save(cfg: Config, encrypt: bool | None = None) -> None:
+    """Ghi config.json. Khoa bi mat duoc ma hoa (neu bat) va file duoc tao voi quyen 600 ngay tu dau, ghi nguyen tu qua file tam."""
+    data = cfg.model_dump()
+    if secrets.enabled() if encrypt is None else encrypt:
+        secrets.encrypt_tree(data)
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CONFIG_PATH.with_name(CONFIG_PATH.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(json.dumps(data, indent=2, ensure_ascii=False))
+    os.replace(tmp, CONFIG_PATH)
 
 
 def masked(cfg: Config) -> dict:
@@ -84,6 +127,9 @@ def masked(cfg: Config) -> dict:
         if s["api_key"]:
             s["api_key"] = MASK
         s["env"] = {k: (MASK if v else "") for k, v in s["env"].items()}
+    if out["channels"]["telegram"]["token"]:
+        out["channels"]["telegram"]["token"] = MASK
+    out["auth"] = {"has_password": bool(cfg.auth.password_hash)}
     for m in out["mcp_servers"].values():
         m["env"] = {k: (MASK if v else "") for k, v in m["env"].items()}
         m["headers"] = {k: (MASK if v else "") for k, v in m["headers"].items()}
@@ -103,6 +149,9 @@ def merge_secrets(new: Config, old: Config) -> Config:
             if v == MASK:
                 s.env[k] = o.env.get(k, "") if o else ""
     merge_mcp_secrets(new.mcp_servers, old.mcp_servers)
+    if new.channels.telegram.token == MASK:
+        new.channels.telegram.token = old.channels.telegram.token
+    new.auth = old.auth  # mat khau chi doi qua /api/auth
     return new
 
 

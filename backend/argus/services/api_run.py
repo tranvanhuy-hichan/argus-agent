@@ -18,9 +18,9 @@ def make_approver(policy: str, allow: list[str], token_allow_exec: bool) -> Call
     allowlist: exec chi khi lenh bat dau bang mot muc trong allow (va khong chua ky tu noi lenh);
     tool MCP khi ten khop mau 'mcp:<glob>'. File ngoai workspace luon bi tu choi."""
     if policy not in ("deny", "allow", "allowlist"):
-        raise PolicyError("exec_policy phai la deny, allow hoac allowlist")
+        raise PolicyError("exec_policy phải là deny, allow hoặc allowlist")
     if policy != "deny" and not token_allow_exec:
-        raise PolicyError("token nay khong duoc cap quyen chay lenh (allow_exec)")
+        raise PolicyError("token này không được cấp quyền chạy lệnh (allow_exec)")
 
     def approver(kind: str, detail: str) -> bool:
         if kind not in ("exec", "mcp") or policy == "deny":
@@ -37,12 +37,14 @@ def make_approver(policy: str, allow: list[str], token_allow_exec: bool) -> Call
     return approver
 
 
-def run_once(prompt: str, *, session: str | None, provider: str | None, approver, only_tools: list[str] | None, timeout: float) -> dict:
+def run_once(prompt: str, *, session: str | None, provider: str | None, approver, only_tools: list[str] | None, timeout: float,
+             permission: str = "default", effort: str | None = None, source: str = "api") -> dict:
     out = {"session": session, "output": "", "provider": None, "usage": {"prompt": 0, "completion": 0},
            "tool_calls": [], "error": None, "timed_out": False}
     calls: dict[str, dict] = {}
     deadline = time.time() + timeout
-    events: Iterator[dict] = chat_runner.stream_chat(session, prompt, provider, approver_override=approver, source="api", only_tools=only_tools)
+    events: Iterator[dict] = chat_runner.stream_chat(session, prompt, provider, approver_override=approver, source=source, only_tools=only_tools,
+                                                      permission=permission, effort=effort)
     try:
         for ev in events:
             t = ev["type"]

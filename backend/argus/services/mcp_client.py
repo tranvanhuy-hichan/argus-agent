@@ -43,10 +43,10 @@ def _leaf_error(e: BaseException) -> str:
 def _make_client(cfg: McpServerCfg) -> Client:
     if cfg.transport == "stdio":
         if not cfg.command.strip():
-            raise ValueError("thieu lenh (command) cho server stdio")
+            raise ValueError("thiếu lệnh (command) cho server stdio")
         return Client(StdioServerParameters(command=cfg.command, args=cfg.args, env=cfg.env or None, cwd=cfg.cwd or None))
     if not cfg.url.strip():
-        raise ValueError("thieu URL cho server HTTP/SSE")
+        raise ValueError("thiếu URL cho server HTTP/SSE")
     if cfg.transport == "sse":
         return Client(sse_client(cfg.url, headers=cfg.headers or None))
     if cfg.headers:
@@ -167,7 +167,7 @@ class McpManager:
         except asyncio.CancelledError:
             raise
         except TimeoutError:
-            st.status, st.error = "error", f"qua {CONNECT_TIMEOUT}s khong ket noi duoc"
+            st.status, st.error = "error", f"quá {CONNECT_TIMEOUT}s không kết nối được"
         except BaseException as e:  # noqa: BLE001 - loi tu SDK/subprocess phai hien len UI, khong duoc nuot im
             st.status, st.error = "error", _leaf_error(e)
             log.warning("MCP %s: %s", name, st.error)
@@ -194,7 +194,7 @@ class McpManager:
                         tools = [_tool_info("test", t) for t in await _list_tools(client)]
                 return {"ok": True, "tools": [{"name": t["name"], "description": t["description"]} for t in tools]}
             except TimeoutError:
-                return {"ok": False, "error": f"qua {CONNECT_TIMEOUT}s khong ket noi duoc"}
+                return {"ok": False, "error": f"quá {CONNECT_TIMEOUT}s không kết nối được"}
             except BaseException as e:  # noqa: BLE001
                 return {"ok": False, "error": _leaf_error(e)}
 
@@ -216,13 +216,15 @@ class McpManager:
                     parameters=t["schema"],
                     fn=self._make_fn(server, t),
                     risk="mcp",
+                    read_only=t["read_only"],
                 )
         return defs
 
     def _make_fn(self, server: str, t: dict):
         def fn(ctx: ToolContext, **args):
             cfg = self.servers[server].cfg
-            if cfg.confirm and not t["read_only"] and not ctx.approve("mcp", f"{t['full_name']} {json.dumps(args, ensure_ascii=False)}"):
+            needs_ok = (cfg.confirm or ctx.confirm_writes) and not ctx.full_access
+            if needs_ok and not t["read_only"] and not ctx.approve("mcp", f"{t['full_name']} {json.dumps(args, ensure_ascii=False)}"):
                 return "KHÔNG THỰC HIỆN: lời gọi tool bị từ chối nên CHƯA được chạy, không có kết quả nào. Hãy báo cho người dùng biết."
             return self._submit(self._call(server, t["name"], args), timeout=CALL_TIMEOUT)
 

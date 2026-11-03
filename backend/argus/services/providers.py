@@ -4,6 +4,7 @@
 """
 import json
 import os
+import re
 from collections.abc import Iterator
 
 import httpx
@@ -14,7 +15,21 @@ TIMEOUT = httpx.Timeout(300, connect=10)
 
 
 class ProviderError(Exception):
-    pass
+    def __init__(self, message: str, status: int | None = None, transient: bool | None = None):
+        super().__init__(message)
+        self.status = status
+        self.transient = transient
+
+    @property
+    def retryable(self) -> bool:
+        """Loi tam thoi (qua tai, het luot, timeout) nen thu lai; loi cau hinh (401, 400, 404, khong ket noi duoc) thi khong."""
+        if self.transient is not None:
+            return self.transient
+        return self.status in (408, 429, 500, 502, 503, 504)
+
+
+def _transient(e: Exception) -> bool:
+    return isinstance(e, (httpx.TimeoutException, httpx.RemoteProtocolError, httpx.ReadError)) and not isinstance(e, httpx.ConnectError)
 
 
 def _key(cfg: ProviderCfg) -> str:
@@ -44,21 +59,27 @@ class OpenAICompat:
                 m = {"role": "assistant", "content": m["content"], "tool_calls": [
                     {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": json.dumps(c["args"])}}
                     for c in m["tool_calls"]]}
+            if m.get("images"):
+                parts = [{"type": "text", "text": m["content"]}] + [
+                    {"type": "image_url", "image_url": {"url": f"data:{i['mime']};base64,{i['b64']}"}} for i in m["images"]]
+                m = {"role": m["role"], "content": parts}
             out.append(m)
         return out
 
-    def stream(self, messages: list[dict], tools: list[dict]) -> Iterator[dict]:
+    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None) -> Iterator[dict]:
         headers = {"Authorization": f"Bearer {_key(self.cfg)}"} if _key(self.cfg) else {}
         body = {"model": self.cfg.model, "messages": self._wire(messages), "temperature": self.cfg.temperature,
                 "stream": True, "stream_options": {"include_usage": True}}
         if tools:
             body["tools"] = [{"type": "function", "function": t} for t in tools]
+        if effort in ("low", "medium", "high"):
+            body["reasoning_effort"] = effort  # chi gui khi nguoi dung chon; mot so model khong nhan tham so nay
         content, calls, by_index, usage = "", [], {}, {"prompt": 0, "completion": 0}
         try:
             with httpx.stream("POST", self.cfg.base_url.rstrip("/") + "/chat/completions", json=body, headers=headers, timeout=TIMEOUT) as r:
                 if r.status_code >= 400:
                     r.read()
-                    raise ProviderError(f"HTTP {r.status_code}: {r.text[:300]}")
+                    raise ProviderError(f"HTTP {r.status_code}: {r.text[:300]}", r.status_code)
                 for line in r.iter_lines():
                     if not line.startswith("data:"):
                         continue
@@ -70,6 +91,9 @@ class OpenAICompat:
                         usage = {"prompt": chunk["usage"].get("prompt_tokens", 0), "completion": chunk["usage"].get("completion_tokens", 0)}
                     for ch in chunk.get("choices", []):
                         d = ch.get("delta") or {}
+                        reasoning = d.get("reasoning_content") or d.get("reasoning")
+                        if reasoning:
+                            yield {"type": "thinking", "text": reasoning}
                         if d.get("content"):
                             content += d["content"]
                             yield {"type": "delta", "text": d["content"]}
@@ -90,7 +114,7 @@ class OpenAICompat:
                             if a:
                                 slot["args"] = (slot["args"] + a) if isinstance(a, str) and isinstance(slot["args"], str) else a
         except httpx.HTTPError as e:
-            raise ProviderError(f"{type(e).__name__}: {e}") from e
+            raise ProviderError(f"{type(e).__name__}: {e}", transient=_transient(e)) from e
         tool_calls = [{"id": c["id"] or f"call_{i}", "name": c["name"], "args": _parse_args(c["args"])} for i, c in enumerate(calls) if c["name"]]
         yield {"type": "final", "content": content, "tool_calls": tool_calls, "usage": usage}
 
@@ -99,7 +123,7 @@ class Anthropic:
     def __init__(self, cfg: ProviderCfg):
         self.cfg = cfg
 
-    def stream(self, messages: list[dict], tools: list[dict]) -> Iterator[dict]:
+    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None) -> Iterator[dict]:  # noqa: ARG002 - Anthropic: chua ho tro
         system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
         conv: list[dict] = []
         for m in messages:
@@ -115,6 +139,10 @@ class Anthropic:
                     conv[-1]["content"].append(block)
                 else:
                     conv.append({"role": "user", "content": [block]})
+            elif m.get("images"):
+                conv.append({"role": m["role"], "content": [
+                    *[{"type": "image", "source": {"type": "base64", "media_type": i["mime"], "data": i["b64"]}} for i in m["images"]],
+                    {"type": "text", "text": m["content"]}]})
             else:
                 conv.append({"role": m["role"], "content": m["content"]})
         body = {"model": self.cfg.model, "max_tokens": 4096, "system": system, "messages": conv, "temperature": min(self.cfg.temperature, 1)}
@@ -124,9 +152,9 @@ class Anthropic:
             r = httpx.post("https://api.anthropic.com/v1/messages", json=body, timeout=TIMEOUT,
                            headers={"x-api-key": _key(self.cfg), "anthropic-version": "2023-06-01"})
         except httpx.HTTPError as e:
-            raise ProviderError(f"{type(e).__name__}: {e}") from e
+            raise ProviderError(f"{type(e).__name__}: {e}", transient=_transient(e)) from e
         if r.status_code >= 400:
-            raise ProviderError(f"HTTP {r.status_code}: {r.text[:300]}")
+            raise ProviderError(f"HTTP {r.status_code}: {r.text[:300]}", r.status_code)
         data = r.json()
         text = "".join(b["text"] for b in data["content"] if b["type"] == "text")
         calls = [{"id": b["id"], "name": b["name"], "args": b["input"]} for b in data["content"] if b["type"] == "tool_use"]
@@ -140,7 +168,10 @@ def make_provider(cfg: ProviderCfg):
     return {"openai": OpenAICompat, "anthropic": Anthropic}[cfg.type](cfg)
 
 
-def list_models(cfg: ProviderCfg) -> list[str]:
+NON_CHAT = re.compile(r"(tts|embed|imagen|veo|whisper|moderation|dall-e|transcribe|aqa|native-audio|-live|realtime|-image|text-to-speech|rerank|guard)", re.I)
+
+
+def list_models(cfg: ProviderCfg, only_chat: bool = True) -> list[str]:
     """Hoi chinh nha cung cap xem co nhung model nao (OpenAI-compatible: /models; Anthropic: /v1/models)."""
     key = _key(cfg)
     if cfg.type == "anthropic":
@@ -152,8 +183,9 @@ def list_models(cfg: ProviderCfg) -> list[str]:
     except httpx.HTTPError as e:
         raise ProviderError(f"{type(e).__name__}: {e}") from e
     if r.status_code >= 400:
-        raise ProviderError(f"HTTP {r.status_code}: {r.text[:200]}")
+        raise ProviderError(f"HTTP {r.status_code}: {r.text[:200]}", r.status_code)
     data = r.json()
     items = data.get("data") or data.get("models") or []
     ids = [(m.get("id") or m.get("name") or "") if isinstance(m, dict) else str(m) for m in items]
-    return sorted({i.removeprefix("models/") for i in ids if i})
+    names = {i.removeprefix("models/") for i in ids if i}
+    return sorted(n for n in names if not (only_chat and NON_CHAT.search(n)))

@@ -184,10 +184,10 @@ def _safe_extract(data: bytes, dest: Path) -> None:
     try:
         z = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile as e:
-        raise SkillError("file tai ve khong phai zip hop le") from e
+        raise SkillError("file tải về không phải zip hợp lệ") from e
     infos = [i for i in z.infolist() if not i.is_dir()]
     if len(infos) > MAX_ZIP_FILES or sum(i.file_size for i in infos) > MAX_ZIP_BYTES:
-        raise SkillError("skill qua lon (toi da 500 file / 20MB)")
+        raise SkillError("skill quá lớn (tối đa 500 file / 20MB)")
     names = [i.filename for i in infos]
     prefix = ""
     if "SKILL.md" not in names:
@@ -195,13 +195,13 @@ def _safe_extract(data: bytes, dest: Path) -> None:
         if len(tops) == 1 and f"{next(iter(tops))}/SKILL.md" in names:
             prefix = next(iter(tops)) + "/"
         else:
-            raise SkillError("zip khong co SKILL.md")
+            raise SkillError("zip không có SKILL.md")
     root = dest.resolve()
     for i in infos:
         rel = i.filename[len(prefix):]
         target = (dest / rel).resolve()
         if root not in target.parents:  # chong zip-slip
-            raise SkillError(f"duong dan nguy hiem trong zip: {i.filename}")
+            raise SkillError(f"đường dẫn nguy hiểm trong zip: {i.filename}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(z.read(i))
         if target.read_bytes()[:2] == b"#!":
@@ -216,7 +216,7 @@ def install_zip(cfg: Config, data: bytes, slug: str, origin: dict) -> Skill:
         prev = (target / ".clawhub" / "origin.json")
         owner = json.loads(prev.read_text()).get("owner") if prev.is_file() else None
         if owner != origin.get("owner"):
-            raise SkillError(f"da co skill '{slug}' (khong cung tac gia). Xoa no truoc khi cai.")
+            raise SkillError(f"đã có skill '{slug}' (không cùng tác giả). Xóa nó trước khi cài.")
     tmp = Path(tempfile.mkdtemp(prefix=".install-", dir=skills_dir))
     try:
         _safe_extract(data, tmp)
@@ -235,10 +235,10 @@ def remove(cfg: Config, name: str) -> None:
     skills_dir = (cfg.workspace_path() / "skills").resolve()
     s = discover(cfg).get(name)
     if not s:
-        raise SkillError(f"khong co skill '{name}'")
+        raise SkillError(f"không có skill '{name}'")
     path = s.path.resolve()
     if skills_dir not in path.parents:
-        raise SkillError("chi xoa duoc skill nam trong workspace/skills")
+        raise SkillError("chỉ xóa được skill nằm trong workspace/skills")
     shutil.rmtree(path)
 
 

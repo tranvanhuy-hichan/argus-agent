@@ -27,6 +27,7 @@ def dashboard(days: int) -> dict:
         llm_by_day = {r["d"]: r for r in q(f"SELECT {day} d, COUNT(*) calls, SUM(prompt_tokens) p, SUM(completion_tokens) c FROM usage WHERE ts>=? GROUP BY d", since)}
         tool_by_day = {r["d"]: r["n"] for r in q(f"SELECT {day} d, COUNT(*) n FROM tool_events WHERE ts>=? GROUP BY d", since)}
         by_provider = [dict(r) for r in q("""SELECT provider, model, COUNT(*) calls, COALESCE(SUM(prompt_tokens+completion_tokens),0) tokens,
+                       COALESCE(SUM(prompt_tokens),0) p, COALESCE(SUM(completion_tokens),0) c,
                        CAST(AVG(latency_ms) AS INTEGER) latency, COALESCE(SUM(1-ok),0) errors FROM usage WHERE ts>=?
                        GROUP BY provider, model ORDER BY calls DESC""", since)]
         top_tools = [dict(r) for r in q("""SELECT name, COUNT(*) n, COALESCE(SUM(1-ok),0) errors, CAST(AVG(duration_ms) AS INTEGER) avg_ms

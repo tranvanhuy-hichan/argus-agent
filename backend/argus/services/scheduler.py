@@ -6,7 +6,7 @@ import uuid
 from croniter import croniter
 
 from ..core.db import db
-from . import agent, sessions
+from . import agent, notifications, sessions
 
 TICK = 15
 _stop = threading.Event()
@@ -18,25 +18,25 @@ class ScheduleError(ValueError):
 
 def next_run(schedule: str, base: float | None = None) -> float:
     if not croniter.is_valid(schedule):
-        raise ScheduleError(f"bieu thuc cron khong hop le: {schedule}")
+        raise ScheduleError(f"biểu thức cron không hợp lệ: {schedule}")
     return croniter(schedule, base or time.time()).get_next(float)
 
 
 def list_jobs() -> list[dict]:
     with db() as c:
-        return [dict(r) | {"enabled": bool(r["enabled"])} for r in c.execute("SELECT * FROM cron_jobs ORDER BY name")]
+        return [dict(r) | {"enabled": bool(r["enabled"]), "notify": bool(r["notify"])} for r in c.execute("SELECT * FROM cron_jobs ORDER BY name")]
 
 
 def save_job(job: dict, job_id: str | None = None) -> str:
     nxt = next_run(job["schedule"])
     with db() as c:
         if job_id:
-            c.execute("UPDATE cron_jobs SET name=?,schedule=?,prompt=?,provider=?,enabled=?,next_run=? WHERE id=?",
-                      (job["name"], job["schedule"], job["prompt"], job.get("provider"), int(job["enabled"]), nxt, job_id))
+            c.execute("UPDATE cron_jobs SET name=?,schedule=?,prompt=?,provider=?,enabled=?,next_run=?,notify=? WHERE id=?",
+                      (job["name"], job["schedule"], job["prompt"], job.get("provider"), int(job["enabled"]), nxt, int(job.get("notify", True)), job_id))
         else:
             job_id = uuid.uuid4().hex[:8]
-            c.execute("INSERT INTO cron_jobs(id,name,schedule,prompt,provider,enabled,next_run) VALUES(?,?,?,?,?,?,?)",
-                      (job_id, job["name"], job["schedule"], job["prompt"], job.get("provider"), int(job["enabled"]), nxt))
+            c.execute("INSERT INTO cron_jobs(id,name,schedule,prompt,provider,enabled,next_run,notify) VALUES(?,?,?,?,?,?,?,?)",
+                      (job_id, job["name"], job["schedule"], job["prompt"], job.get("provider"), int(job["enabled"]), nxt, int(job.get("notify", True))))
     return job_id
 
 
@@ -54,7 +54,7 @@ def run_job(job_id: str) -> None:
     events: list[dict] = []
     started = time.time()
     try:
-        agent.run_turn(sid, r["prompt"], r["provider"], lambda kind, detail: False, events.append)
+        agent.run_turn(sid, r["prompt"], r["provider"], lambda kind, detail: False, events.append, source="cron")
     except Exception as e:
         events.append({"type": "error", "message": f"{type(e).__name__}: {e}"})
     err = next((e["message"] for e in events if e["type"] == "error"), None)
@@ -62,6 +62,8 @@ def run_job(job_id: str) -> None:
     with db() as c:
         c.execute("UPDATE cron_jobs SET last_run=?, last_status=?, last_output=?, next_run=? WHERE id=?",
                   (started, "error" if err else "ok", (err or text)[:2000], next_run(r["schedule"]), job_id))
+    if r["notify"] and (err or text):
+        notifications.add(f"Automation: {r['name']}" + (" (lỗi)" if err else ""), err or text, source="cron", session_id=sid)
 
 
 def _loop() -> None:

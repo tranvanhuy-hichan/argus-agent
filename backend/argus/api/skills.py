@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..core import config as cfgmod
+from ..services import hub_install as hub_install_service
 from ..services import skills as skillmod
 from ..services.clawhub import ClawHub, ClawHubError
 
@@ -29,11 +30,47 @@ def list_skills():
     return [s.to_dict() for s in sorted(skillmod.discover(cfg).values(), key=lambda s: s.name)]
 
 
+@router.get("/skills/updates")
+def skill_updates():
+    """So sanh phien ban skill da cai tu ClawHub voi ban moi nhat."""
+    hub, out = _hub(), []
+    for s in skillmod.discover(cfgmod.load()).values():
+        o = s.origin
+        if not o or o.get("source") != "clawhub":
+            continue
+        try:
+            latest = hub.detail(o["slug"], o["owner"]).get("version")
+        except ClawHubError:
+            continue
+        if latest and latest != o.get("version"):
+            out.append({"name": s.name, "current": o.get("version"), "latest": latest})
+    return out
+
+
+@router.post("/skills/{name}/update")
+def skill_update(name: str):
+    cfg = cfgmod.load()
+    s = skillmod.discover(cfg).get(name)
+    if not s or not s.origin or s.origin.get("source") != "clawhub":
+        raise HTTPException(400, "chỉ cập nhật được skill cài từ ClawHub")
+    hub = ClawHub(cfg.clawhub_url)
+    detail = _hub_call(hub.detail, s.origin["slug"], s.origin["owner"])
+    if (detail.get("moderation") or {}).get("isMalwareBlocked") or not detail["installable"]:
+        raise HTTPException(403, "ClawHub đánh dấu phiên bản mới là không an toàn")
+    data = _hub_call(hub.download, s.origin["slug"], s.origin["owner"], None)
+    try:
+        new = skillmod.install_zip(cfg, data, s.origin["slug"], {"source": "clawhub", "slug": s.origin["slug"], "owner": s.origin["owner"],
+                                                                "version": detail.get("version"), "overwrite": True})
+    except skillmod.SkillError as e:
+        raise HTTPException(400, str(e)) from e
+    return new.to_dict()
+
+
 @router.get("/skills/{name}")
 def get_skill(name: str):
     s = skillmod.discover(cfgmod.load()).get(name)
     if not s:
-        raise HTTPException(404, "khong co skill")
+        raise HTTPException(404, "không có skill")
     files = sorted(str(p.relative_to(s.path)) for p in s.path.rglob("*") if p.is_file() and ".clawhub" not in p.parts)
     return {**s.to_dict(), "body": s.body, "files": files}
 
@@ -47,7 +84,7 @@ class CreateSkill(BaseModel):
 @router.post("/skills")
 def create_skill(b: CreateSkill):
     if not NAME_RE.match(b.name):
-        raise HTTPException(400, "ten chi gom a-z, 0-9, - va _")
+        raise HTTPException(400, "tên chỉ gồm a-z, 0-9, - và _")
     return skillmod.create(cfgmod.load(), b.name, b.description, b.body).to_dict()
 
 
@@ -100,16 +137,12 @@ class InstallBody(BaseModel):
 
 @router.post("/clawhub/install")
 def hub_install(b: InstallBody):
-    cfg = cfgmod.load()
-    hub = ClawHub(cfg.clawhub_url)
-    detail = _hub_call(hub.detail, b.slug, b.owner)
-    mod = detail.get("moderation") or {}
-    if mod.get("isMalwareBlocked") or not detail["installable"]:
-        raise HTTPException(403, "ClawHub danh dau skill nay khong an toan de cai")
-    data = _hub_call(hub.download, b.slug, b.owner, b.version)
     try:
-        skill = skillmod.install_zip(cfg, data, b.slug, {"source": "clawhub", "slug": b.slug, "owner": b.owner,
-                                                         "version": b.version or detail.get("version"), "overwrite": b.overwrite})
+        skill, suspicious = hub_install_service.install(cfgmod.load(), b.slug, b.owner, b.version, b.overwrite)
+    except hub_install_service.BlockedError as e:
+        raise HTTPException(403, str(e)) from e
     except skillmod.SkillError as e:
         raise HTTPException(400, str(e)) from e
-    return {"skill": skill.to_dict(), "suspicious": bool(mod.get("isSuspicious"))}
+    except ClawHubError as e:
+        raise HTTPException(e.status if e.status in (404, 409, 410, 429) else 502, str(e)) from e
+    return {"skill": skill.to_dict(), "suspicious": suspicious}

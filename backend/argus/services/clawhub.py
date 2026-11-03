@@ -42,11 +42,11 @@ class ClawHub:
         if ttl and key in _cache and _cache[key][0] > time.time():
             return _cache[key][1]
         try:
-            r = httpx.get(self.base + path, params=params, timeout=30, headers={"User-Agent": "personal-agent/0.2"})
+            r = httpx.get(self.base + path, params=params, timeout=30, headers={"User-Agent": "argus-agent/0.3"})
         except httpx.HTTPError as e:
-            raise ClawHubError(f"khong ket noi duoc ClawHub: {e}") from e
+            raise ClawHubError(f"không kết nối được ClawHub: {e}") from e
         if r.status_code == 429:
-            raise ClawHubError("ClawHub gioi han toc do, thu lai sau it giay", 429)
+            raise ClawHubError("ClawHub giới hạn tốc độ, thử lại sau ít giây", 429)
         if r.status_code >= 400:
             raise ClawHubError(r.text[:300] or f"HTTP {r.status_code}", r.status_code)
         if ttl:
@@ -78,17 +78,17 @@ class ClawHub:
         if version:
             params["version"] = version
         try:
-            with httpx.stream("GET", self.base + "/api/v1/download", params=params, timeout=60, headers={"User-Agent": "personal-agent/0.2"}) as r:
+            with httpx.stream("GET", self.base + "/api/v1/download", params=params, timeout=60, headers={"User-Agent": "argus-agent/0.3"}) as r:
                 if r.status_code >= 400:
                     r.read()
                     raise ClawHubError(r.text[:300] or f"HTTP {r.status_code}", r.status_code)
                 if "zip" not in r.headers.get("content-type", ""):
-                    raise ClawHubError("skill nay luu tren GitHub (chua ho tro cai truc tiep), hay tai thu cong va dat vao workspace/skills")
+                    raise ClawHubError("skill này lưu trên GitHub (chưa hỗ trợ cài trực tiếp), hãy tải thủ công và đặt vào workspace/skills")
                 buf = bytearray()
                 for chunk in r.iter_bytes():
                     buf += chunk
                     if len(buf) > MAX_DOWNLOAD:
-                        raise ClawHubError("file tai ve qua lon")
+                        raise ClawHubError("file tải về quá lớn")
                 return bytes(buf)
         except httpx.HTTPError as e:
-            raise ClawHubError(f"khong tai duoc: {e}") from e
+            raise ClawHubError(f"không tải được: {e}") from e

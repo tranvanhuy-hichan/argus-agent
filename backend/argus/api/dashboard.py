@@ -14,8 +14,13 @@ def dashboard(days: int = Query(7, ge=1, le=90)):
     cfg = cfgmod.load()
     skills = skillmod.discover(cfg).values()
     jobs = scheduler.list_jobs()
+    d = usage.dashboard(days)
+    for row in d["by_provider"]:  # uoc tinh chi phi tu bang gia khai bao cho tung provider
+        pc = cfg.providers.get(row["provider"])
+        row["cost"] = round((row["p"] * pc.price_in + row["c"] * pc.price_out) / 1e6, 4) if pc else 0
+    d["totals"]["cost"] = round(sum(r["cost"] for r in d["by_provider"]), 4)
     return {
-        **usage.dashboard(days),
+        **d,
         "skills": {"total": len(skills), "active": sum(s.active for s in skills), "needs_setup": sum(s.enabled and not s.eligible for s in skills)},
         "automations": {"total": len(jobs), "enabled": sum(j["enabled"] for j in jobs),
                         "next": min((j["next_run"] for j in jobs if j["enabled"] and j["next_run"]), default=None)},
@@ -31,6 +36,7 @@ class JobBody(BaseModel):
     prompt: str
     provider: str | None = None
     enabled: bool = True
+    notify: bool = True
 
 
 @router.get("/automations")

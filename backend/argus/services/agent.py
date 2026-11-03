@@ -1,0 +1,207 @@
+"""Vong lap agent: dung prompt, goi LLM (stream, tu thu lai), chay tool, ghi lich su va nhat ky."""
+import base64
+import mimetypes
+import time
+from collections.abc import Callable, Iterator
+from datetime import datetime
+from threading import Event
+
+from ..core import config as cfgmod
+from . import audit, compaction, mcp_client, sessions, skills as skillmod, tools, usage, workfiles
+from .providers import ProviderError, make_provider
+
+PROMPT_FILES = ("SOUL.md", "USER.md", "MEMORY.md")
+RETRIES = 4  # tong so lan thu cho loi tam thoi (429/503/timeout)
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+MAX_IMAGES, MAX_IMAGE_BYTES = 4, 5 * 1024 * 1024
+
+
+def ui_event(kind: str, tpl: str, **vars) -> dict:
+    """Su kien hien cho nguoi dung: `tpl` la mau tieng Viet co {bien}; giao dien tu dich theo ngon ngu dang chon."""
+    text = tpl.format(**vars)
+    return {"type": kind, "message" if kind != "status" else "text": text, "tpl": tpl, "vars": vars}
+
+
+def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str = "") -> str:
+    ws = cfg.workspace_path()
+    parts = []
+    for name in PROMPT_FILES:
+        p = ws / name
+        if p.exists() and p.read_text().strip():
+            parts.append(f"## {name}\n{p.read_text()[-4000:].strip()}")
+    parts.append(f"Hiện tại: {datetime.now().astimezone():%Y-%m-%d %H:%M %Z}.\n"
+                 f"Thư mục làm việc của phiên này: {workdir}. Mọi file bạn tạo (script, dữ liệu trung gian, kết quả) hãy đặt ở đây; "
+                 "đường dẫn tương đối được tính từ thư mục này và người dùng nhìn thấy chúng trong panel Workspace. "
+                 "Khi cần nhớ chuyện đã nói trước đây, dùng tool memory_search.")
+    if summary:
+        parts.append(f"Tóm tắt phần hội thoại trước đó:\n{summary}")
+    block = skillmod.prompt_block(skills)
+    if block:
+        parts.append(block)
+    return "\n\n".join(parts)
+
+
+def _augment(m: dict) -> dict:
+    """Them dong liet ke tep dinh kem vao noi dung gui cho model."""
+    if m["role"] == "user" and m.get("attachments"):
+        return {"role": "user", "content": f"{m['content']}\n\n[Tệp đính kèm trong thư mục làm việc: {', '.join(m['attachments'])}]"}
+    return {k: v for k, v in m.items() if k not in ("attachments", "_id")}
+
+
+def _images(workdir, names: list[str]) -> list[dict]:
+    out = []
+    for n in names:
+        try:
+            p = workfiles.safe_path(workdir, n)
+        except workfiles.PathError:
+            continue
+        if p.suffix.lower() in IMAGE_EXT and p.is_file() and p.stat().st_size <= MAX_IMAGE_BYTES and len(out) < MAX_IMAGES:
+            out.append({"mime": mimetypes.guess_type(p.name)[0] or "image/png", "b64": base64.b64encode(p.read_bytes()).decode()})
+    return out
+
+
+PERMISSIONS = ("default", "readonly", "guarded", "full")
+READONLY_BLOCKED = {"write", "edit", "remember", "http_request"}
+READONLY_NOTE = "Chế độ CHỈ ĐỌC: bạn không được ghi/sửa file, chạy lệnh shell hay thay đổi dữ liệu; các tool đó đã bị tắt. Hãy chỉ đọc và tra cứu."
+
+
+def apply_permission(ctx: tools.ToolContext, mode: str) -> str:
+    """Che do quyen cho mot hoi thoai. Tra ve doan nhac them cho system prompt (co the rong)."""
+    if mode == "readonly":
+        every = {**tools.TOOLS, **ctx.extra}
+        blocked = {n for n, t in every.items() if t.risk == "exec" or n in READONLY_BLOCKED or (t.risk == "mcp" and not t.read_only)}
+        ctx.enabled = {**ctx.enabled, **{n: False for n in blocked}}
+        return READONLY_NOTE
+    if mode == "guarded":
+        ctx.confirm_exec = ctx.confirm_writes = True
+    elif mode == "full":
+        ctx.confirm_exec, ctx.full_access = False, True
+    return ""
+
+
+def _window(history: list[dict], limit: int) -> list[dict]:
+    rest = history[-limit:]
+    while rest and (rest[0]["role"] == "tool" or rest[0].get("tool_calls")):
+        rest = rest[1:]
+    return rest
+
+
+def _stream_with_retry(name: str, pcfg: cfgmod.ProviderCfg, messages: list[dict], schemas: list[dict],
+                       emit: Callable[[dict], None], cancel: Event | None, effort: str | None = None) -> Iterator[dict]:
+    delay = 1.5
+    for attempt in range(RETRIES):
+        started = False
+        try:
+            for ev in make_provider(pcfg).stream(messages, schemas, effort=effort):
+                if ev["type"] in ("delta", "thinking"):
+                    started = True
+                yield ev
+            return
+        except ProviderError as e:
+            if started or not e.retryable or attempt == RETRIES - 1:
+                raise
+            emit(ui_event("notice", "{name} đang bận ({status}), thử lại sau {delay}s (lần {attempt}/{total})",
+                          name=name, status=e.status or "timeout", delay=round(delay), attempt=attempt + 2, total=RETRIES))
+            waited = 0.0
+            while waited < delay and not (cancel and cancel.is_set()):
+                time.sleep(0.25)
+                waited += 0.25
+            delay *= 2
+
+
+def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[[str, str], bool],
+             emit: Callable[[dict], None], cancel: Event | None = None, only_tools: list[str] | None = None,
+             source: str = "chat", attachments: list[str] | None = None, permission: str = "default", effort: str | None = None) -> None:
+    cfg = cfgmod.load()
+    skills = skillmod.discover(cfg)
+    workdir = workfiles.session_dir(cfg, sid)
+    workdir.mkdir(parents=True, exist_ok=True)
+    decision: dict[str, str] = {}
+
+    def recording_approver(kind: str, detail: str) -> bool:
+        ok = approver(kind, detail)
+        decision["last"] = "approved" if ok else "denied"
+        return ok
+
+    ctx = tools.ToolContext(workspace=cfg.workspace_path(), cwd=workdir, approver=recording_approver, confirm_exec=cfg.agent.confirm_exec,
+                            env=skillmod.env_for(skills, cfg), enabled=cfg.agent.tools_enabled, skills={n: s for n, s in skills.items() if s.active},
+                            sandbox={"mode": cfg.agent.exec_sandbox, "image": cfg.agent.sandbox_image, "network": cfg.agent.sandbox_network})
+    ctx.extra = mcp_client.manager.tool_defs()
+    if only_tools is not None:  # gioi han tool cho rieng luot nay (dung cho API ben ngoai)
+        ctx.enabled = {n: n in only_tools for n in [*tools.TOOLS, *ctx.extra]}
+    if permission not in PERMISSIONS:
+        permission = "default"
+    perm_note = apply_permission(ctx, permission)
+    first = provider if provider in cfg.providers else cfg.default_provider
+    names = [first] + [n for n in cfg.fallback if n != first and n in cfg.providers]
+
+    emit(ui_event("status", "Đang chuẩn bị…"))
+    if compaction.maybe_compact(sid, cfg, first):
+        emit(ui_event("notice", "Đã tóm tắt phần đầu hội thoại để tiết kiệm bộ nhớ của model"))
+    sess = sessions.get(sid) or {}
+    history = sessions.messages(sid, after_id=sess.get("summary_upto", 0))
+    attachments = attachments or []
+    user_msg = {"role": "user", "content": user_text}
+    if attachments:
+        user_msg["attachments"] = attachments
+    sessions.add_message(sid, user_msg)
+    current = _augment(user_msg)
+    if attachments and cfg.providers[first].vision:
+        current["images"] = _images(workdir, attachments)
+    messages = [{"role": "system", "content": build_system_prompt(cfg, skills, workdir, sess.get("summary", "")) + (f"\n\n{perm_note}" if perm_note else "")}] \
+        + [_augment(m) for m in _window(history, cfg.agent.max_history)] + [current]
+
+    for step in range(cfg.agent.max_steps):
+        if cancel and cancel.is_set():
+            return
+        result = None
+        for name in names:
+            pcfg = cfg.providers[name]
+            t0, started = time.time(), False
+            emit(ui_event("status", "Đang gọi {name} · {model}…", name=name, model=pcfg.model) if step == 0
+                 else ui_event("status", "{name} đang xử lý kết quả tool…", name=name))
+            try:
+                for ev in _stream_with_retry(name, pcfg, messages, tools.schemas(ctx), emit, cancel, effort):
+                    if ev["type"] in ("delta", "thinking"):
+                        started = True
+                        emit(ev)
+                    else:
+                        result = ev
+                u = result["usage"]
+                usage.record_llm(name, pcfg.model, u["prompt"], u["completion"], int((time.time() - t0) * 1000), True, sid)
+                result["provider"] = name
+                break
+            except ProviderError as e:
+                usage.record_llm(name, pcfg.model, 0, 0, int((time.time() - t0) * 1000), False, sid)
+                if started or name == names[-1]:
+                    emit({"type": "error", "message": f"{name}: {e}"})
+                    return
+                emit(ui_event("notice", "{name} lỗi ({error}), chuyển sang provider dự phòng", name=name, error=str(e)[:200]))
+        msg = {"role": "assistant", "content": result["content"]}
+        if result["tool_calls"]:
+            msg["tool_calls"] = result["tool_calls"]
+        messages.append(msg)
+        sessions.add_message(sid, msg)
+        if result["content"] or not result["tool_calls"]:
+            emit({"type": "assistant", "content": result["content"], "provider": result["provider"], "usage": result["usage"],
+                  "duration_ms": int((time.time() - t0) * 1000)})
+        if not result["tool_calls"]:
+            return
+        for c in result["tool_calls"]:
+            if cancel and cancel.is_set():
+                return
+            tdef = tools.TOOLS.get(c["name"]) or ctx.extra.get(c["name"])
+            emit({"type": "tool", "id": c["id"], "name": c["name"], "args": c["args"], "risk": tdef.risk if tdef else "unknown"})
+            decision.clear()
+            t0 = time.time()
+            out, ok = tools.call(ctx, c["name"], c["args"])
+            ms = int((time.time() - t0) * 1000)
+            usage.record_tool(c["name"], ok, ms, sid)
+            dec = decision.get("last") or ("full_access" if permission == "full" and tdef and tdef.risk in ("exec", "mcp", "file", "network") else "auto")
+            audit.record(sid, source, c["name"], c["args"], dec, ok, ms, out)
+            tmsg = {"role": "tool", "tool_call_id": c["id"], "content": out}
+            messages.append(tmsg)
+            sessions.add_message(sid, tmsg)
+            emit({"type": "tool_result", "id": c["id"], "result": out[:4000], "ok": ok, "duration_ms": ms, "decision": dec})
+            emit({"type": "files"})
+    emit(ui_event("error", "Vượt quá số bước tối đa ({n})", n=cfg.agent.max_steps))
