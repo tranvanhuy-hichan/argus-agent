@@ -32,7 +32,7 @@ const dict: Record<string, string> = {
   'Liệt kê việc tôi nên làm hôm nay': 'List what I should do today',
   'Hoàn tất thiết lập': 'Finish setup',
   '{done}/{total} hoàn thành': '{done}/{total} done',
-  'Bạn đã thiết lập đầy đủ 🎉': "You're all set 🎉",
+  'Bạn đã thiết lập đầy đủ': "You're all set",
   'Thêm một model mạnh hơn (cloud)': 'Add a stronger cloud model',
   'Cài một skill từ ClawHub': 'Install a skill from ClawHub',
   'Kết nối Telegram để nhắn từ điện thoại': 'Connect Telegram to message from your phone',

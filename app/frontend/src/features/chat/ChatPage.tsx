@@ -9,6 +9,8 @@ import { errMsg } from '@/lib/utils'
 import { Composer } from './Composer'
 import type { Effort, Permission } from './permissions'
 import { MessageView } from './MessageView'
+import { PlanCard } from './PlanCard'
+import { SessionContext } from './session'
 import { SessionList } from './SessionList'
 import { useChat, type Item } from './useChat'
 import { WorkspacePanel, type PanelTab } from './WorkspacePanel'
@@ -140,6 +142,7 @@ export function ChatPage() {
   }
 
   return (
+    <SessionContext.Provider value={chat.sessionId}>
     <div className="flex h-full">
       {sessionsOpen && <SessionList sessions={sessions.data ?? []} activeId={chat.sessionId} onOpen={onOpen} onNew={onNew} onDeleted={(id) => { if (id === chat.sessionId) onNew() }} />}
 
@@ -197,6 +200,7 @@ export function ChatPage() {
           </div>
         </div>
 
+        <PlanCard items={chat.plan} />
         <Composer value={text} onChange={setText} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
           permission={permission} onPermission={setPermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
@@ -207,5 +211,6 @@ export function ChatPage() {
 
       {panelOpen && <WorkspacePanel sid={chat.sessionId} items={chat.items} filesTick={chat.filesTick} tab={tab} onTab={setTab} openPath={openPath} onOpenPath={setOpenPath} onClose={() => setPanelOpen(false)} width={panelWidth} onWidth={setPanelWidth} />}
     </div>
+    </SessionContext.Provider>
   )
 }

@@ -11,9 +11,10 @@ import { Switch } from '@/components/ui/Switch'
 import { Tabs } from '@/components/ui/Tabs'
 import { useToast } from '@/components/ui/Toast'
 import { useConfig, useSaveConfig } from '@/lib/queries'
-import type { AppConfig, SecretsStatus, ToolInfo } from '@/lib/types'
+import type { AppConfig, ExtraCfg, SecretsStatus, ToolInfo } from '@/lib/types'
 import { errMsg } from '@/lib/utils'
 import { t, tk } from '@/lib/i18n.ts'
+import { FeaturesTab } from './FeaturesTab'
 
 const RISK: Record<ToolInfo['risk'], { label: string; tone: 'ok' | 'info' | 'warn' | 'bad' }> = {
   safe: { label: tk('An toàn'), tone: 'ok' },
@@ -70,33 +71,30 @@ export function SettingsPage() {
   const toast = useToast()
   const [agent, setAgent] = useState<AppConfig['agent'] | null>(null)
   const [hub, setHub] = useState('')
+  const [extra, setExtra] = useState<ExtraCfg | null>(null)
   const [params, setParams] = useSearchParams()
-  const tab = (['agent', 'tools', 'security', 'advanced'] as const).find((t) => t === params.get('tab')) ?? 'agent'
+  const tab = (['agent', 'features', 'tools', 'security', 'advanced'] as const).find((t) => t === params.get('tab')) ?? 'agent'
 
-  useEffect(() => { if (cfg.data) { setAgent(cfg.data.config.agent); setHub(cfg.data.config.clawhub_url) } }, [cfg.data])
+  useEffect(() => { if (cfg.data) { setAgent(cfg.data.config.agent); setHub(cfg.data.config.clawhub_url); const c = cfg.data.config; setExtra({ browser: c.browser, memory: c.memory, media: c.media, computer: c.computer, agents: c.agents }) } }, [cfg.data])
   if (cfg.error) return <Page><ErrorNote error={cfg.error} /></Page>
-  if (!agent || !cfg.data) return <Loading />
-  const dirty = JSON.stringify(agent) !== JSON.stringify(cfg.data.config.agent) || hub !== cfg.data.config.clawhub_url
+  if (!agent || !extra || !cfg.data) return <Loading />
+  const dirty = JSON.stringify(agent) !== JSON.stringify(cfg.data.config.agent) || hub !== cfg.data.config.clawhub_url || JSON.stringify(extra) !== JSON.stringify((({ browser, memory, media, computer, agents }) => ({ browser, memory, media, computer, agents }))(cfg.data.config))
   const num = (k: 'max_steps' | 'max_history') => (e: React.ChangeEvent<HTMLInputElement>) => setAgent({ ...agent, [k]: Number(e.target.value) })
 
   return (
     <Page>
       <PageHeader title={t('Cài đặt')} subtitle={t('Hành vi của agent, tool, bảo mật và các tùy chọn nâng cao.')} action={
         <Button variant="primary" disabled={!dirty} loading={save.isPending}
-          onClick={() => save.mutate({ ...cfg.data.config, agent, clawhub_url: hub }, { onSuccess: () => toast(t('Đã lưu cài đặt')), onError: (e) => toast(errMsg(e), 'bad') })}>{t('Lưu thay đổi')}</Button>
+          onClick={() => save.mutate({ ...cfg.data.config, ...extra, agent, clawhub_url: hub }, { onSuccess: () => toast(t('Đã lưu cài đặt')), onError: (e) => toast(errMsg(e), 'bad') })}>{t('Lưu thay đổi')}</Button>
       } />
       <Tabs value={tab} onChange={(t) => setParams(t === 'agent' ? {} : { tab: t }, { replace: true })}
-        tabs={[{ id: 'agent', label: 'Agent' }, { id: 'tools', label: t('Công cụ') }, { id: 'security', label: t('Bảo mật') }, { id: 'advanced', label: t('Nâng cao') }]} />
+        tabs={[{ id: 'agent', label: t('Cơ bản') }, { id: 'features', label: t('Tính năng') }, { id: 'tools', label: t('Công cụ') }, { id: 'security', label: t('An toàn') }, { id: 'advanced', label: t('Nâng cao') }]} />
       <div className="mt-5 space-y-4">
         {tab === 'agent' && (
           <>
         <Card>
           <CardHeader title={t('Agent')} />
           <div className="grid gap-4 p-5 sm:grid-cols-2">
-            <Field label={t('Số bước tối đa mỗi lượt')} hint={t('Mỗi lần gọi tool tính là một bước.')}><Input type="number" min={1} max={50} value={agent.max_steps} onChange={num('max_steps')} /></Field>
-            <Field label={t('Số tin nhắn gửi kèm')} hint={t('Model nhỏ nên để thấp (10–30) vì context ngắn.')}><Input type="number" min={4} max={500} value={agent.max_history} onChange={num('max_history')} /></Field>
-            <div className="sm:col-span-2"><Field label={t('Thư mục workspace')}><Input value={agent.workspace} onChange={(e) => setAgent({ ...agent, workspace: e.target.value })} /></Field></div>
-            <div className="sm:col-span-2"><Field label={t('Tóm tắt hội thoại khi vượt quá (ký tự)')} hint={t('Khi lịch sử hội thoại dài hơn mức này, phần cũ được tóm tắt để model nhỏ không quên đầu cuộc trò chuyện.')}><Input type="number" min={4000} step={1000} value={agent.compact_chars} onChange={(e) => setAgent({ ...agent, compact_chars: Number(e.target.value) })} /></Field></div>
             <div className="flex items-start justify-between gap-4 sm:col-span-2">
               <div>
                 <p className="text-sm font-medium">{t('Xác nhận trước khi chạy lệnh shell')}</p>
@@ -105,9 +103,19 @@ export function SettingsPage() {
               <Switch checked={agent.confirm_exec} onChange={(v) => setAgent({ ...agent, confirm_exec: v })} label={t('Xác nhận lệnh shell')} />
             </div>
           </div>
+          <details className="group border-t border-line">
+            <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-muted hover:text-fg">{t('Tùy chọn nâng cao')}<span className="ml-2 text-xs font-normal">{t('Mặc định đã ổn, chỉ chỉnh khi bạn biết mình đang làm gì.')}</span></summary>
+            <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
+              <Field label={t('Số bước tối đa mỗi lượt')} hint={t('Mỗi lần gọi tool tính là một bước.')}><Input type="number" min={1} max={50} value={agent.max_steps} onChange={num('max_steps')} /></Field>
+              <Field label={t('Số tin nhắn gửi kèm')} hint={t('Model nhỏ nên để thấp (10–30) vì context ngắn.')}><Input type="number" min={4} max={500} value={agent.max_history} onChange={num('max_history')} /></Field>
+              <div className="sm:col-span-2"><Field label={t('Thư mục workspace')}><Input value={agent.workspace} onChange={(e) => setAgent({ ...agent, workspace: e.target.value })} /></Field></div>
+              <div className="sm:col-span-2"><Field label={t('Tóm tắt hội thoại khi vượt quá (ký tự)')} hint={t('Khi lịch sử hội thoại dài hơn mức này, phần cũ được tóm tắt để model nhỏ không quên đầu cuộc trò chuyện.')}><Input type="number" min={4000} step={1000} value={agent.compact_chars} onChange={(e) => setAgent({ ...agent, compact_chars: Number(e.target.value) })} /></Field></div>
+            </div>
+          </details>
         </Card>
           </>
         )}
+        {tab === 'features' && <FeaturesTab value={extra} onChange={setExtra} providers={Object.keys(cfg.data.config.providers)} tools={cfg.data.tools.map((x) => x.name)} />}
         {tab === 'tools' && (
           <>
         <Card>

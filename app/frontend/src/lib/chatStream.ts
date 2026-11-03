@@ -1,3 +1,5 @@
+import type { PlanItem } from './types'
+
 export type ChatEvent =
   | { type: 'session'; id: string }
   | { type: 'status'; text: string; tpl?: string; vars?: Record<string, string | number> }
@@ -8,6 +10,7 @@ export type ChatEvent =
   | { type: 'tool_result'; id: string; result: string; ok: boolean; duration_ms?: number; decision?: string }
   | { type: 'approval'; id: string; kind: string; detail: string }
   | { type: 'files' }
+  | { type: 'plan'; items: PlanItem[] }
   | { type: 'notice'; message: string; tpl?: string; vars?: Record<string, string | number> }
   | { type: 'error'; message: string; tpl?: string; vars?: Record<string, string | number> }
   | { type: 'done' }

@@ -29,7 +29,21 @@ export interface AppConfig {
   skills: Record<string, SkillEntry>
   mcp_servers: Record<string, McpServerCfg>
   clawhub_url: string
+  browser: { enabled: boolean; headless: boolean; executable: string; allow_private: boolean; idle_minutes: number }
+  memory: { embeddings: 'off' | 'auto' | 'ollama' | 'openai' | 'hash'; provider: string | null; model: string; auto_index: boolean }
+  media: { image_provider: string | null; image_model: string; vision_provider: string | null }
+  computer: { enabled: boolean }
+  agents: { max_depth: number; max_parallel: number; task_max_steps: number; profiles: Record<string, AgentProfile> }
 }
+export interface AgentProfile { description: string; prompt: string; tools: string[]; provider: string | null; max_steps: number }
+export interface MemoryStatus {
+  embedding: { mode: string; backend: string | null; model_id: string | null; dim: number; reachable: boolean; error: string }
+  vectors: { total: number; by_model: Record<string, number>; by_kind: Record<string, number> }
+  notes: number; messages: number; fts: boolean
+  reindex: { running: boolean; done: number; total: number; error: string; finished: number }
+}
+export interface Curation { old: string; new: string; removed: string[]; added: string[]; ok: boolean; reason: string }
+export type ExtraCfg = Pick<AppConfig, 'browser' | 'memory' | 'media' | 'computer' | 'agents'>
 export interface ToolInfo { name: string; description: string; risk: 'safe' | 'file' | 'exec' | 'network' | 'mcp' }
 export interface SecretsStatus { enabled: boolean; source: 'env' | 'keychain' | 'file' | 'none'; encrypted: number; plaintext: number; failed: string[] }
 export interface ConfigResponse { config: AppConfig; tools: ToolInfo[]; secrets?: SecretsStatus }
@@ -56,6 +70,12 @@ export interface HubDetail extends HubSkill {
   changelog?: string | null; license?: string | null; skill_md: string | null
 }
 
+export interface PlanItem { id: number; text: string; status: 'pending' | 'in_progress' | 'done' | 'blocked'; note: string }
+export interface Task {
+  id: string; kind: 'task' | 'subagent'; title: string; goal: string; role: string; status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'interrupted'
+  steps: number; max_steps: number; progress: string; result: string; error: string; session_id: string | null
+  created: number; started: number | null; finished: number | null; cancel_requested: boolean
+}
 export interface Job {
   id: string; name: string; schedule: string; prompt: string; provider: string | null; enabled: boolean
   last_run: number | null; last_status: 'ok' | 'error' | null; last_output: string | null; next_run: number | null; notify: boolean

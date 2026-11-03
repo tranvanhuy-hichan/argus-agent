@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { streamChat, type ChatEvent } from '@/lib/chatStream'
-import type { WireMessage } from '@/lib/types'
+import type { PlanItem, WireMessage } from '@/lib/types'
 import { t } from '@/lib/i18n.ts'
 import { errMsg } from '@/lib/utils'
 
@@ -38,6 +38,7 @@ export function useChat() {
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [filesTick, setFilesTick] = useState(0)
+  const [plan, setPlan] = useState<PlanItem[]>([])
   const abort = useRef<AbortController | null>(null)
   const sessionRef = useRef<string | null>(null)
   sessionRef.current = sessionId
@@ -45,6 +46,7 @@ export function useChat() {
   const apply = useCallback((e: ChatEvent) => {
     if (e.type === 'status') return setStatus(e.tpl ? t(e.tpl, e.vars) : e.text)
     if (e.type === 'files') return setFilesTick((n) => n + 1)
+    if (e.type === 'plan') return setPlan(e.items)
     if (e.type === 'session') { setSessionId(e.id); sessionRef.current = e.id; return }
     setItems((prev) => {
       // thinking dang mo thi dong lai khi co su kien khac
@@ -116,6 +118,7 @@ export function useChat() {
     setSessionId(sid)
     sessionRef.current = sid
     setItems(fromWire(s.messages))
+    api.get<{ items: PlanItem[] }>(`/api/sessions/${sid}/plan`).then((p) => setPlan(p.items)).catch(() => setPlan([]))
   }, [])
 
   const reset = useCallback(() => {
@@ -123,6 +126,7 @@ export function useChat() {
     setSessionId(null)
     sessionRef.current = null
     setItems([])
+    setPlan([])
   }, [])
 
   const decide = useCallback(async (aid: string, ok: boolean) => {
@@ -144,5 +148,5 @@ export function useChat() {
     return { text: m.content, attachments: m.attachments ?? [] }
   }, [])
 
-  return { sessionId, items, busy, status, filesTick, send, stop, open, reset, decide, ensureSession, rewindLast, bumpFiles: () => setFilesTick((n) => n + 1) }
+  return { sessionId, plan, items, busy, status, filesTick, send, stop, open, reset, decide, ensureSession, rewindLast, bumpFiles: () => setFilesTick((n) => n + 1) }
 }

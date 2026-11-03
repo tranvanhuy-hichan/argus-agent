@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { CircleCheck, CircleX, Plus, Trash2, Zap } from 'lucide-react'
+import { ChevronDown, CircleCheck, CircleX, KeyRound, Plus, Star, Trash2, Zap } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
 import { Button } from '@/components/ui/Button'
-import { Card, CardHeader } from '@/components/ui/Card'
-import { Field, Input, Select } from '@/components/ui/Form'
+import { Card } from '@/components/ui/Card'
+import { Field, Input } from '@/components/ui/Form'
 import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
 import { api } from '@/lib/api'
@@ -37,8 +38,31 @@ const PRESETS: Record<string, ProviderCfg> = {
 
 type TestResult = { ok: boolean; reply?: string; error?: string; latency_ms?: number }
 
-function ProviderCard({ name, p, isDefault, models, onChange, onDelete, onMakeDefault }: {
-  name: string; p: ProviderCfg; isDefault: boolean; models: string[]
+/** Dich vu hien o muc "Them mo hinh AI": nhom, mo ta ngan cho nguoi khong chuyen, va mau cau hinh. */
+const SERVICES: { preset: string; label: string; desc: string; group: 'local' | 'cloud'; brand: Brand | null }[] = [
+  { preset: 'Ollama (local)', label: 'Ollama', desc: tk('Chạy ngay trên máy bạn, miễn phí, không gửi dữ liệu đi đâu.'), group: 'local', brand: 'ollama' },
+  { preset: 'LM Studio (local)', label: 'LM Studio', desc: tk('Phần mềm chạy model trên máy bạn, có giao diện dễ dùng.'), group: 'local', brand: 'lmstudio' },
+  { preset: 'Google Gemini', label: 'Google Gemini', desc: tk('Mạnh, nhanh, có hạn mức dùng thử. Dễ bắt đầu nhất.'), group: 'cloud', brand: 'gemini' },
+  { preset: 'Anthropic (Claude)', label: 'Claude', desc: tk('Của Anthropic. Rất tốt cho viết lách và lập trình.'), group: 'cloud', brand: 'claude' },
+  { preset: 'OpenAI', label: 'OpenAI (ChatGPT)', desc: tk('Dịch vụ phổ biến nhất, nhiều model để chọn.'), group: 'cloud', brand: 'openai' },
+  { preset: 'DeepSeek', label: 'DeepSeek', desc: tk('Giá rẻ, mạnh về suy luận và code.'), group: 'cloud', brand: 'deepseek' },
+  { preset: 'OpenRouter', label: 'OpenRouter', desc: tk('Một khóa dùng được hàng trăm model của nhiều hãng.'), group: 'cloud', brand: 'openrouter' },
+  { preset: 'Groq', label: 'Groq', desc: tk('Trả lời cực nhanh.'), group: 'cloud', brand: 'groq' },
+  { preset: CUSTOM, label: tk('Dịch vụ khác'), desc: tk('Bất kỳ dịch vụ nào tương thích OpenAI (nhập địa chỉ và khóa).'), group: 'cloud', brand: null },
+]
+// Cac dich vu chi nam trong "Xem them": van co logo hang.
+const EXTRA_BRANDS: Record<string, Brand> = { 'vLLM / llama.cpp (local)': 'vllm', 'Mistral AI': 'mistral', 'xAI (Grok)': 'xai', Cerebras: 'cerebras', 'Together AI': 'together', 'Fireworks AI': 'fireworks', 'Alibaba Qwen (DashScope)': 'qwen' }
+const OTHER_PRESETS = Object.keys(PRESETS).filter((k) => !SERVICES.some((s) => s.preset === k))
+
+const isLocal = (p: ProviderCfg) => /localhost|127\.0\.0\.1/.test(p.base_url)
+const brandOf = (p: ProviderCfg): Brand | null => {
+  const hit = Object.entries(PRESETS).find(([, c]) => c.base_url === p.base_url && c.type === p.type)?.[0]
+  return hit ? (EXTRA_BRANDS[hit] ?? null) : null
+}
+const hasKey = (p: ProviderCfg) => !!p.api_key || !!p.api_key_env
+
+function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, onDelete, onMakeDefault }: {
+  name: string; p: ProviderCfg; isDefault: boolean; models: string[]; open: boolean; onToggle: () => void
   onChange: (p: ProviderCfg) => void; onDelete: () => void; onMakeDefault: () => void
 }) {
   const [result, setResult] = useState<TestResult | null>(null)
@@ -53,36 +77,27 @@ function ProviderCard({ name, p, isDefault, models, onChange, onDelete, onMakeDe
   })
   const set = <K extends keyof ProviderCfg>(k: K, v: ProviderCfg[K]) => onChange({ ...p, [k]: v })
   const isOllama = p.type === 'openai' && p.base_url.includes('11434')
+  const needsKey = !isLocal(p) && !hasKey(p)
+  const svc = SERVICES.find((x) => PRESETS[x.preset]?.base_url === p.base_url && PRESETS[x.preset]?.type === p.type)
 
   return (
-    <Card>
-      <CardHeader
-        title={<span className="flex items-center gap-2">{name}<Badge>{p.type === 'anthropic' ? 'Anthropic' : 'OpenAI-compatible'}</Badge>{isDefault && <Badge tone="accent">{t('Mặc định')}</Badge>}</span>}
-        action={<div className="flex gap-1.5">{!isDefault && <Button size="sm" variant="ghost" onClick={onMakeDefault}>{t('Đặt làm mặc định')}</Button>}<Button size="sm" variant="ghost" onClick={onDelete} aria-label={t('Xóa {name}', { name })}><Trash2 className="size-4" /></Button></div>}
-      />
-      <div className="grid gap-4 p-5 sm:grid-cols-2">
-        <Field label={t('Model')} hint={<button type="button" onClick={() => { setModelsMsg(''); loadModels.mutate() }} className="text-accent hover:underline disabled:opacity-50" disabled={loadModels.isPending}>{loadModels.isPending ? t('Đang tải…') : t('Tải danh sách model')}{modelsMsg && <span className="ml-2 text-muted">· {modelsMsg}</span>}</button>}>
-          <Input value={p.model} onChange={(e) => set('model', e.target.value)} list={`models-${name}`} />
-          <datalist id={`models-${name}`}>{[...new Set([...fetched, ...(isOllama ? models : [])])].map((m) => <option key={m} value={m} />)}</datalist>
-        </Field>
-        <Field label={t('Nhiệt độ (temperature): {v}', { v: p.temperature })}>
-          <input type="range" min={0} max={2} step={0.1} value={p.temperature} onChange={(e) => set('temperature', parseFloat(e.target.value))} className="mt-2 w-full accent-[var(--accent)]" />
-        </Field>
-        <label className="-mt-2 flex items-center gap-2 text-xs text-muted sm:col-span-2"><input type="checkbox" className="accent-[var(--accent)]" checked={allModels} onChange={(e) => setAllModels(e.target.checked)} />{t('Hiện cả model không dùng để chat (TTS, embedding, ảnh, video)')}</label>
-        {p.type === 'openai' && <div className="sm:col-span-2"><Field label="Base URL"><Input value={p.base_url} onChange={(e) => set('base_url', e.target.value)} /></Field></div>}
-        <Field label="API key" hint={t('Lưu trong config.json (quyền 600).')}><Input type="password" autoComplete="off" value={p.api_key} onChange={(e) => set('api_key', e.target.value)} placeholder={t('Để trống nếu dùng biến môi trường')} /></Field>
-        <Field label={t('Hoặc tên biến môi trường')}><Input value={p.api_key_env} onChange={(e) => set('api_key_env', e.target.value)} placeholder="OPENAI_API_KEY" /></Field>
-        <div className="grid grid-cols-2 gap-4 sm:col-span-2">
-          <Field label={t('Giá vào (USD / 1 triệu token)')} hint={t('Để ước tính chi phí ở Dashboard. Bỏ trống = 0.')}><Input type="number" min={0} step={0.01} value={p.price_in ?? 0} onChange={(e) => set('price_in', Number(e.target.value))} /></Field>
-          <Field label={t('Giá ra (USD / 1 triệu token)')}><Input type="number" min={0} step={0.01} value={p.price_out ?? 0} onChange={(e) => set('price_out', Number(e.target.value))} /></Field>
+    <Card className={cn(isDefault && 'border-accent/50')}>
+      <div className="flex items-start gap-3 p-4">
+        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-panel2"><BrandIcon brand={svc?.brand ?? brandOf(p)} /></div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{name}</span>
+            {isDefault && <Badge tone="accent"><Star className="size-3" />{t('Đang dùng chính')}</Badge>}
+            {needsKey ? <Badge tone="warn"><KeyRound className="size-3" />{t('Cần khóa API')}</Badge> : isLocal(p) ? <Badge>{t('Chạy trên máy bạn')}</Badge> : <Badge tone="ok">{t('Đã có khóa')}</Badge>}
+          </div>
+          <p className="mt-0.5 truncate font-mono text-xs text-muted">{p.model || t('(chưa chọn model)')}</p>
         </div>
-        <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm sm:col-span-2">
-          <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={!!p.vision} onChange={(e) => set('vision', e.target.checked)} />
-          <span><span className="font-medium">{t('Model hiểu được ảnh (vision)')}</span><span className="block text-xs text-muted">{t('Bật thì ảnh bạn đính kèm trong chat được gửi trực tiếp cho model. Chỉ bật nếu model hỗ trợ.')}</span></span>
-        </label>
+        {!isDefault && <Button size="sm" variant="ghost" onClick={onMakeDefault}>{t('Dùng làm chính')}</Button>}
+        <Button size="sm" variant="ghost" onClick={onDelete} aria-label={t('Xóa {name}', { name })}><Trash2 className="size-4" /></Button>
       </div>
-      <div className="flex items-center gap-3 border-t border-line px-5 py-3">
+      <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-2.5">
         <Button size="sm" loading={test.isPending} onClick={() => { setResult(null); test.mutate() }}><Zap className="size-3.5" />{t('Thử kết nối')}</Button>
+        <Button size="sm" variant="ghost" onClick={onToggle} aria-expanded={open}><ChevronDown className={cn('size-3.5 transition', open && 'rotate-180')} />{t('Chỉnh sửa')}</Button>
         {result && (
           <span className={cn('flex min-w-0 items-center gap-1.5 text-xs', result.ok ? 'text-ok' : 'text-bad')}>
             {result.ok ? <CircleCheck className="size-4 shrink-0" /> : <CircleX className="size-4 shrink-0" />}
@@ -90,7 +105,48 @@ function ProviderCard({ name, p, isDefault, models, onChange, onDelete, onMakeDe
           </span>
         )}
       </div>
+      {open && (
+        <div className="space-y-4 border-t border-line p-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {p.type === 'anthropic' || !isLocal(p) ? (
+              <Field label={t('Khóa API')} hint={needsKey ? t('Dán khóa lấy từ trang của nhà cung cấp. Khóa được mã hóa khi lưu.') : t('Đã lưu. Để nguyên nếu không đổi.')}>
+                <Input type="password" autoComplete="off" value={p.api_key} onChange={(e) => set('api_key', e.target.value)} placeholder={t('Dán khóa API vào đây')} />
+              </Field>
+            ) : <div />}
+            <Field label={t('Model')} hint={<button type="button" onClick={() => { setModelsMsg(''); loadModels.mutate() }} className="text-accent hover:underline disabled:opacity-50" disabled={loadModels.isPending}>{loadModels.isPending ? t('Đang tải…') : t('Xem các model có sẵn')}{modelsMsg && <span className="ml-2 text-muted">· {modelsMsg}</span>}</button>}>
+              <Input value={p.model} onChange={(e) => set('model', e.target.value)} list={`models-${name}`} />
+              <datalist id={`models-${name}`}>{[...new Set([...fetched, ...(isOllama ? models : [])])].map((m) => <option key={m} value={m} />)}</datalist>
+            </Field>
+          </div>
+          <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm">
+            <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={!!p.vision} onChange={(e) => set('vision', e.target.checked)} />
+            <span><span className="font-medium">{t('Model hiểu được ảnh (vision)')}</span><span className="block text-xs text-muted">{t('Bật thì ảnh bạn đính kèm trong chat được gửi trực tiếp cho model. Chỉ bật nếu model hỗ trợ.')}</span></span>
+          </label>
+          <details>
+            <summary className="cursor-pointer select-none text-sm text-muted hover:text-fg">{t('Tùy chọn nâng cao')}</summary>
+            <div className="mt-3 grid gap-4 lg:grid-cols-2">
+              {p.type === 'openai' && <div className="lg:col-span-2"><Field label={t('Địa chỉ máy chủ (Base URL)')}><Input value={p.base_url} onChange={(e) => set('base_url', e.target.value)} className="font-mono" /></Field></div>}
+              <Field label={t('Hoặc lấy khóa từ biến môi trường')}><Input value={p.api_key_env} onChange={(e) => set('api_key_env', e.target.value)} placeholder="OPENAI_API_KEY" className="font-mono" /></Field>
+              <Field label={t('Độ sáng tạo (temperature): {v}', { v: p.temperature })} hint={t('Thấp = chắc chắn, cao = bay bổng. 0.7 là hợp lý.')}>
+                <input type="range" min={0} max={2} step={0.1} value={p.temperature} onChange={(e) => set('temperature', parseFloat(e.target.value))} className="mt-2 w-full accent-[var(--accent)]" />
+              </Field>
+              <Field label={t('Giá vào (USD / 1 triệu token)')} hint={t('Chỉ để ước tính chi phí ở trang Thống kê. Bỏ trống = 0.')}><Input type="number" min={0} step={0.01} value={p.price_in ?? 0} onChange={(e) => set('price_in', Number(e.target.value))} /></Field>
+              <Field label={t('Giá ra (USD / 1 triệu token)')}><Input type="number" min={0} step={0.01} value={p.price_out ?? 0} onChange={(e) => set('price_out', Number(e.target.value))} /></Field>
+              <label className="flex items-center gap-2 text-xs text-muted lg:col-span-2"><input type="checkbox" className="accent-[var(--accent)]" checked={allModels} onChange={(e) => setAllModels(e.target.checked)} />{t('Khi xem model, hiện cả loại không dùng để chat (giọng nói, embedding, ảnh, video)')}</label>
+            </div>
+          </details>
+        </div>
+      )}
     </Card>
+  )
+}
+
+function Tile({ brand, label, desc, onClick }: { brand: Brand | null; label: string; desc: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="flex items-start gap-3 rounded-xl border border-line bg-panel p-4 text-left transition hover:border-accent/60">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-panel2">{brand ? <BrandIcon brand={brand} /> : <Plus className="size-5 text-muted" />}</span>
+      <span className="min-w-0"><span className="block font-medium">{label}</span><span className="mt-0.5 block text-xs text-muted">{desc}</span></span>
+    </button>
   )
 }
 
@@ -99,8 +155,8 @@ export function ProvidersPage() {
   const save = useSaveConfig()
   const toast = useToast()
   const [draft, setDraft] = useState<Pick<AppConfig, 'providers' | 'default_provider' | 'fallback'> | null>(null)
-  const [preset, setPreset] = useState(Object.keys(PRESETS)[0])
   const [models, setModels] = useState<string[]>([])
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (cfg.data) setDraft({ providers: cfg.data.config.providers, default_provider: cfg.data.config.default_provider, fallback: cfg.data.config.fallback })
@@ -111,45 +167,71 @@ export function ProvidersPage() {
   if (!draft || !cfg.data) return <Loading />
   const names = Object.keys(draft.providers)
   const dirty = JSON.stringify(draft) !== JSON.stringify({ providers: cfg.data.config.providers, default_provider: cfg.data.config.default_provider, fallback: cfg.data.config.fallback })
+  const toggle = (n: string) => setOpenCards((s) => { const x = new Set(s); if (x.has(n)) x.delete(n); else x.add(n); return x })
 
-  const add = () => {
-    const base = preset.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+  const add = (preset: string) => {
+    const base = preset.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'custom'
     let n = base, i = 2
     while (draft.providers[n]) n = `${base}${i++}`
     setDraft({ ...draft, providers: { ...draft.providers, [n]: { ...PRESETS[preset] } } })
+    setOpenCards((s) => new Set(s).add(n))
+    toast(t('Đã thêm {name}. Điền khóa API rồi bấm Lưu thay đổi.', { name: n }))
   }
   const remove = (n: string) => {
-    if (names.length < 2) return toast(t('Cần ít nhất một provider'), 'bad')
+    if (names.length < 2) return toast(t('Cần ít nhất một mô hình'), 'bad')
     const { [n]: _, ...rest } = draft.providers
     const left = Object.keys(rest)
     setDraft({ providers: rest, default_provider: draft.default_provider === n ? left[0] : draft.default_provider, fallback: draft.fallback.filter((f) => f !== n) })
   }
-  const onSave = () => save.mutate({ ...cfg.data.config, ...draft }, { onSuccess: () => toast(t('Đã lưu providers')), onError: (e) => toast(errMsg(e), 'bad') })
+  const onSave = () => save.mutate({ ...cfg.data.config, ...draft }, { onSuccess: () => toast(t('Đã lưu')), onError: (e) => toast(errMsg(e), 'bad') })
+  const others = names.filter((n) => n !== draft.default_provider)
 
   return (
     <Page>
-      <PageHeader title={t('Nhà cung cấp')} subtitle={t('Kết nối model local (Ollama) hoặc bất kỳ API nào tương thích OpenAI, cùng Claude.')} action={<Button variant="primary" disabled={!dirty} loading={save.isPending} onClick={onSave}>{t('Lưu thay đổi')}</Button>} />
-      <div className="space-y-4">
-        <Card>
-          <CardHeader title={t('Dự phòng (fallback)')} hint={t('Khi provider đang dùng lỗi, agent tự thử lần lượt các provider được chọn.')} />
-          <div className="flex flex-wrap gap-x-5 gap-y-2 p-5">
-            {names.filter((n) => n !== draft.default_provider).map((n) => (
+      <PageHeader title={t('Mô hình AI')} subtitle={t('Đây là “bộ não” của agent. Chọn một dịch vụ, dán khóa là dùng được. Bạn có thể thêm nhiều mô hình và đổi qua lại bất cứ lúc nào.')}
+        action={<Button variant="primary" disabled={!dirty} loading={save.isPending} onClick={onSave}>{t('Lưu thay đổi')}</Button>} />
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold">{t('Mô hình của bạn')}</h2>
+        <div className="grid items-start gap-3 xl:grid-cols-2">
+          {names.map((n) => (
+            <ProviderCard key={n} name={n} p={draft.providers[n]} isDefault={n === draft.default_provider} models={models} open={openCards.has(n)} onToggle={() => toggle(n)}
+              onChange={(p) => setDraft({ ...draft, providers: { ...draft.providers, [n]: p } })} onDelete={() => remove(n)}
+              onMakeDefault={() => setDraft({ ...draft, default_provider: n, fallback: draft.fallback.filter((f) => f !== n) })} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold">{t('Thêm mô hình AI')}</h2>
+        <p className="mb-3 mt-0.5 text-xs text-muted">{t('Bấm vào một dịch vụ để thêm. Dịch vụ đám mây cần khóa API (lấy trên trang của họ); loại chạy trên máy bạn thì không cần.')}</p>
+        {(['local', 'cloud'] as const).map((g) => (
+          <div key={g} className="mb-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted/80">{g === 'local' ? t('Chạy trên máy bạn') : t('Dịch vụ đám mây')}</p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {SERVICES.filter((x) => x.group === g).map((x) => <Tile key={x.preset} brand={x.brand} label={t(x.label)} desc={t(x.desc)} onClick={() => add(x.preset)} />)}
+            </div>
+          </div>
+        ))}
+        <details>
+          <summary className="cursor-pointer select-none text-xs text-muted hover:text-fg">{t('Xem thêm dịch vụ')}</summary>
+          <div className="mt-2 flex flex-wrap gap-2">{OTHER_PRESETS.map((k) => <Button key={k} size="sm" onClick={() => add(k)}><BrandIcon brand={EXTRA_BRANDS[k]} className="size-4" />{t(k)}</Button>)}</div>
+        </details>
+      </section>
+
+      {others.length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-sm font-semibold">{t('Mô hình dự phòng')}</h2>
+          <p className="mb-3 mt-0.5 text-xs text-muted">{t('Nếu mô hình chính bị lỗi hoặc quá tải, agent tự chuyển sang các mô hình bạn tick dưới đây, theo thứ tự.')}</p>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {others.map((n) => (
               <label key={n} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" className="accent-[var(--accent)]" checked={draft.fallback.includes(n)} onChange={(e) => setDraft({ ...draft, fallback: e.target.checked ? [...draft.fallback, n] : draft.fallback.filter((f) => f !== n) })} />{n}
               </label>
             ))}
-            {names.length < 2 && <p className="text-sm text-muted">{t('Thêm provider thứ hai để dùng làm dự phòng.')}</p>}
           </div>
         </Card>
-        {names.map((n) => (
-          <ProviderCard key={n} name={n} p={draft.providers[n]} isDefault={n === draft.default_provider} models={models}
-            onChange={(p) => setDraft({ ...draft, providers: { ...draft.providers, [n]: p } })} onDelete={() => remove(n)} onMakeDefault={() => setDraft({ ...draft, default_provider: n, fallback: draft.fallback.filter((f) => f !== n) })} />
-        ))}
-        <Card className="flex flex-wrap items-center gap-3 p-4">
-          <Select value={preset} onChange={(e) => setPreset(e.target.value)} className="w-64" aria-label={t('Mẫu provider')}>{Object.keys(PRESETS).map((p) => <option key={p} value={p}>{t(p)}</option>)}</Select>
-          <Button onClick={add}><Plus className="size-4" />{t('Thêm provider')}</Button>
-        </Card>
-      </div>
+      )}
     </Page>
   )
 }

@@ -129,7 +129,7 @@ export function HomePage() {
             <div className="flex items-center gap-4">
               <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-accent text-accent-fg shadow-lg shadow-accent/20"><Bot className="size-7" /></div>
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight">{greet} 👋</h1>
+                <h1 className="text-3xl font-semibold tracking-tight">{greet}</h1>
                 <p className="mt-0.5 text-muted">{t('Hôm nay bạn muốn agent giúp gì?')}</p>
               </div>
             </div>
@@ -149,7 +149,7 @@ export function HomePage() {
               <Ring done={doneCount} total={steps.length} />
               <div className="min-w-0">
                 <h2 className="font-semibold">{t('Hoàn tất thiết lập')}</h2>
-                <p className="text-xs text-muted">{doneCount === steps.length ? t('Bạn đã thiết lập đầy đủ 🎉') : t('{done}/{total} hoàn thành', { done: doneCount, total: steps.length })}</p>
+                <p className="text-xs text-muted">{doneCount === steps.length ? t('Bạn đã thiết lập đầy đủ') : t('{done}/{total} hoàn thành', { done: doneCount, total: steps.length })}</p>
               </div>
             </div>
             {doneCount < steps.length && (
@@ -198,7 +198,7 @@ export function HomePage() {
 
       <section className="mt-4 grid items-stretch gap-4 xl:grid-cols-3">
         <Card className="flex flex-col xl:col-span-2">
-          <CardHeader title={t('Hoạt động {n} ngày qua', { n: d.days })} action={<Link to="/dashboard" className="flex items-center gap-1 text-xs text-accent hover:underline">{t('Bảng điều khiển')}<ArrowRight className="size-3" /></Link>} />
+          <CardHeader title={t('Hoạt động {n} ngày qua', { n: d.days })} action={<Link to="/activity" className="flex items-center gap-1 text-xs text-accent hover:underline">{t('Bảng điều khiển')}<ArrowRight className="size-3" /></Link>} />
           <div className="min-h-72 flex-1 p-4">
             {d.totals.llm_calls === 0 ? <p className="grid h-full place-items-center text-sm text-muted">{t('Chưa có dữ liệu. Hãy trò chuyện với agent để bắt đầu.')}</p>
               : <Suspense fallback={<Loading />}><ActivityChart data={d.series} /></Suspense>}
@@ -232,7 +232,7 @@ export function HomePage() {
         </Card>
 
         <Card className="flex min-h-72 flex-col">
-          <CardHeader title={t('Hoạt động gần đây của agent')} action={<Link to="/audit" className="flex items-center gap-1 text-xs text-accent hover:underline">{t('Nhật ký hoạt động')}<ArrowRight className="size-3" /></Link>} />
+          <CardHeader title={t('Hoạt động gần đây của agent')} action={<Link to="/activity?tab=log" className="flex items-center gap-1 text-xs text-accent hover:underline">{t('Nhật ký hoạt động')}<ArrowRight className="size-3" /></Link>} />
           {!audit.data?.items.length ? <Empty icon={Activity} text={t('Chưa có hoạt động.')} to="/chat" cta={t('Giao việc đầu tiên')} /> : audit.data.items.map((a) => (
             <div key={a.id} className="flex items-center gap-2 border-b border-line px-5 py-3 text-sm last:border-b-0">
               <Activity className="size-3.5 shrink-0 text-muted" /><span className="font-mono text-[13px]">{a.tool}</span>

@@ -6,9 +6,11 @@ import { t, tk } from '@/lib/i18n.ts'
 import { T } from '@/lib/T.tsx'
 import { cn } from '@/lib/utils'
 import { Markdown } from './Markdown'
+import { Images, SpeakButton } from './Media'
+import { stripImageMarks } from './session'
 import type { Item, ToolItem } from './useChat'
 
-const KIND_LABEL: Record<string, string> = { http_request: tk('gửi yêu cầu HTTP thay đổi dữ liệu'), mcp: tk('gọi tool MCP'), exec: tk('chạy lệnh shell'), file_read: tk('đọc file ngoài workspace'), file_write: tk('ghi file') }
+const KIND_LABEL: Record<string, string> = { http_request: tk('gửi yêu cầu HTTP thay đổi dữ liệu'), mcp: tk('gọi tool MCP'), exec: tk('chạy lệnh shell'), file_read: tk('đọc file ngoài workspace'), file_write: tk('ghi file'), browser: tk('điều khiển trình duyệt'), image: tk('tạo ảnh (có thể tốn phí)'), computer: tk('điều khiển máy tính (chuột, bàn phím, màn hình)') }
 const RISK_ICON = { exec: Terminal, file: FileText, network: Globe, mcp: Cable } as const
 
 export const fmtMs = (ms?: number) => (ms === undefined ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`)
@@ -48,6 +50,7 @@ function ToolCard({ item, onOpenFile }: { item: ToolItem; onOpenFile: (p: string
         {running ? <Badge tone="info">{t('đang chạy')}</Badge> : item.ok === false ? <Badge tone="bad">{t('lỗi')}</Badge> : <Badge tone="ok">{t('xong')}</Badge>}
         {path && <button onClick={() => onOpenFile(path)} className="rounded border border-line px-1.5 py-0.5 text-[11px] text-accent hover:bg-panel2">{t('Mở file')}</button>}
       </div>
+      {item.result && <div className="px-3 pb-2"><Images text={item.result} onOpen={onOpenFile} /></div>}
       {open && (
         <div className="space-y-2 border-t border-line p-3">
           <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-muted">{JSON.stringify(item.args, null, 2)}</pre>
@@ -133,10 +136,12 @@ export function MessageView({ item, onDecide, onOpenFile, isLastUser, isLastAssi
         <div className="fade-in group flex gap-3">
           <div className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-accent text-accent-fg"><Bot className="size-4" /></div>
           <div className="min-w-0 flex-1 pt-0.5">
-            <div className={cn(item.streaming && 'caret')}><Markdown text={item.text} /></div>
+            <div className={cn(item.streaming && 'caret')}><Markdown text={stripImageMarks(item.text)} /></div>
+            {!item.streaming && <Images text={item.text} onOpen={onOpenFile} />}
             {!item.streaming && (
               <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted">
                 {item.provider && <span>{t('qua {provider}', { provider: item.provider })}{item.duration ? ` · ${fmtMs(item.duration)}` : ''}</span>}
+                <SpeakButton text={item.text} />
                 {isLastAssistant && canAct && <button onClick={onRegenerate} className="flex items-center gap-1 hover:text-fg"><RefreshCw className="size-3" />{t('Tạo lại')}</button>}
               </div>
             )}
