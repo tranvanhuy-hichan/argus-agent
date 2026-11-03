@@ -7,7 +7,7 @@ from datetime import datetime
 from threading import Event
 
 from ..core import config as cfgmod
-from . import audit, compaction, mcp_client, sessions, skills as skillmod, tools, usage, workfiles
+from . import audit, compaction, mcp_client, plans, sessions, skills as skillmod, tools, usage, workfiles
 from .providers import ProviderError, make_provider
 
 PROMPT_FILES = ("SOUL.md", "USER.md", "MEMORY.md")
@@ -22,7 +22,7 @@ def ui_event(kind: str, tpl: str, **vars) -> dict:
     return {"type": kind, "message" if kind != "status" else "text": text, "tpl": tpl, "vars": vars}
 
 
-def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str = "") -> str:
+def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str = "", sid: str | None = None, has_planning: bool = False) -> str:
     ws = cfg.workspace_path()
     parts = []
     for name in PROMPT_FILES:
@@ -38,6 +38,10 @@ def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str 
     block = skillmod.prompt_block(skills)
     if block:
         parts.append(block)
+    if sid and (plan := plans.prompt_block(sid)):
+        parts.append(plan)
+    if has_planning:
+        parts.append("Với việc phức tạp nhiều bước: lập kế hoạch bằng plan_set trước rồi làm lần lượt. Việc cần chuyên môn riêng hoặc làm song song: giao cho agent con bằng delegate. Việc rất dài: task_start để chạy nền.")
     return "\n\n".join(parts)
 
 
@@ -61,7 +65,8 @@ def _images(workdir, names: list[str]) -> list[dict]:
 
 
 PERMISSIONS = ("default", "readonly", "guarded", "full")
-READONLY_BLOCKED = {"write", "edit", "remember", "http_request"}
+READONLY_BLOCKED = {"write", "edit", "remember", "http_request", "generate_image", "browser_click", "browser_type", "browser_press", "task_start"} | {
+    "computer_screenshot", "computer_click", "computer_type", "computer_key", "computer_move", "computer_scroll"}
 READONLY_NOTE = "Chế độ CHỈ ĐỌC: bạn không được ghi/sửa file, chạy lệnh shell hay thay đổi dữ liệu; các tool đó đã bị tắt. Hãy chỉ đọc và tra cứu."
 
 
@@ -111,10 +116,11 @@ def _stream_with_retry(name: str, pcfg: cfgmod.ProviderCfg, messages: list[dict]
 
 def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[[str, str], bool],
              emit: Callable[[dict], None], cancel: Event | None = None, only_tools: list[str] | None = None,
-             source: str = "chat", attachments: list[str] | None = None, permission: str = "default", effort: str | None = None) -> None:
+             source: str = "chat", attachments: list[str] | None = None, permission: str = "default", effort: str | None = None,
+             system_extra: str = "", max_steps: int | None = None, depth: int = 0, job_id: str | None = None, workdir_sid: str | None = None) -> None:
     cfg = cfgmod.load()
     skills = skillmod.discover(cfg)
-    workdir = workfiles.session_dir(cfg, sid)
+    workdir = workfiles.session_dir(cfg, workdir_sid or sid)  # agent con/viec nen dung chung thu muc voi phien da giao viec
     workdir.mkdir(parents=True, exist_ok=True)
     decision: dict[str, str] = {}
 
@@ -126,6 +132,8 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     ctx = tools.ToolContext(workspace=cfg.workspace_path(), cwd=workdir, approver=recording_approver, confirm_exec=cfg.agent.confirm_exec,
                             env=skillmod.env_for(skills, cfg), enabled=cfg.agent.tools_enabled, skills={n: s for n, s in skills.items() if s.active},
                             sandbox={"mode": cfg.agent.exec_sandbox, "image": cfg.agent.sandbox_image, "network": cfg.agent.sandbox_network})
+    ctx.depth = depth
+    ctx.session_id, ctx.permission, ctx.provider, ctx.emit, ctx.cancel = sid, permission if permission in ("default", "readonly", "guarded", "full") else "default", provider, emit, cancel
     ctx.extra = mcp_client.manager.tool_defs()
     if only_tools is not None:  # gioi han tool cho rieng luot nay (dung cho API ben ngoai)
         ctx.enabled = {n: n in only_tools for n in [*tools.TOOLS, *ctx.extra]}
@@ -148,10 +156,13 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     current = _augment(user_msg)
     if attachments and cfg.providers[first].vision:
         current["images"] = _images(workdir, attachments)
-    messages = [{"role": "system", "content": build_system_prompt(cfg, skills, workdir, sess.get("summary", "")) + (f"\n\n{perm_note}" if perm_note else "")}] \
+    has_planning = "plan_set" in tools.TOOLS and ctx.enabled.get("plan_set", True)
+    system = build_system_prompt(cfg, skills, workdir, sess.get("summary", ""), sid, has_planning) + (f"\n\n{perm_note}" if perm_note else "") + (f"\n\n{system_extra}" if system_extra else "")
+    messages = [{"role": "system", "content": system}] \
         + [_augment(m) for m in _window(history, cfg.agent.max_history)] + [current]
 
-    for step in range(cfg.agent.max_steps):
+    limit = max_steps or cfg.agent.max_steps
+    for step in range(limit):
         if cancel and cancel.is_set():
             return
         result = None
@@ -187,14 +198,28 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
                   "duration_ms": int((time.time() - t0) * 1000)})
         if not result["tool_calls"]:
             return
+        parallel = {}  # nhieu delegate trong cung mot luot => chay dong thoi
+        delegates = [c for c in result["tool_calls"] if c["name"] == "delegate"]
+        if len(delegates) > 1:
+            from concurrent.futures import ThreadPoolExecutor
+
+            pool = ThreadPoolExecutor(max_workers=min(len(delegates), cfg.agents.max_parallel + 4))
+            for c in delegates:
+                emit({"type": "tool", "id": c["id"], "name": c["name"], "args": c["args"], "risk": "agent"})
+            parallel = {c["id"]: (pool.submit(tools.call, ctx, c["name"], c["args"]), time.time()) for c in delegates}
         for c in result["tool_calls"]:
             if cancel and cancel.is_set():
                 return
             tdef = tools.TOOLS.get(c["name"]) or ctx.extra.get(c["name"])
-            emit({"type": "tool", "id": c["id"], "name": c["name"], "args": c["args"], "risk": tdef.risk if tdef else "unknown"})
+            if c["id"] not in parallel:
+                emit({"type": "tool", "id": c["id"], "name": c["name"], "args": c["args"], "risk": tdef.risk if tdef else "unknown"})
             decision.clear()
             t0 = time.time()
-            out, ok = tools.call(ctx, c["name"], c["args"])
+            if c["id"] in parallel:
+                (fut, t0) = parallel[c["id"]]
+                out, ok = fut.result()
+            else:
+                out, ok = tools.call(ctx, c["name"], c["args"])
             ms = int((time.time() - t0) * 1000)
             usage.record_tool(c["name"], ok, ms, sid)
             dec = decision.get("last") or ("full_access" if permission == "full" and tdef and tdef.risk in ("exec", "mcp", "file", "network") else "auto")
@@ -204,4 +229,4 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
             sessions.add_message(sid, tmsg)
             emit({"type": "tool_result", "id": c["id"], "result": out[:4000], "ok": ok, "duration_ms": ms, "decision": dec})
             emit({"type": "files"})
-    emit(ui_event("error", "Vượt quá số bước tối đa ({n})", n=cfg.agent.max_steps))
+    emit(ui_event("error", "Vượt quá số bước tối đa ({n})", n=limit))

@@ -25,6 +25,12 @@ class ToolContext:
     skills: dict = field(default_factory=dict)  # name -> skills.Skill
     extra: dict = field(default_factory=dict)  # name -> ToolDef (tool dong, vd. tu MCP)
     cwd: Path | None = None  # thu muc lam viec cua phien; duong dan tuong doi tinh tu day
+    session_id: str | None = None
+    depth: int = 0  # do sau cua agent con (0 = agent chinh)
+    permission: str = "default"
+    provider: str | None = None
+    emit: Callable[[dict], None] = lambda ev: None  # gui su kien ra giao dien (plan, anh...)
+    cancel: object | None = None  # threading.Event; tool chay lau nen kiem tra de dung som
     confirm_writes: bool = False  # che do 'Hoi truoc': hoi ca khi ghi file/goi HTTP thay doi trong phien
     full_access: bool = False  # che do 'Toan quyen': khong hoi xac nhan nao
     sandbox: dict = field(default_factory=dict)  # {"mode": "none|docker", "image", "network"}
@@ -53,7 +59,7 @@ DENIED = "KHÔNG THỰC HIỆN: yêu cầu bị từ chối nên CHƯA được 
 
 def tool(name: str, description: str, params: dict[str, tuple[str, str]], required: list[str] | None = None, risk: str = "safe"):
     def deco(fn):
-        props = {k: {"type": t, "description": d} for k, (t, d) in params.items()}
+        props = {k: ({"type": t, "description": d, "items": {"type": "string"}} if t == "array" else {"type": t, "description": d}) for k, (t, d) in params.items()}
         TOOLS[name] = ToolDef(name, description, {"type": "object", "properties": props, "required": list(params) if required is None else required}, fn, risk)
         return fn
     return deco
@@ -279,3 +285,19 @@ def notify(ctx, title, message):
     from . import notifications
     notifications.add(title, message, source="agent")
     return "đã gửi thông báo"
+
+
+# ---- cac module tool bo sung tu dang ky khi import (ke hoach, agent con, trinh duyet, bo nho, anh, may tinh).
+# Module chua ton tai thi bo qua; loi ben trong module (thieu thu vien...) duoc ghi lai de `argus doctor` bao.
+import importlib  # noqa: E402
+
+OPTIONAL_MODULES = ("tools_plan", "tools_agents", "tools_browser", "tools_memory", "tools_media", "tools_computer")
+LOAD_ERRORS: dict[str, str] = {}
+for _m in OPTIONAL_MODULES:
+    try:
+        importlib.import_module(f"{__package__}.{_m}")
+    except ModuleNotFoundError as _e:
+        if _e.name != f"{__package__}.{_m}":
+            LOAD_ERRORS[_m] = str(_e)
+    except Exception as _e:  # noqa: BLE001 - mot module loi khong duoc lam sap ca he thong tool
+        LOAD_ERRORS[_m] = f"{type(_e).__name__}: {_e}"

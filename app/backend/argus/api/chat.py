@@ -14,7 +14,7 @@ router = APIRouter()
 
 @router.get("/sessions")
 def list_sessions(q: str = ""):
-    return sessions.list_all(q=q)
+    return [s for s in sessions.list_all(q=q) if s["source"] != "subagent"]  # phien cua agent con xem o trang Viec nen
 
 
 class NewSession(BaseModel):

@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS notifications(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
   source TEXT, session_id TEXT, read INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS plans(session_id TEXT PRIMARY KEY, items TEXT NOT NULL, updated REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS jobs(
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT, goal TEXT NOT NULL, role TEXT, status TEXT NOT NULL,
+  session_id TEXT, parent_session TEXT, parent_job TEXT, depth INTEGER DEFAULT 0,
+  permission TEXT DEFAULT 'default', provider TEXT, steps INTEGER DEFAULT 0, max_steps INTEGER,
+  progress TEXT, result TEXT, error TEXT, cancel_requested INTEGER DEFAULT 0, notify INTEGER DEFAULT 1,
+  created REAL, started REAL, finished REAL);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, created);
 CREATE TABLE IF NOT EXISTS channel_links(
   channel TEXT NOT NULL, external_id TEXT NOT NULL, session_id TEXT NOT NULL, PRIMARY KEY(channel, external_id));
 """

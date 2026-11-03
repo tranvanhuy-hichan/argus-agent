@@ -13,7 +13,7 @@ from .core.env import getenv
 from .core.paths import DIST
 from .core.workspace import ensure_workspace
 from .core import config as cfgmod
-from .services import auth, heartbeat, scheduler
+from .services import auth, heartbeat, jobs, scheduler
 from .services.telegram_channel import channel as telegram
 from .services.mcp_client import manager as mcp_manager
 
@@ -29,6 +29,7 @@ DEV_ORIGINS = set(filter(None, getenv("DEV_ORIGINS").split(",")))
 async def lifespan(_: FastAPI):
     db.init()
     ensure_workspace(cfgmod.load())
+    jobs.recover_interrupted()
     scheduler.start()
     mcp_manager.start()
     cfg = cfgmod.load()
@@ -72,6 +73,17 @@ async def validation_handler(_, exc: ValidationError):
 for module in (system, chat, skills, dashboard, integrations, files, activity, channels):
     app.include_router(module.router, prefix="/api")
 app.include_router(external.router)
+
+# router bo sung (api/<ten>.py co `AUTO = True` va `router`) duoc tu dong nap; khong can sua file nay
+import importlib  # noqa: E402
+import pkgutil  # noqa: E402
+
+from . import api as _api_pkg  # noqa: E402
+
+for _mod in pkgutil.iter_modules(_api_pkg.__path__):
+    _m = importlib.import_module(f"{_api_pkg.__name__}.{_mod.name}")
+    if getattr(_m, "AUTO", False) and hasattr(_m, "router"):
+        app.include_router(_m.router, prefix="/api")
 
 if (DIST / "assets").is_dir():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"))

@@ -47,7 +47,7 @@ def check_environment() -> list[Check]:
     node = shutil.which("node")
     out.append(Check(g, "Node.js", "ok" if node else "info", node or L("không có (chỉ cần để build giao diện và chạy MCP server qua npx)", "not found (only needed to build the UI and run MCP servers via npx)")))
     out.append(Check(g, L("Giao diện web", "Web UI"), "ok" if (DIST / "index.html").exists() else "warn",
-                     L("đã build", "built") if (DIST / "index.html").exists() else L("chưa build", "not built"), "" if (DIST / "index.html").exists() else "cd frontend && npm install && npm run build"))
+                     L("đã build", "built") if (DIST / "index.html").exists() else L("chưa build", "not built"), "" if (DIST / "index.html").exists() else "cd app/frontend && npm install && npm run build"))
     return out
 
 
@@ -225,8 +225,61 @@ def check_tools(offline: bool) -> list[Check]:
     return out
 
 
+def check_features(offline: bool) -> list[Check]:
+    """Tính năng mở rộng: trình duyệt, ảnh, trí nhớ ngữ nghĩa, điều khiển máy tính và các tool nạp lỗi."""
+    g = L("Tính năng mở rộng", "Extended features")
+    cfg = cfgmod.load()
+    out: list[Check] = []
+    from ..services import tools
+
+    for mod, err in getattr(tools, "LOAD_ERRORS", {}).items():
+        out.append(Check(g, f"tool: {mod}", "fail", str(err)[:120]))
+    if not cfg.browser.enabled:
+        out.append(Check(g, L("Trình duyệt", "Browser"), "info", L("tắt", "off")))
+    elif offline:
+        out.append(Check(g, L("Trình duyệt", "Browser"), "info", L("bỏ qua (chế độ offline)", "skipped (offline mode)")))
+    else:
+        try:
+            from ..services.browser import manager
+
+            b = manager.status()
+            if b["launchable"]:
+                out.append(Check(g, L("Trình duyệt", "Browser"), "ok", b["executable"]))
+            else:
+                out.append(Check(g, L("Trình duyệt", "Browser"), "warn", b["error"] or "?", "pip install playwright; sudo apt install chromium"))
+        except Exception as e:  # noqa: BLE001
+            out.append(Check(g, L("Trình duyệt", "Browser"), "warn", f"{type(e).__name__}: {e}"[:120]))
+    try:
+        from ..services import embeddings
+
+        e = embeddings.status(cfg)
+        detail = f"{e['model_id'] or '-'}" + (L(" (chỉ khớp từ gần giống, chưa hiểu nghĩa)", " (fuzzy lexical only, no real semantics)") if e["backend"] == "hash" else "")
+        out.append(Check(g, L("Trí nhớ ngữ nghĩa", "Semantic memory"), "ok" if e["reachable"] else ("info" if e["mode"] == "off" else "warn"), detail if e["reachable"] else (e["error"] or L("tắt", "off"))))
+    except Exception as e:  # noqa: BLE001
+        out.append(Check(g, L("Trí nhớ ngữ nghĩa", "Semantic memory"), "warn", str(e)[:120]))
+    try:
+        from ..services import tools_media
+
+        m = tools_media.status()
+        out.append(Check(g, L("Tạo ảnh", "Image generation"), "ok" if m.get("image_ok") else "info", f"{m.get('image_provider')} / {m['image_model']}" if m.get("image_ok") else m.get("image_hint", "")))
+        out.append(Check(g, L("Xem ảnh", "Vision"), "ok" if m.get("vision_ok") else "info", str(m.get("vision_provider")) if m.get("vision_ok") else m.get("vision_hint", "")))
+    except Exception as e:  # noqa: BLE001
+        out.append(Check(g, L("Ảnh", "Images"), "warn", str(e)[:120]))
+    try:
+        from ..services import tools_computer
+
+        c = tools_computer.status()
+        if not c["enabled"]:
+            out.append(Check(g, L("Điều khiển máy tính", "Computer control"), "info", L("tắt (mặc định)", "off (default)")))
+        else:
+            out.append(Check(g, L("Điều khiển máy tính", "Computer control"), "warn" if c["hint"] else "ok", c["hint"] or f"{c['platform']}: {', '.join(c['input_tools'])}"))
+    except Exception as e:  # noqa: BLE001
+        out.append(Check(g, L("Điều khiển máy tính", "Computer control"), "warn", str(e)[:120]))
+    return out
+
+
 def run(offline: bool = False, fix: bool = False, as_json: bool = False) -> int:
-    checks = check_environment() + check_storage(fix) + check_server() + check_providers(offline) + check_tools(offline)
+    checks = check_environment() + check_storage(fix) + check_server() + check_providers(offline) + check_tools(offline) + check_features(offline)
     if fix and not (DIST / "index.html").exists():
         daemon.ensure_frontend(True)
     if as_json:

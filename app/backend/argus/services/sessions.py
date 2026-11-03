@@ -33,6 +33,11 @@ def delete(sid: str) -> None:
     with db() as c:
         c.execute("DELETE FROM messages_fts WHERE session_id=?", (sid,)) if dbmod.fts_enabled else None
         c.execute("DELETE FROM sessions WHERE id=?", (sid,))
+    try:
+        from . import vectorstore
+        vectorstore.delete_session(sid)
+    except Exception:  # noqa: BLE001 - kho vector khong duoc lam hong viec xoa phien
+        pass
 
 
 def rename(sid: str, title: str) -> None:
@@ -70,6 +75,12 @@ def add_message(sid: str, msg: dict) -> None:
         c.execute("UPDATE sessions SET updated=? WHERE id=?", (now, sid))
         if dbmod.fts_enabled and msg["role"] in ("user", "assistant") and msg.get("content"):
             c.execute("INSERT INTO messages_fts(folded, content, session_id, role) VALUES(?,?,?,?)", (fold(msg["content"]), msg["content"], sid, msg["role"]))
+    if msg["role"] in ("user", "assistant") and msg.get("content"):
+        try:
+            from . import memory_index
+            memory_index.enqueue_message(sid, msg["role"], msg["content"], now)
+        except Exception:  # noqa: BLE001 - chi muc vector khong duoc lam hong chat
+            pass
 
 
 def truncate_from(sid: str, index: int) -> None:

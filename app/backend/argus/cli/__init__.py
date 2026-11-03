@@ -149,6 +149,13 @@ def build_parser() -> argparse.ArgumentParser:
     ss.add_parser("file", help=L("chuyển khóa chủ về file data/master.key", "move the master key back to data/master.key"))
     ss.add_parser("rotate", help=L("đổi khóa chủ và mã hóa lại", "rotate the master key and re-encrypt"))
 
+    import importlib
+    import pkgutil
+
+    for info in sorted(pkgutil.iter_modules(__path__), key=lambda i: i.name):  # lenh mo rong: cli/cmd_<ten>.py voi register(sub)
+        if info.name.startswith("cmd_"):
+            importlib.import_module(f"{__name__}.{info.name}").register(sub)
+
     s = sub.add_parser("config", help=L("xem cấu hình", "show the configuration"))
     cs = s.add_subparsers(dest="sub", required=True)
     cs.add_parser("path", help=L("đường dẫn file cấu hình", "path of the config file"))
@@ -183,6 +190,9 @@ def main(argv: list[str] | None = None) -> None:
 
 def dispatch(a: argparse.Namespace) -> int:
     from . import daemon
+
+    if getattr(a, "func", None):
+        return a.func(a) or 0
 
     c = a.cmd
     if c == "start":

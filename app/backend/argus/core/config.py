@@ -75,6 +75,53 @@ class AuthCfg(BaseModel):
     password_hash: str = ""
 
 
+class BrowserCfg(BaseModel):
+    enabled: bool = True
+    headless: bool = True
+    executable: str = ""  # trong = tu tim chromium/chrome trong may
+    allow_private: bool = False  # cho phep mo localhost / dia chi noi bo
+    idle_minutes: int = Field(10, ge=1, le=240)
+
+
+class MemoryCfg(BaseModel):
+    embeddings: Literal["off", "auto", "ollama", "openai", "hash"] = "auto"
+    provider: str | None = None  # ten provider dung de lay embedding (openai/ollama); None = tu chon
+    model: str = ""  # trong = model mac dinh cua backend
+    auto_index: bool = True
+
+
+class MediaCfg(BaseModel):
+    image_provider: str | None = None  # ten provider co API sinh anh
+    image_model: str = "gemini-2.5-flash-image"
+    vision_provider: str | None = None  # provider dung de mo ta anh khi model chinh khong biet xem anh
+
+
+class ComputerCfg(BaseModel):
+    enabled: bool = False  # tat mac dinh; bat = agent co the xem man hinh va dieu khien chuot/ban phim (luon hoi phe duyet)
+
+
+class AgentProfile(BaseModel):
+    description: str = ""
+    prompt: str = ""
+    tools: list[str] = []  # trong = moi tool tru tool tao agent con
+    provider: str | None = None
+    max_steps: int = Field(20, ge=1, le=100)
+
+
+class AgentsCfg(BaseModel):
+    max_depth: int = Field(2, ge=0, le=4)
+    max_parallel: int = Field(3, ge=1, le=8)
+    task_max_steps: int = Field(40, ge=5, le=200)
+    profiles: dict[str, AgentProfile] = {
+        "researcher": AgentProfile(description="Tìm kiếm và tổng hợp thông tin trên web", prompt="Bạn là nhà nghiên cứu cẩn thận. Tìm nhiều nguồn, đối chiếu, nêu nguồn và nói rõ điều chưa chắc chắn.",
+                                   tools=["web_search", "web_fetch", "read", "list_dir", "memory_search"], max_steps=15),
+        "coder": AgentProfile(description="Viết, chạy và sửa code", prompt="Bạn là lập trình viên. Viết code ngắn gọn, chạy thử để kiểm chứng, sửa lỗi cho tới khi chạy đúng.",
+                              tools=["read", "write", "edit", "exec", "list_dir"], max_steps=25),
+        "reviewer": AgentProfile(description="Đọc và đánh giá (chỉ đọc)", prompt="Bạn là người phản biện kỹ tính. Chỉ đọc, không sửa gì. Nêu lỗi, rủi ro và đề xuất cụ thể.",
+                                 tools=["read", "list_dir", "memory_search"], max_steps=12),
+    }
+
+
 class Config(BaseModel):
     default_provider: str = "local"
     fallback: list[str] = []
@@ -85,6 +132,11 @@ class Config(BaseModel):
     skills: dict[str, SkillEntry] = {}
     mcp_servers: dict[str, McpServerCfg] = {}
     heartbeat: HeartbeatCfg = HeartbeatCfg()
+    browser: BrowserCfg = BrowserCfg()
+    memory: MemoryCfg = MemoryCfg()
+    media: MediaCfg = MediaCfg()
+    computer: ComputerCfg = ComputerCfg()
+    agents: AgentsCfg = AgentsCfg()
     channels: ChannelsCfg = ChannelsCfg()
     auth: AuthCfg = AuthCfg()
     clawhub_url: str = "https://clawhub.ai"
