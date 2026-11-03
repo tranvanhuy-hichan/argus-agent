@@ -1,0 +1,19 @@
+# moi truong / build
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# du lieu cuc bo va bi mat (config.json chua API key)
+config.json
+data/
+
+# workspace ca nhan: chi giu SOUL.md va skill mau; skill tai tu ClawHub khong dua len repo
+workspace/MEMORY.md
+workspace/USER.md
+workspace/skills/*
+!workspace/skills/example/
+
+.DS_Store

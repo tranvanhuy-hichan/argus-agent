@@ -1,0 +1,104 @@
+import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Compass, PackagePlus, Plus, Puzzle, Search, Settings2 } from 'lucide-react'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Form'
+import { EmptyState, ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
+import { Switch } from '@/components/ui/Switch'
+import { Tabs } from '@/components/ui/Tabs'
+import { useToast } from '@/components/ui/Toast'
+import { useConfig, useSaveConfig, useSkills } from '@/lib/queries'
+import type { Skill } from '@/lib/types'
+import { errMsg } from '@/lib/utils'
+import { CreateSkillModal } from './CreateSkillModal'
+import { Discover } from './Discover'
+import { SkillModal } from './SkillModal'
+
+export function missingText(m: string): string {
+  const [kind, ...rest] = m.split(':')
+  const v = rest.join(':')
+  return ({ bin: `Thiếu lệnh: ${v}`, anyBin: `Cần một trong: ${v.replace(/\|/g, ', ')}`, env: `Thiếu biến môi trường: ${v}`, os: `Chỉ hỗ trợ: ${v}`, config: `Cần cấu hình OpenClaw: ${v}` } as Record<string, string>)[kind] ?? m
+}
+
+export function SkillIcon({ emoji }: { emoji?: string }) {
+  return <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-panel2 text-xl">{emoji || <Puzzle className="size-5 text-muted" />}</div>
+}
+
+export function SkillsPage() {
+  const skills = useSkills()
+  const cfg = useConfig()
+  const save = useSaveConfig()
+  const toast = useToast()
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'discover' ? 'discover' : 'installed'
+  const setTab = (t: 'installed' | 'discover') => setParams(t === 'discover' ? { tab: t } : {}, { replace: true })
+  const [filter, setFilter] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+
+  const toggle = (s: Skill, enabled: boolean) => {
+    if (!cfg.data) return
+    const c = structuredClone(cfg.data.config)
+    c.skills[s.name] = { ...(c.skills[s.name] ?? { api_key: '', env: {} }), enabled }
+    save.mutate(c, { onError: (e) => toast(errMsg(e), 'bad') })
+  }
+
+  const list = (skills.data ?? []).filter((s) => !filter || `${s.name} ${s.description}`.toLowerCase().includes(filter.toLowerCase()))
+
+  return (
+    <Page>
+      <PageHeader
+        title="Skills"
+        subtitle="Gói hướng dẫn chuyên biệt cho agent. Tương thích định dạng skill của OpenClaw/ClawHub."
+        action={<Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" />Tạo skill</Button>}
+      />
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        tabs={[{ id: 'installed', label: 'Đã cài', count: skills.data?.length }, { id: 'discover', label: 'Khám phá ClawHub' }]}
+      />
+      <div className="mt-5">
+        {tab === 'discover' ? (
+          <Discover installed={skills.data ?? []} />
+        ) : skills.isLoading ? (
+          <Loading />
+        ) : skills.error ? (
+          <ErrorNote error={skills.error} />
+        ) : (
+          <>
+            <div className="relative mb-4 max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted" />
+              <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Lọc skill đã cài…" className="pl-9" aria-label="Lọc skill" />
+            </div>
+            {list.length === 0 ? (
+              <EmptyState icon={PackagePlus} title="Chưa có skill nào" hint="Mở tab Khám phá để cài skill từ ClawHub, hoặc tạo skill của riêng bạn." action={<Button onClick={() => setTab('discover')}><Compass className="size-4" />Khám phá ClawHub</Button>} />
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-line bg-panel">
+                {list.map((s) => (
+                  <div key={s.name} className="flex items-center gap-4 border-b border-line px-4 py-3.5 last:border-b-0">
+                    <SkillIcon emoji={s.emoji} />
+                    <button onClick={() => setSelected(s.name)} className="min-w-0 flex-1 text-left">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{s.name}</span>
+                        {s.origin && <Badge tone="info">ClawHub · {s.origin.owner}{s.origin.version ? ` v${s.origin.version}` : ''}</Badge>}
+                        {!s.eligible && <Badge tone="warn">Cần thiết lập</Badge>}
+                        {!s.enabled && <Badge>Đã tắt</Badge>}
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-[13px] text-muted">{s.description || 'Không có mô tả'}</p>
+                      {!s.eligible && <p className="mt-1 text-xs text-warn">{s.missing.map(missingText).join(' · ')}</p>}
+                    </button>
+                    <Button variant="ghost" size="sm" onClick={() => setSelected(s.name)} aria-label={`Cấu hình ${s.name}`}><Settings2 className="size-4" /></Button>
+                    <Switch checked={s.enabled} onChange={(v) => toggle(s, v)} label={`Bật ${s.name}`} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <SkillModal name={selected} onClose={() => setSelected(null)} />
+      <CreateSkillModal open={creating} onClose={() => setCreating(false)} />
+    </Page>
+  )
+}
