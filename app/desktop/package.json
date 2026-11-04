@@ -1,0 +1,67 @@
+{
+  "name": "argus-agent-desktop",
+  "version": "0.3.0",
+  "description": "Argus Agent: trợ lý AI cá nhân chạy trên máy bạn",
+  "author": "tranvanhuy-hichan <tranvanhuy064206@gmail.com>",
+  "license": "AGPL-3.0-or-later",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "io.github.tranvanhuy.argus",
+    "productName": "Argus Agent",
+    "executableName": "argus-agent",
+    "copyright": "AGPL-3.0-or-later",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "assets/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "build/argus-server",
+        "to": "server"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "assets/icon.png",
+      "maintainer": "tranvanhuy-hichan <tranvanhuy064206@gmail.com>",
+      "synopsis": "Trợ lý AI cá nhân chạy trên máy bạn"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "Argus Agent"
+    },
+    "artifactName": "Argus-Agent-${version}-${os}-${arch}.${ext}"
+  },
+  "homepage": "https://github.com/tranvanhuy-hichan/argus-agent"
+}
