@@ -1,4 +1,4 @@
-import { siAirtable, siAsana, siAtlassian, siClickup, siCloudflare, siDatadog, siGithub, siGitlab, siHuggingface, siIntercom, siLinear, siMiro, siNeon, siNetlify, siNotion, siPaypal, siPosthog, siSentry, siSquare, siStripe, siSupabase, siTodoist, siVercel, siWebflow, siWix, siZapier } from 'simple-icons'
+import { siAirtable, siAlltrails, siAsana, siAtlassian, siBetterstack, siBuildkite, siClickup, siCloudinary, siGodaddy, siGrafana, siShopify, siCloudflare, siDatadog, siGithub, siGitlab, siHuggingface, siIntercom, siLinear, siMiro, siNeon, siNetlify, siNotion, siPaypal, siPosthog, siSentry, siSquare, siStripe, siSupabase, siTodoist, siVercel, siWebflow, siWix, siZapier } from 'simple-icons'
 import apify from '@/assets/brands/apify.svg'
 import canva from '@/assets/brands/canva.svg'
 import exa from '@/assets/brands/exa.svg'
@@ -14,7 +14,8 @@ const SI: Record<string, Si> = {
   github: siGithub, gitlab: siGitlab, vercel: siVercel, netlify: siNetlify, 'cloudflare-bindings': siCloudflare, 'cloudflare-observability': siCloudflare, 'cloudflare-docs': siCloudflare,
   sentry: siSentry, datadog: siDatadog, neon: siNeon, supabase: siSupabase, posthog: siPosthog, huggingface: siHuggingface, notion: siNotion, linear: siLinear, asana: siAsana,
   atlassian: siAtlassian, clickup: siClickup, airtable: siAirtable, todoist: siTodoist, miro: siMiro, zapier: siZapier, webflow: siWebflow, wix: siWix, stripe: siStripe,
-  paypal: siPaypal, square: siSquare, intercom: siIntercom,
+  paypal: siPaypal, square: siSquare, intercom: siIntercom, buildkite: siBuildkite, betterstack: siBetterstack, grafana: siGrafana, cloudinary: siCloudinary,
+  godaddy: siGodaddy, shopify: siShopify, alltrails: siAlltrails,
 }
 const FILE: Record<string, string> = { canva, apify, exa, firecrawl, tavily, monday, 'microsoft-learn': microsoft }
 

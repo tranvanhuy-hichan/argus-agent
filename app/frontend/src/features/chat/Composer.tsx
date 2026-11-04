@@ -91,7 +91,7 @@ export function Composer(p: Props) {
     <div className="shrink-0 bg-bg px-5 pb-4 pt-2">
       <div className="relative mx-auto max-w-4xl">
         {atQuery !== null && (atMatches.length > 0 || p.mentions.length === 0) && (
-          <div className="absolute bottom-full z-20 mb-2 w-full overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="listbox" aria-label={t('Dịch vụ MCP')}>
+          <div className="absolute bottom-full z-20 mb-2 w-full overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="listbox" aria-label={t('Plugin')}>
             {atMatches.length > 0 ? atMatches.map((m, i) => (
               <button key={m.name} role="option" aria-selected={i === hi} onMouseEnter={() => setHi(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => pickMention(m.name)} className={cn('flex w-full items-center gap-3 px-3 py-2 text-left text-sm', i === hi && 'bg-panel2')}>
                 <span className="grid size-6 shrink-0 place-items-center rounded-md bg-panel2"><BrandIcon brand={m.brand} className="size-4" /></span>
@@ -99,7 +99,7 @@ export function Composer(p: Props) {
                 <span className={cn('truncate text-xs', m.status === 'connected' ? 'text-muted' : 'text-warn')}>{m.status === 'connected' ? t('{n} tool', { n: m.tools }) : m.status === 'needs_auth' ? t('Cần đăng nhập') : t('Chưa kết nối')}</span>
               </button>
             )) : (
-              <p className="px-3 py-2.5 text-sm text-muted">{t('Chưa có dịch vụ MCP nào.')} <Link to="/integrations?tab=services" className="text-accent hover:underline">{t('Thêm ở Kết nối → MCP dịch vụ')}</Link></p>
+              <p className="px-3 py-2.5 text-sm text-muted">{t('Chưa có plugin nào.')} <Link to="/plugins" className="text-accent hover:underline">{t('Thêm ở mục Plugin')}</Link></p>
             )}
           </div>
         )}

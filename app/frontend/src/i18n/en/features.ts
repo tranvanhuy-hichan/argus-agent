@@ -358,10 +358,7 @@ const dict: Record<string, string> = {
   // --- Goi dich vu bang @
   "Dịch vụ MCP": "MCP services",
   "Chưa kết nối": "Not connected",
-  "Chưa có dịch vụ MCP nào.": "No MCP service yet.",
-  "Thêm ở Kết nối → MCP dịch vụ": "Add one in Connections → Service MCP",
   "Gọi một dịch vụ (@)": "Call a service (@)",
-  "Dịch vụ {names} chưa kết nối: vào Kết nối, tab MCP dịch vụ để đăng nhập": "Service {names} is not connected: go to Connections, Service MCP tab, to sign in",
   // --- Danh muc dich vu MCP, thu vien, token
   "Cần token": "Token needed",
   "Chưa có. Dịch vụ nào có MCP từ xa đều thêm được ở đây, hoặc tìm trong thư viện ở ô tìm kiếm phía trên.": "None yet. Any service with a remote MCP can be added here, or find it in the library using the search box above.",
@@ -462,6 +459,12 @@ const dict: Record<string, string> = {
   "Soạn thảo": "Editor",
   "Tuỳ chọn hội thoại": "Conversation options",
   "Về trang chủ": "Back to Home",
+  "Nối GitHub, Notion, Canva… chỉ bằng một cú bấm": "Connect GitHub, Notion, Canva… with one click",
+  "Chưa có plugin nào.": "No plugins yet.",
+  "Thêm ở mục Plugin": "Add one in Plugins",
+  "Tìm plugin (ví dụ vercel, github, stripe…)": "Search plugins (for example vercel, github, stripe…)",
+  "Tìm plugin": "Search plugins",
+  "Dịch vụ {names} chưa kết nối: vào mục Plugin để đăng nhập": "Service {names} is not connected: open Plugins to sign in",
 }
 
 export default dict

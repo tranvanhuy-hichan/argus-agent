@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Cable, Clock, Code2, FolderCog, ListTodo, House, LayoutDashboard, LogOut, MessageSquare, Moon, Plug, Puzzle, Settings, Sun, type LucideIcon } from 'lucide-react'
+import { Bell, Blocks, Cable, Clock, Code2, FolderCog, ListTodo, House, LayoutDashboard, LogOut, MessageSquare, Moon, Plug, Puzzle, Settings, Sun, type LucideIcon } from 'lucide-react'
 import { api } from '@/lib/api'
 import { t, tk } from '@/lib/i18n.ts'
 import { AgentLogo, AgentOwl } from '@/components/ui/AgentMark'
@@ -23,6 +23,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   ] },
   { title: tk('Khả năng của agent'), items: [
     { to: '/skills', label: tk('Kỹ năng'), icon: Puzzle, hint: tk('Dạy agent làm thêm việc mới') },
+    { to: '/plugins', label: tk('Plugin'), icon: Blocks, hint: tk('Nối GitHub, Notion, Canva… chỉ bằng một cú bấm') },
     { to: '/integrations', label: tk('Kết nối'), icon: Cable, hint: tk('Telegram, API, công cụ ngoài') },
     { to: '/workspace', label: tk('Tính cách & trí nhớ'), icon: FolderCog, hint: tk('Agent là ai và nhớ gì về bạn') },
   ] },
