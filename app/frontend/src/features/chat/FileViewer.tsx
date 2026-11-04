@@ -42,7 +42,7 @@ export function FileViewer({ sid, path, onBack }: { sid: string; path: string; o
         ) : q.isLoading ? <Loading /> : q.data?.binary ? (
           <p className="p-6 text-center text-sm text-muted">{t('File nhị phân ({size} KB). Dùng nút tải xuống để mở.', { size: (q.data.size / 1024).toFixed(1) })}</p>
         ) : isHtml && preview ? (
-          <iframe title={path} src={rawUrl(sid, path)} sandbox="" className="size-full bg-white" />
+          <iframe title={path} src={rawUrl(sid, path)} sandbox="allow-scripts allow-popups" allow="fullscreen" className="size-full bg-white" />
         ) : isMd && preview ? (
           <div className="p-4 text-sm"><Markdown text={text} /></div>
         ) : (

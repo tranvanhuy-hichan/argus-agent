@@ -251,7 +251,7 @@ export function ChatPage() {
               </div>
             ) : (
               chat.items.map((it) => (
-                <MessageView key={it.key} item={it} onDecide={(aid, ok) => void chat.decide(aid, ok)} onOpenFile={openFile}
+                <MessageView key={it.key} item={it} sid={chat.sessionId} onDecide={(aid, ok) => void chat.decide(aid, ok)} onOpenFile={openFile}
                   canAct={!chat.busy} isLastUser={it === lastUser} isLastAssistant={it === lastAssistant}
                   onEdit={(txt) => void resend(txt)} onRegenerate={() => void resend()} />
               ))

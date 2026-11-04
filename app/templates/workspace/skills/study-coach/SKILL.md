@@ -4,6 +4,8 @@ description: "Learn and revise effectively: study plans, simple explanations, fl
 ---
 # Study coach
 
+> Scripts need Python 3. Run them with `python3`; if that command is not found use `python` (or `py` on Windows). Create output files in the current working folder and tell the user the **full path** (use `pwd`, or the path returned by `write`).
+
 ## Diagnose (one message, max 4 questions)
 Goal and deadline, current level, hours available per week, and the material (files, textbook, syllabus). Read provided material with `read_document` or `kb_search`; use only it unless the user wants extra sources.
 

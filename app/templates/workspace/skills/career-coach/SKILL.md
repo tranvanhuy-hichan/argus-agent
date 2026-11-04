@@ -13,7 +13,7 @@ Target role (and the job description if available, via paste, file with `read_do
 - Every bullet: **strong verb + what you did + measurable result** ("Cut invoice errors 40% by adding a validation checklist"). 3-5 bullets per role, most relevant first.
 - Mirror keywords from the job description honestly so applicant-tracking systems and recruiters see the match.
 - Remove: photos (unless the market expects one), vague soft-skill lists, "responsible for", full addresses, irrelevant old jobs.
-- Output as Markdown and offer a .docx via the `word-document-writer` skill.
+- Output as Markdown. If the user wants a Word file and a docx skill is installed (see the Picks tab), use it.
 
 ## Cover letter (max 250 words)
 1) Why this company/role, specific. 2) Two achievements that match the top requirements. 3) A confident close with a next step. One tailored letter per application.

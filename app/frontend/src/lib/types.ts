@@ -76,6 +76,9 @@ export interface HubSkill {
   slug: string; owner: string; name: string; summary: string; downloads: number; stars: number
   version: string | null; updated: number | null; official: boolean; installable: boolean; topics: string[]
 }
+export interface SkillPick { owner: string; slug: string; category: string; vi: string; en: string; needs: ('key' | 'cli' | 'mac' | 'linux')[]; bins: string[]; name: string; downloads: number; version: string | null; installable: boolean }
+export type SkillTools = Record<string, { mac: string | null; linux: string | null; windows: string | null; url: string }>
+export interface SkillPicks { categories: { id: string; vi: string; en: string }[]; items: SkillPick[] }
 export interface HubDetail extends HubSkill {
   moderation: { isSuspicious?: boolean; isMalwareBlocked?: boolean; verdict?: string; summary?: string; reasonCodes?: string[] } | null
   changelog?: string | null; license?: string | null; skill_md: string | null

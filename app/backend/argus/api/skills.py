@@ -107,6 +107,18 @@ def delete_skill(name: str):
 
 
 # ---------- ClawHub
+@router.get("/clawhub/tools")
+def skill_tools():
+    from ..services import skill_picks
+    return skill_picks.TOOLS
+
+
+@router.get("/clawhub/picks")
+def hub_picks():
+    from ..services import skill_picks
+    return skill_picks.picks(_hub())
+
+
 @router.get("/clawhub/search")
 def hub_search(q: str):
     return _hub_call(_hub().search, q)

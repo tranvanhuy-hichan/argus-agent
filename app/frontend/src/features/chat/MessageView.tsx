@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AgentMark } from '../../components/ui/AgentMark'
-import { Brain, Cable, Check, ChevronRight, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
+import { Brain, Cable, Check, ChevronRight, ExternalLink, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { t, tk } from '@/lib/i18n.ts'
@@ -28,6 +28,29 @@ function DecisionBadge({ d }: { d?: string }) {
   if (d === 'approved') return <Badge tone="ok">{t('Đã cho phép')}</Badge>
   if (d === 'denied') return <Badge tone="bad">{t('Bị từ chối')}</Badge>
   return null
+}
+
+/** Duong dan file cua phien ma agent nhac trong cau tra loi (".../sessions/<id>/ten.ext") -> duong dan tuong doi trong thu muc phien. */
+function sessionFiles(text: string): string[] {
+  const found = new Set<string>()
+  for (const m of text.matchAll(/\/sessions\/[0-9a-f]{8}\/([^\s`"'*<>|)\]]+?\.[A-Za-z0-9]{1,6})(?=[\s`"'*)\],;:]|$)/g)) found.add(m[1])
+  return [...found].slice(0, 6)
+}
+const NEW_TAB = /\.(html?|pdf|png|jpe?g|gif|svg|webp)$/i
+
+function FileChips({ text, sid, onOpen }: { text: string; sid?: string | null; onOpen: (p: string) => void }) {
+  const files = sessionFiles(text)
+  if (!files.length) return null
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {files.map((f) => (
+        <span key={f} className="flex items-center overflow-hidden rounded-lg border border-line bg-panel text-xs">
+          <button onClick={() => onOpen(f)} className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-panel2"><FileText className="size-3.5 text-muted" /><span className="font-medium">{f.split('/').pop()}</span><span className="text-accent">{t('Mở')}</span></button>
+          {sid && NEW_TAB.test(f) && <a href={`/api/sessions/${sid}/file?path=${encodeURIComponent(f)}&raw=true`} target="_blank" rel="noreferrer" className="flex items-center gap-1 border-l border-line px-2.5 py-1.5 text-muted hover:bg-panel2 hover:text-fg"><ExternalLink className="size-3.5" />{t('Tab mới')}</a>}
+        </span>
+      ))}
+    </div>
+  )
 }
 
 function ToolCard({ item, onOpenFile }: { item: ToolItem; onOpenFile: (p: string) => void }) {
@@ -100,6 +123,7 @@ function ApprovalCard({ item, onDecide }: { item: Extract<Item, { kind: 'approva
 
 interface Props {
   item: Item
+  sid?: string | null
   onDecide: (aid: string, ok: boolean) => void
   onOpenFile: (path: string) => void
   isLastUser?: boolean
@@ -109,7 +133,7 @@ interface Props {
   onRegenerate?: () => void
 }
 
-export function MessageView({ item, onDecide, onOpenFile, isLastUser, isLastAssistant, canAct, onEdit, onRegenerate }: Props) {
+export function MessageView({ item, sid, onDecide, onOpenFile, isLastUser, isLastAssistant, canAct, onEdit, onRegenerate }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   switch (item.kind) {
@@ -144,6 +168,7 @@ export function MessageView({ item, onDecide, onOpenFile, isLastUser, isLastAssi
           <div className="min-w-0 flex-1 pt-0.5">
             <div className={cn(item.streaming && 'caret')}><Markdown text={stripImageMarks(item.text)} /></div>
             {!item.streaming && <Images text={item.text} onOpen={onOpenFile} />}
+            {!item.streaming && <FileChips text={item.text} sid={sid} onOpen={onOpenFile} />}
             {!item.streaming && (
               <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted">
                 {item.provider && <span>{t('qua {provider}', { provider: item.provider })}{item.duration ? ` · ${fmtMs(item.duration)}` : ''}</span>}

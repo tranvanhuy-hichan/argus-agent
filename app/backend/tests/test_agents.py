@@ -467,3 +467,32 @@ def test_limits_endpoint_uses_claude_usage_and_argus_windows(tmp_env, monkeypatc
     g = c.get("/api/providers/g/limits").json()
     assert g["official"] is False and g["limits"] is None and g["argus"]["h5"] == {"calls": 1, "tokens": 1500, "share": 1.0}
     assert c.get("/api/providers/khong-co/limits").status_code == 404
+
+
+def test_empty_reply_after_tool_is_retried(llm):
+    """Model tra ve rong sau khi nhan ket qua tool: agent nhac no viet cau tra loi cuoi thay vi im lang."""
+    def rule(messages, tool_names):
+        if not any(m["role"] == "tool" for m in messages):
+            return {"calls": [call("plan_show")]}
+        if any("Your last reply was empty" in str(m.get("content")) for m in messages):
+            return {"content": "Day la cau tra loi"}
+        return {"content": ""}
+
+    llm(rule)
+    _, events = run_chat()
+    assert [e["content"] for e in events if e["type"] == "assistant" and e["content"]] == ["Day la cau tra loi"]
+
+
+def test_read_document_pptx_and_offset(tmp_env, tmp_path):
+    import zipfile
+    from argus.services import tools
+    pp = tmp_path / "d.pptx"
+    with zipfile.ZipFile(pp, "w") as z:
+        z.writestr("ppt/slides/slide1.xml", '<p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:t>Hello slide</a:t></p>')
+    txt = tmp_path / "long.txt"
+    txt.write_text("x" * 70000)
+    ctx = tools.ToolContext(workspace=tmp_path, full_access=True)
+    assert "Hello slide" in tools.read_document(ctx, str(pp))
+    first = tools.read_document(ctx, str(txt))
+    assert "offset=30000" in first and "offset=60000" in tools.read_document(ctx, str(txt), 30000)
+    assert "offset" not in tools.read_document(ctx, str(txt), 60000)

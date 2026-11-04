@@ -4,6 +4,8 @@ description: "Turn meeting notes or transcripts into minutes with decisions, act
 ---
 # Meeting notes
 
+> Scripts need Python 3. Run them with `python3`; if that command is not found use `python` (or `py` on Windows). Create output files in the current working folder and tell the user the **full path** (use `pwd`, or the path returned by `write`).
+
 ## Input
 Rough notes, a transcript, or a voice-to-text dump. If it is a file, use `read_document`. Do not invent attendees, dates or owners; mark unknowns as "TBD".
 

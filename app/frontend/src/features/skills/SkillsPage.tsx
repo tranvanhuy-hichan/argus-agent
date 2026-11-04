@@ -15,6 +15,8 @@ import type { Skill } from '@/lib/types'
 import { errMsg } from '@/lib/utils'
 import { CreateSkillModal } from './CreateSkillModal'
 import { Discover } from './Discover'
+import { Picks } from './Picks'
+import { InstallHelp, binsOf } from './InstallHelp'
 import { SkillModal } from './SkillModal'
 import { t } from '@/lib/i18n.ts'
 
@@ -41,8 +43,8 @@ export function SkillsPage() {
   })
   const toast = useToast()
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'discover' ? 'discover' : 'installed'
-  const setTab = (t: 'installed' | 'discover') => setParams(t === 'discover' ? { tab: t } : {}, { replace: true })
+  const tab = params.get('tab') === 'discover' ? 'discover' : params.get('tab') === 'picks' ? 'picks' : 'installed'
+  const setTab = (t: 'installed' | 'picks' | 'discover') => setParams(t === 'installed' ? {} : { tab: t }, { replace: true })
   const [filter, setFilter] = useState('')
   const [hubInput, setHubInput] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
@@ -63,7 +65,7 @@ export function SkillsPage() {
       <Tabs
         value={tab}
         onChange={setTab}
-        tabs={[{ id: 'installed', label: t('Đã cài'), count: skills.data?.length }, { id: 'discover', label: t('Khám phá ClawHub') }]}
+        tabs={[{ id: 'installed', label: t('Đã cài'), count: skills.data?.length }, { id: 'picks', label: t('Gợi ý cho bạn') }, { id: 'discover', label: t('Khám phá ClawHub') }]}
         right={<div className="flex flex-wrap items-center gap-2">
           {tab === 'discover'
             ? <SearchBox value={hubInput} onChange={setHubInput} placeholder={t('Tìm skill trên ClawHub (vd: weather, github, notion…)')} label={t('Tìm skill')} />
@@ -72,7 +74,9 @@ export function SkillsPage() {
         </div>}
       />
       <div className="mt-5">
-        {tab === 'discover' ? (
+        {tab === 'picks' ? (
+          <Picks installed={skills.data ?? []} />
+        ) : tab === 'discover' ? (
           <Discover installed={skills.data ?? []} input={hubInput} />
         ) : skills.isLoading ? (
           <Loading />
@@ -81,13 +85,13 @@ export function SkillsPage() {
         ) : (
           <>
             {list.length === 0 ? (
-              <EmptyState icon={PackagePlus} title={t('Chưa có skill nào')} action={<Button onClick={() => setTab('discover')}><Compass className="size-4" />{t('Khám phá ClawHub')}</Button>} />
+              <EmptyState icon={PackagePlus} title={t('Chưa có skill nào')} action={<Button onClick={() => setTab('picks')}><Compass className="size-4" />{t('Gợi ý cho bạn')}</Button>} />
             ) : (
               <div className="overflow-hidden rounded-xl border border-line bg-panel">
                 {list.map((s) => (
                   <div key={s.name} className="flex items-center gap-4 border-b border-line px-4 py-3.5 last:border-b-0">
                     <SkillIcon emoji={s.emoji} />
-                    <button onClick={() => setSelected(s.name)} className="min-w-0 flex-1 text-left">
+                    <div className="min-w-0 flex-1"><button onClick={() => setSelected(s.name)} className="w-full text-left">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{s.name}</span>
                         {s.origin && <Badge tone="info">ClawHub · {s.origin.owner}{s.origin.version ? ` v${s.origin.version}` : ''}</Badge>}
@@ -96,7 +100,7 @@ export function SkillsPage() {
                       </div>
                       <p className="mt-0.5 line-clamp-2 text-[13px] text-muted">{s.description || t('Không có mô tả')}</p>
                       {!s.eligible && <p className="mt-1 text-xs text-warn">{s.missing.map(missingText).join(' · ')}</p>}
-                    </button>
+                    </button>{!s.eligible && <InstallHelp bins={binsOf(s.missing)} />}</div>
                     {updates.data?.find((u) => u.name === s.name) && (
                       <Button size="sm" variant="primary" loading={update.isPending && update.variables === s.name} onClick={() => update.mutate(s.name)}>{t('Cập nhật v{v}', { v: updates.data.find((u) => u.name === s.name)?.latest ?? '' })}</Button>
                     )}

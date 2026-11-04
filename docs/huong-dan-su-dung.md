@@ -219,11 +219,13 @@ Xóa hết nội dung file để tạm dừng. Bấm **Tùy chọn** để đổ
 **Kỹ năng** là các bộ hướng dẫn dạy agent làm một việc cụ thể (ví dụ đọc PDF, tra thời tiết, quản lý lịch). Trang **Kỹ năng** có hai phần:
 
 - **Đã cài**: danh sách kỹ năng bạn có. Bật/tắt từng cái, xem nội dung, điền khóa API nếu kỹ năng cần. Kỹ năng còn thiếu điều kiện (thiếu chương trình hoặc biến môi trường) hiển thị rõ cần gì.
+- **Gợi ý cho bạn**: khoảng 28 kỹ năng chọn lọc từ các kỹ năng được tải nhiều nhất trên ClawHub, chia theo nhóm (tìm hiểu và tin tức, văn bản và tài liệu như Word/Excel/PowerPoint/PDF, công việc và liên lạc như Google, Notion, email, âm thanh và video, dữ liệu và tài chính, đời sống, an toàn). Mỗi kỹ năng ghi rõ có cần khóa API, công cụ cài thêm hay chỉ chạy trên macOS/Linux. Bấm vào một kỹ năng để đọc nội dung rồi cài.
+Kỹ năng nào cần chương trình ngoài (ví dụ `yt-dlp`, `ffmpeg`, `whisper`) có mục **Cách cài công cụ này** với lệnh cài sẵn cho macOS, Linux và Windows, bấm để sao chép. Mục này cũng hiện ở tab **Đã cài** khi một kỹ năng báo "Thiếu lệnh". Cài xong, khởi động lại Argus để nhận lệnh mới.
 - **Khám phá**: tìm và cài kỹ năng từ **ClawHub**, kho kỹ năng công khai. Có cảnh báo nếu một kỹ năng bị đánh dấu đáng ngờ.
 
 Bạn cũng tự tạo kỹ năng bằng nút **Tạo kỹ năng**. Một kỹ năng là một thư mục trong `user-data/workspace/skills/<tên>/` có file `SKILL.md`. Dùng trong chat bằng cách gõ `/` rồi chọn tên.
 
-**Kỹ năng có sẵn.** Lần đầu chạy, Argus tự thêm 10 kỹ năng (viết bằng tiếng Anh, chạy với mọi ngôn ngữ): viết email, tóm tắt tài liệu, biên bản họp (kèm file lịch `.ics`), tạo tài liệu Word, trợ lý bảng tính (phân tích CSV, công thức, xuất Excel), tạo bài thuyết trình (file HTML, in ra PDF), nghiên cứu trên web có nguồn, huấn luyện học tập (flashcard xuất sang Anki), CV và phỏng vấn thử, lập kế hoạch ngày (xuất lịch). Nhiều kỹ năng kèm script nhỏ chạy ngay trên máy bạn, chỉ cần Python 3. Gõ `/` trong khung chat để chọn; kỹ năng đã chọn hiện thành thẻ phía trên ô nhập. Mỗi kỹ năng chỉ được thêm một lần: bạn xóa cái nào thì nó không quay lại, còn kỹ năng mới ở bản cập nhật sẽ được thêm vào.
+**Kỹ năng có sẵn.** Lần đầu chạy, Argus tự thêm 5 kỹ năng (viết bằng tiếng Anh, dùng được với mọi ngôn ngữ): viết email, biên bản họp (kèm file lịch `.ics`), huấn luyện học tập (flashcard xuất sang Anki), CV và phỏng vấn thử, lập kế hoạch ngày (xuất lịch). Các kỹ năng làm việc với Word, Excel, PowerPoint, PDF, tóm tắt và nghiên cứu nằm ở tab **Gợi ý cho bạn**, cài một lần bấm. Gõ `/` trong khung chat để chọn; kỹ năng đã chọn hiện thành thẻ phía trên ô nhập. Mỗi kỹ năng chỉ được thêm một lần: bạn xóa cái nào thì nó không quay lại, còn kỹ năng mới ở bản cập nhật sẽ được thêm vào.
 
 > **Cẩn thận:** kỹ năng tải từ internet chỉ là hướng dẫn, nhưng có thể bảo agent chạy lệnh. Hãy đọc `SKILL.md` trước khi cài và giữ bật xác nhận chạy lệnh. Bạn cũng có thể cài nhanh từ dòng lệnh: `argus skills install <chủ>/<tên>`.
 

@@ -267,6 +267,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
         + [_augment(m) for m in _window(history, cfg.agent.max_history)] + [current]
 
     limit = max_steps or cfg.agent.max_steps
+    empty_retries = 0
     for step in range(limit):
         if cancel and cancel.is_set():
             return
@@ -293,6 +294,11 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
                     emit({"type": "error", "message": f"{name}: {e}"})
                     return
                 emit(ui_event("notice", "{name} lỗi ({error}), chuyển sang provider dự phòng", name=name, error=str(e)[:200]))
+        if not result["content"].strip() and not result["tool_calls"] and empty_retries < 2:
+            # model tra ve rong (hay gap sau khi nhan ket qua tool): nhac no viet cau tra loi thay vi dung im lang
+            empty_retries += 1
+            messages.append({"role": "user", "content": "[system] Your last reply was empty. Using the tool results above, write the final answer to the user now (or call the next tool if you still need one, using the host tool-call format; your own built-in tools are not available)."})
+            continue
         msg = {"role": "assistant", "content": result["content"]}
         if result["tool_calls"]:
             msg["tool_calls"] = result["tool_calls"]

@@ -11,8 +11,9 @@ from ..services import sessions, workfiles
 
 router = APIRouter()
 MAX_TEXT = 1_000_000
-# HTML do agent sinh ra co the chua script: sandbox CSP bien no thanh origin rieng, khong goi duoc /api
-PREVIEW_CSP = "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'; font-src data:"
+# HTML do agent sinh ra (vd. bo slide) can chay script de chuyen trang, nhung sandbox khong co allow-same-origin bien no thanh origin rieng:
+# khong doc duoc cookie, khong goi duoc /api, va connect-src bi chan nen khong gui du lieu ra ngoai.
+PREVIEW_CSP = "sandbox allow-scripts allow-popups; default-src 'none'; script-src 'unsafe-inline'; img-src data: 'self'; style-src 'unsafe-inline'; font-src data:"
 
 
 def _base(sid: str):

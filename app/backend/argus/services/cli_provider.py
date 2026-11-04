@@ -28,6 +28,7 @@ To use tools, reply with ONLY one or more blocks in exactly this form, then STOP
 <tool_call>{"name": "<tool name>", "arguments": {<json arguments>}}</tool_call>
 The host runs them and sends the results in the next turn. When you have enough information, answer the user in plain text instead.
 Never describe a tool call in prose; never invent tool results.
+IMPORTANT: your own built-in tools (RunCommand, file edit, browser, etc.) are DISABLED and will be denied, which makes your reply empty. To run a command, read or write a file, or search, you MUST emit a <tool_call> block for the host tool of that name below.
 
 Available tools (name: description | JSON schema of arguments):
 """
@@ -221,7 +222,7 @@ def build_prompt(messages: list[dict], tools: list[dict]) -> str:
             parts.append(f"[Assistant]\n{body.strip()}")
         elif role == "tool":
             parts.append(f"[Tool result for {m.get('tool_call_id', '')}]\n{m.get('content', '')}")
-    parts.append("Now write the next [Assistant] message: either tool call block(s) or the final plain-text answer. Do not write the '[Assistant]' label.")
+    parts.append("Now write the next [Assistant] message: either tool call block(s) or the final plain-text answer. Do not write the '[Assistant]' label. Never use your own built-in tools; use <tool_call> blocks only.")
     return "\n\n".join(parts)
 
 
@@ -257,8 +258,11 @@ class CliProvider:
         threading.Thread(target=lambda: err_lines.extend(proc.stderr), daemon=True).start()
         threading.Thread(target=lambda: (proc.stdin.write(stdin_text or ""), proc.stdin.close()), daemon=True).start()
         flt, full = _Filter(), ""
+        raw_log = workdir / "last-run.jsonl"  # lan chay gan nhat cua CLI, de chan doan khi CLI tra ve rong
+        raw_f = raw_log.open("w", encoding="utf-8")
         try:
             for line in proc.stdout:
+                raw_f.write(line)
                 if feed is None:
                     text = line
                 else:
@@ -272,6 +276,7 @@ class CliProvider:
                     if (out := flt.feed(text)):
                         yield {"type": "delta", "text": out}
         finally:
+            raw_f.close()
             timer.cancel()
             if proc.poll() is None:
                 proc.kill()

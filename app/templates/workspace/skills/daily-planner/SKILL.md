@@ -4,6 +4,8 @@ description: "Plan the day or week: prioritise tasks, time-block a realistic sch
 ---
 # Daily planner
 
+> Scripts need Python 3. Run them with `python3`; if that command is not found use `python` (or `py` on Windows). Create output files in the current working folder and tell the user the **full path** (use `pwd`, or the path returned by `write`).
+
 ## Collect
 Ask for a brain-dump of tasks (messy is fine), fixed commitments (meetings, pick-ups), working hours, and energy pattern (when focus is best). Note deadlines with real dates. Check stored preferences with `memory_search` before asking again.
 

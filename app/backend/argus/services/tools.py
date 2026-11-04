@@ -277,28 +277,38 @@ def memory_search(ctx, query, limit=6):
     return "\n".join(out) or "không tìm thấy gì liên quan"
 
 
-@tool("read_document", "Đọc nội dung file tài liệu: PDF, Excel (xlsx), Word (docx), CSV hoặc text.", {"path": ("string", "đường dẫn file")}, risk="file")
-def read_document(ctx, path):
+@tool("read_document", "Đọc nội dung file tài liệu: PDF, Excel (xlsx), Word (docx), PowerPoint (pptx), CSV hoặc text. Tài liệu dài được đọc từng phần bằng offset.",
+      {"path": ("string", "đường dẫn file"), "offset": ("integer", "vị trí ký tự bắt đầu đọc (mặc định 0); dùng giá trị 'offset=' ở cuối kết quả để đọc tiếp")})
+def read_document(ctx, path, offset=0):
     p = _resolve(ctx, path, "read")
     ext = p.suffix.lower()
     if ext == ".pdf":
         from pypdf import PdfReader
         r = PdfReader(str(p))
-        return "\n\n".join(f"--- trang {i + 1} ---\n{pg.extract_text() or ''}" for i, pg in enumerate(r.pages[:60]))[:30000]
-    if ext in (".xlsx", ".xlsm"):
+        text = "\n\n".join(f"--- trang {i + 1} ---\n{pg.extract_text() or ''}" for i, pg in enumerate(r.pages[:300]))
+    elif ext in (".xlsx", ".xlsm"):
         from openpyxl import load_workbook
         wb = load_workbook(p, read_only=True, data_only=True)
         out = []
         for ws in wb.worksheets[:6]:
             out.append(f"--- sheet {ws.title} ---")
-            out += ["\t".join("" if c is None else str(c) for c in row) for row in ws.iter_rows(max_row=200, values_only=True)]
-        return "\n".join(out)[:30000]
-    if ext == ".docx":
+            out += ["\t".join("" if c is None else str(c) for c in row) for row in ws.iter_rows(max_row=500, values_only=True)]
+        text = "\n".join(out)
+    elif ext == ".docx":
         import zipfile
         with zipfile.ZipFile(p) as z:
             xml = z.read("word/document.xml").decode("utf8", "replace")
-        return _html_to_text(re.sub(r"</w:p>", "\n", xml))[:30000]
-    return p.read_text(errors="replace")[:30000]
+        text = _html_to_text(re.sub(r"</w:p>", "\n", xml))
+    elif ext == ".pptx":
+        from .knowledge import _read_pptx
+        text = "\n\n".join(f"--- {loc} ---\n{body}" for loc, body in _read_pptx(p)[0])
+    else:
+        text = p.read_text(errors="replace")
+    start, size = max(0, int(offset or 0)), 30000
+    chunk = text[start:start + size]
+    if start + size < len(text):
+        chunk += f"\n\n[da doc ky tu {start}-{start + size} tren tong {len(text)}; goi lai read_document voi offset={start + size} de doc tiep]"
+    return chunk or "(khong co noi dung)"
 
 
 @tool("notify", "Gửi thông báo cho người dùng (hiện trong hộp thư của giao diện và gửi qua Telegram nếu đã kết nối). Dùng khi có điều đáng báo.",

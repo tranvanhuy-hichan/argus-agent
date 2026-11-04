@@ -26,6 +26,7 @@ const dict: Record<string, string> = {
   'lỗi': 'error',
   'xong': 'done',
   'Mở file': 'Open file',
+  'Tab mới': 'New tab',
   '(trống)': '(empty)',
   'Đang suy nghĩ…': 'Thinking…',
   'Đã suy nghĩ': 'Thought',
