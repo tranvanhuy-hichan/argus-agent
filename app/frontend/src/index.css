@@ -8,7 +8,7 @@
   --line: #26262b;
   --fg: #ececef;
   --muted: #8c8c96;
-  --accent: #f0503c;
+  --accent: #3b82f6;
   --accent-fg: #fff;
   --ok: #34c77b;
   --warn: #f2b13d;
@@ -23,7 +23,7 @@
   --line: #e1e1e6;
   --fg: #18181b;
   --muted: #6b6b76;
-  --accent: #e5412d;
+  --accent: #2563eb;
   --ok: #17a05d;
   --warn: #c98a12;
   --bad: #d93a37;
@@ -68,3 +68,23 @@ button:disabled { cursor: not-allowed; }
 .caret::after { content: "▍"; margin-left: 1px; color: var(--accent); animation: blink 1s steps(1) infinite; }
 @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .fade-in { animation: fade-in .18s ease-out; }
+
+/* tô màu cú pháp (highlight.js) cho trình soạn thảo ở chế độ Code */
+.hljs-code { color: var(--fg); }
+.hljs-comment, .hljs-quote { color: var(--muted); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-built_in, .hljs-name { color: #d97bd0; }
+.hljs-string, .hljs-attr, .hljs-regexp, .hljs-addition { color: #7fc77f; }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable, .hljs-template-variable { color: #f2b13d; }
+.hljs-title, .hljs-section, .hljs-function .hljs-title { color: #5b9dff; }
+.hljs-type, .hljs-class .hljs-title, .hljs-tag, .hljs-attribute, .hljs-meta { color: #4ec9d6; }
+.hljs-deletion { color: var(--bad); }
+.light .hljs-keyword, .light .hljs-selector-tag, .light .hljs-literal, .light .hljs-built_in, .light .hljs-name { color: #a626a4; }
+.light .hljs-string, .light .hljs-attr, .light .hljs-regexp, .light .hljs-addition { color: #3a8a3a; }
+.light .hljs-number, .light .hljs-symbol, .light .hljs-bullet, .light .hljs-variable { color: #b06a00; }
+.light .hljs-title, .light .hljs-section { color: #2f6fe0; }
+.light .hljs-type, .light .hljs-tag, .light .hljs-attribute, .light .hljs-meta { color: #0e7f8c; }
+
+/* logo không nền: bản sáng cho nền tối, bản navy cho nền sáng */
+.logo-on-light { display: none; }
+.light .logo-on-dark { display: none; }
+.light .logo-on-light { display: block; }

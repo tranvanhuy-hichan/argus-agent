@@ -1,16 +1,18 @@
 import { useRef } from 'react'
-import { Activity, FolderTree, PanelRightClose, Terminal } from 'lucide-react'
+import { Activity, FolderTree, GitCompare, PanelRightClose, Terminal } from 'lucide-react'
 import { t, tk } from '@/lib/i18n.ts'
 import { cn } from '@/lib/utils'
 import { ActivityTab } from './ActivityTab'
+import { ChangesTab } from './ChangesTab'
 import { FilesTab } from './FilesTab'
 import { TerminalTab } from './TerminalTab'
 import type { Item } from './useChat'
 
-export type PanelTab = 'files' | 'terminal' | 'activity'
+export type PanelTab = 'files' | 'terminal' | 'activity' | 'changes'
 
 interface Props {
   sid: string | null
+  project?: boolean
   items: Item[]
   filesTick: number
   tab: PanelTab
@@ -23,15 +25,16 @@ interface Props {
 }
 
 const TABS: { id: PanelTab; label: string; icon: typeof Terminal }[] = [
+  { id: 'changes', label: tk('Thay đổi'), icon: GitCompare },
   { id: 'files', label: tk('Tệp'), icon: FolderTree },
   { id: 'terminal', label: tk('Terminal'), icon: Terminal },
   { id: 'activity', label: tk('Hoạt động'), icon: Activity },
 ]
 
-export function WorkspacePanel({ sid, items, filesTick, tab, onTab, openPath, onOpenPath, onClose, width, onWidth }: Props) {
+export function WorkspacePanel({ sid, project, items, filesTick, tab, onTab, openPath, onOpenPath, onClose, width, onWidth }: Props) {
   const drag = useRef(false)
   const runs = items.filter((i) => i.kind === 'tool')
-  const counts: Record<PanelTab, number> = { files: 0, terminal: runs.filter((i) => i.kind === 'tool' && i.name === 'exec').length, activity: runs.length }
+  const counts: Record<PanelTab, number> = { files: 0, changes: 0, terminal: runs.filter((i) => i.kind === 'tool' && i.name === 'exec').length, activity: runs.length }
 
   const onDown = (e: React.PointerEvent) => {
     drag.current = true
@@ -46,7 +49,7 @@ export function WorkspacePanel({ sid, items, filesTick, tab, onTab, openPath, on
       <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={() => { drag.current = false }} role="separator" aria-orientation="vertical" aria-label={t('Kéo để đổi độ rộng')}
         className="absolute left-0 top-0 z-10 h-full w-1.5 cursor-col-resize transition hover:bg-accent/40" />
       <div className="flex h-14 shrink-0 items-center gap-1 border-b border-line px-2">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {TABS.filter((x) => project || x.id !== 'changes').map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => onTab(id)} aria-pressed={tab === id}
             className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition', tab === id ? 'bg-panel2 text-fg' : 'text-muted hover:text-fg')}>
             <Icon className="size-4" />{t(label)}{counts[id] > 0 && <span className="rounded bg-bg px-1 text-[10px] text-muted">{counts[id]}</span>}
@@ -55,6 +58,7 @@ export function WorkspacePanel({ sid, items, filesTick, tab, onTab, openPath, on
         <button onClick={onClose} aria-label={t('Đóng panel')} className="ml-auto rounded p-1.5 text-muted hover:bg-panel2 hover:text-fg"><PanelRightClose className="size-4" /></button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === 'changes' && <ChangesTab sid={sid} filesTick={filesTick} />}
         {tab === 'files' && <FilesTab sid={sid} filesTick={filesTick} openPath={openPath} onOpenPath={onOpenPath} />}
         {tab === 'terminal' && <TerminalTab items={items} />}
         {tab === 'activity' && <ActivityTab items={items} />}

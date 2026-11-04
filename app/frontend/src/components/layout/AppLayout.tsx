@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Cable, Clock, FolderCog, ListTodo, House, LayoutDashboard, LogOut, MessageSquare, Moon, Plug, Puzzle, Settings, Sun, type LucideIcon } from 'lucide-react'
+import { Bell, Cable, Clock, Code2, FolderCog, ListTodo, House, LayoutDashboard, LogOut, MessageSquare, Moon, Plug, Puzzle, Settings, Sun, type LucideIcon } from 'lucide-react'
 import { api } from '@/lib/api'
 import { t, tk } from '@/lib/i18n.ts'
-import { AgentMark } from '@/components/ui/AgentMark'
+import { AgentLogo, AgentOwl } from '@/components/ui/AgentMark'
 import { LangSwitcher } from './LangSwitcher'
+import { CODE_MODE } from '@/lib/features'
 import { cn } from '@/lib/utils'
 
 type NavItem = { to: string; label: string; icon: LucideIcon; hint: string }
@@ -15,6 +16,7 @@ const TOP: NavItem[] = [
 ]
 const GROUPS: { title: string; items: NavItem[] }[] = [
   { title: tk('Công việc'), items: [
+    ...(CODE_MODE ? [{ to: '/code', label: tk('Lập trình'), icon: Code2, hint: tk('Mở một dự án và nhờ agent viết code') }] : []),
     { to: '/tasks', label: tk('Tác vụ'), icon: ListTodo, hint: tk('Việc dài agent làm ngầm') },
     { to: '/automations', label: tk('Tự động hóa'), icon: Clock, hint: tk('Việc lặp theo lịch') },
     { to: '/notifications', label: tk('Hộp thư'), icon: Bell, hint: tk('Thông báo từ agent') },
@@ -61,10 +63,10 @@ export function AppLayout() {
   return (
     <div className="flex h-full">
       <aside className="flex w-14 shrink-0 flex-col border-r border-line bg-panel/60 md:w-56">
-        <div className="flex h-14 items-center gap-2.5 px-3.5 md:px-4">
-          <AgentMark size="sm" className="!mt-0" />
-          <span className="hidden text-[15px] font-semibold tracking-tight md:block">Argus Agent</span>
-        </div>
+        <NavLink to="/" aria-label={t('Về trang chủ')} title={t('Về trang chủ')} className="mx-2 mt-3 mb-3 flex shrink-0 items-center rounded-lg outline-offset-2 transition hover:opacity-80 md:mx-3 md:px-1">
+          <AgentOwl className="h-8 md:hidden" />
+          <AgentLogo className="hidden md:flex" />
+        </NavLink>
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2" aria-label={t('Điều hướng chính')}>
           {TOP.map((i) => <NavRow key={i.to} item={i} unread={0} />)}
           {GROUPS.map((g) => (

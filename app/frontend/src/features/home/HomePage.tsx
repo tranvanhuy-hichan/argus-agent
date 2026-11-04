@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowRight, ArrowUp, Bell, Circle, Clock, FolderCog, HeartPulse, ListTodo, MessageSquare, Plug, Puzzle, Send, type LucideIcon } from 'lucide-react'
-import { AgentMark } from '@/components/ui/AgentMark'
+import { AgentLogoStacked } from '@/components/ui/AgentMark'
 import { Loading, Page } from '@/components/ui/misc'
 import { api } from '@/lib/api'
 import { t, tk } from '@/lib/i18n.ts'
@@ -41,8 +41,6 @@ const Muted = ({ children }: { children: React.ReactNode }) => <p className="py-
 const Dot = ({ tone }: { tone: 'ok' | 'warn' | 'bad' | 'off' }) => (
   <span className={cn('inline-block size-2 shrink-0 rounded-full', tone === 'ok' && 'bg-ok', tone === 'warn' && 'bg-warn', tone === 'bad' && 'bg-bad', tone === 'off' && 'bg-muted/50')} aria-hidden />
 )
-
-const suggestions = () => [t('Tóm tắt tin công nghệ mới nhất hôm nay'), t('Viết script Python xử lý file CSV'), t('Kiểm tra dung lượng đĩa của máy'), t('Liệt kê việc tôi nên làm hôm nay')]
 
 export function HomePage() {
   const nav = useNavigate()
@@ -96,7 +94,7 @@ export function HomePage() {
         <section className="rounded-xl border border-line bg-panel p-5">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-center">
             <header className="flex items-center gap-4">
-              <AgentMark />
+              <AgentLogoStacked className="shrink-0" />
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">{greet}</h1>
                 <p className="text-sm text-muted">{t('Hôm nay bạn muốn agent giúp gì?')}</p>
@@ -107,9 +105,6 @@ export function HomePage() {
                 <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('Nhập yêu cầu rồi nhấn Enter…')} aria-label={t('Yêu cầu')} className="h-11 flex-1 bg-transparent px-3 text-[15px] placeholder:text-muted/70 focus:outline-none" />
                 <button type="submit" disabled={!text.trim()} aria-label={t('Gửi')} className="grid size-10 place-items-center rounded-md bg-accent text-accent-fg transition hover:brightness-110 disabled:opacity-40"><ArrowUp className="size-5" /></button>
               </form>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {suggestions().map((x) => <button key={x} onClick={() => go(x)} className="rounded-md border border-line px-3 py-1 text-[13px] text-muted transition hover:border-accent/60 hover:text-fg">{x}</button>)}
-              </div>
             </div>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-3 text-xs text-muted">

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowUp, AtSign, ChevronDown, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
 import { t, useLang } from '@/lib/i18n.ts'
 import type { Skill } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { PermissionMenu } from './PermissionMenu'
-import { EFFORTS, type Effort, type Permission } from './permissions'
+import { SettingsMenu } from './SettingsMenu'
+import type { Effort, Permission } from './permissions'
 import { useDictation } from './useDictation'
 
 /** MCP server/dich vu goi duoc bang dau @ trong tin nhan. */
@@ -32,18 +32,6 @@ interface Props {
   onProvider: (id: string) => void
   effort: Effort
   onEffort: (e: Effort) => void
-}
-
-/** O chon dang "vien thuoc" (select that, de dung ban phim va trinh doc man hinh). */
-function PillSelect({ value, onChange, label, children, disabled, title }: { value: string; onChange: (v: string) => void; label: string; children: React.ReactNode; disabled?: boolean; title?: string }) {
-  return (
-    <label className={cn('relative flex h-8 items-center rounded-full text-sm text-muted transition hover:bg-panel2 hover:text-fg', disabled && 'opacity-50')} title={title ?? label}>
-      <span className="sr-only">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} aria-label={label}
-        className="h-8 max-w-52 cursor-pointer appearance-none truncate rounded-full bg-transparent pl-3 pr-7 focus:outline-none focus-visible:outline-2 disabled:cursor-not-allowed">{children}</select>
-      <ChevronDown className="pointer-events-none absolute right-2 size-3.5" aria-hidden />
-    </label>
-  )
 }
 
 export function Composer(p: Props) {
@@ -150,15 +138,9 @@ export function Composer(p: Props) {
                 </div>
               )}
             </div>
-            <PermissionMenu value={p.permission} onChange={p.onPermission} />
 
             <div className="ml-auto flex items-center gap-0.5">
-              <PillSelect value={p.provider} onChange={p.onProvider} label={t('Chọn provider')}>
-                {p.providers.map((x) => <option key={x.id} value={x.id}>{x.id} · {x.model}</option>)}
-              </PillSelect>
-              <PillSelect value={effortOff ? 'auto' : p.effort} onChange={(v) => p.onEffort(v as Effort)} label={t('Mức suy luận')} disabled={effortOff} title={effortOff ? t('Chưa hỗ trợ với provider Anthropic') : t('Mức suy luận')}>
-                {EFFORTS.map((e) => <option key={e.id} value={e.id}>{t(e.label)}</option>)}
-              </PillSelect>
+              <SettingsMenu providers={p.providers} provider={p.provider} onProvider={p.onProvider} effort={p.effort} onEffort={p.onEffort} effortOff={effortOff} permission={p.permission} onPermission={p.onPermission} />
               {dictation.supported && (
                 <button onClick={dictation.toggle} aria-pressed={dictation.listening} aria-label={dictation.listening ? t('Dừng ghi âm') : t('Nói để nhập')} title={dictation.listening ? t('Dừng ghi âm') : t('Nói để nhập')}
                   className={cn('grid size-8 place-items-center rounded-full transition', dictation.listening ? 'animate-pulse bg-bad/15 text-bad' : 'text-muted hover:bg-panel2 hover:text-fg')}><Mic className="size-4" /></button>

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AgentMark } from '../../components/ui/AgentMark'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Activity, Download, Folder, FolderTree, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
+import { Activity, Download, Folder, FolderTree, GitCompare, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
 import { Loading } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
 import { useConfig, useMcp, useSessions, useSkills } from '@/lib/queries'
+import { CODE_MODE } from '@/lib/features'
 import { mcpBrand } from '@/features/integrations/brands'
 import { t, tk } from '@/lib/i18n.ts'
 import { errMsg } from '@/lib/utils'
@@ -25,6 +26,7 @@ const store = {
 }
 
 const PANEL_BUTTONS: { id: PanelTab; label: string; icon: typeof Terminal }[] = [
+  { id: 'changes', label: tk('Thay đổi'), icon: GitCompare },
   { id: 'files', label: tk('Tệp'), icon: FolderTree },
   { id: 'terminal', label: tk('Terminal'), icon: Terminal },
   { id: 'activity', label: tk('Hoạt động'), icon: Activity },
@@ -42,7 +44,8 @@ function exportMarkdown(items: Item[]): string {
 export function ChatPage() {
   const chat = useChat()
   const cfg = useConfig()
-  const sessions = useSessions()
+  const allSessions = useSessions()
+  const sessions = { ...allSessions, data: CODE_MODE ? allSessions.data : allSessions.data?.filter((s) => !s.project) }
   const skills = useSkills()
   const mcp = useMcp()
   const toast = useToast()
@@ -61,6 +64,8 @@ export function ChatPage() {
   const [sessionsOpen, setSessionsOpen] = useState(() => store.get('sessions-open', '1') === '1')
   const [tab, setTab] = useState<PanelTab>('files')
   const [openPath, setOpenPath] = useState<string | null>(null)
+  const project = sessions.data?.find((s) => s.id === chat.sessionId)?.project ?? ''
+  const projectSeen = useRef<string | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
 
@@ -76,13 +81,20 @@ export function ChatPage() {
 
   const wanted = params.get('session')
   useEffect(() => {
-    if (wanted) { void chat.open(wanted); setParams({}, { replace: true }) }
-  }, [wanted, chat, setParams])
+    if (!wanted) return
+    if (sessions.data?.find((s) => s.id === wanted)?.project) { nav(`/code/${wanted}`, { replace: true }); return }
+    void chat.open(wanted); setParams({}, { replace: true })
+  }, [wanted, chat, setParams, sessions.data, nav])
 
   useEffect(() => {
     const el = scroller.current
     if (el && stick.current) el.scrollTop = el.scrollHeight
   }, [chat.items, chat.status])
+  // mở dự án: tự bật panel Thay đổi; phiên thường thì không có tab này
+  useEffect(() => {
+    if (project && projectSeen.current !== chat.sessionId) { projectSeen.current = chat.sessionId; setTab('changes'); setPanelOpen(true) }
+    if (!project && tab === 'changes') setTab('files')
+  }, [project, chat.sessionId, tab])
   useEffect(() => { store.set('effort', effort) }, [effort])
   useEffect(() => { store.set('panel-open', panelOpen ? '1' : '0') }, [panelOpen])
   useEffect(() => { store.set('sessions-open', sessionsOpen ? '1' : '0') }, [sessionsOpen])
@@ -94,7 +106,9 @@ export function ChatPage() {
   }
   const openFile = useCallback((p: string) => { setPanelOpen(true); setTab('files'); setOpenPath(p) }, [])
   const onNew = () => { chat.reset(); setAttachments([]); setOpenPath(null); setPermission('default') }
-  const onOpen = (id: string) => { setOpenPath(null); setAttachments([]); setPermission('default'); void chat.open(id) }
+  const onOpen = (id: string) => {
+    if (sessions.data?.find((s) => s.id === id)?.project) { nav(`/code/${id}`); return }
+    setOpenPath(null); setAttachments([]); setPermission('default'); void chat.open(id) }
 
   const upload = async (files: File[]) => {
     if (!files.length) return
@@ -158,7 +172,7 @@ export function ChatPage() {
             <button onClick={() => setSessionsOpen(!sessionsOpen)} aria-pressed={sessionsOpen} aria-label={t('Danh sách hội thoại')} title={t('Danh sách hội thoại')}
               className="hidden rounded-lg p-1.5 text-muted transition hover:bg-panel2 hover:text-fg lg:block"><PanelLeft className="size-4" /></button>
             <Folder className="size-4 shrink-0 text-muted" aria-hidden />
-            <span className="hidden text-muted sm:inline">{t('Không gian làm việc')}</span>
+            <span className="hidden max-w-[16rem] truncate text-muted sm:inline" title={project || undefined}>{project ? project.replace(/^\/home\/[^/]+/, '~') : t('Không gian làm việc')}</span>
             <span className="hidden text-muted/60 sm:inline" aria-hidden>/</span>
             <h1 className="truncate font-medium">{sessions.data?.find((s) => s.id === chat.sessionId)?.title ?? t('Cuộc trò chuyện mới')}</h1>
             <span title={active} className="grid size-5 shrink-0 place-items-center rounded-full bg-ok text-[10px] font-bold text-white" aria-hidden>{active.slice(0, 1).toUpperCase()}</span>
@@ -166,7 +180,7 @@ export function ChatPage() {
           <div className="flex items-center gap-1">
             {chat.items.length > 0 && <button onClick={download} aria-label={t('Xuất hội thoại ra Markdown')} title={t('Xuất Markdown')} className="rounded-lg p-2 text-muted hover:bg-panel2 hover:text-fg"><Download className="size-4" /></button>}
             <div className="hidden items-center gap-0.5 xl:flex" role="group" aria-label={t('Không gian làm việc')}>
-              {PANEL_BUTTONS.map(({ id, label, icon: Icon }) => {
+              {PANEL_BUTTONS.filter((x) => project || x.id !== 'changes').map(({ id, label, icon: Icon }) => {
                 const on = panelOpen && tab === id
                 const count = id === 'terminal' ? chat.items.filter((i) => i.kind === 'tool' && i.name === 'exec').length : id === 'activity' ? chat.items.filter((i) => i.kind === 'tool').length : 0
                 return (
@@ -211,7 +225,7 @@ export function ChatPage() {
         {dragging && <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center border-2 border-dashed border-accent bg-bg/80"><p className="flex items-center gap-2 text-sm font-medium"><Upload className="size-5 text-accent" />{t('Thả file để đính kèm')}</p></div>}
       </section>
 
-      {panelOpen && <WorkspacePanel sid={chat.sessionId} items={chat.items} filesTick={chat.filesTick} tab={tab} onTab={setTab} openPath={openPath} onOpenPath={setOpenPath} onClose={() => setPanelOpen(false)} width={panelWidth} onWidth={setPanelWidth} />}
+      {panelOpen && <WorkspacePanel sid={chat.sessionId} project={!!project} items={chat.items} filesTick={chat.filesTick} tab={tab} onTab={setTab} openPath={openPath} onOpenPath={setOpenPath} onClose={() => setPanelOpen(false)} width={panelWidth} onWidth={setPanelWidth} />}
     </div>
     </SessionContext.Provider>
   )

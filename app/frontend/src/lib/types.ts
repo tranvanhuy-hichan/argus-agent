@@ -58,7 +58,7 @@ export interface ToolInfo { name: string; description: string; risk: 'safe' | 'f
 export interface SecretsStatus { enabled: boolean; source: 'env' | 'keychain' | 'file' | 'none'; encrypted: number; plaintext: number; failed: string[] }
 export interface ConfigResponse { config: AppConfig; tools: ToolInfo[]; secrets?: SecretsStatus }
 
-export interface SessionInfo { id: string; title: string; updated: number; created: number; source: string; turns: number }
+export interface SessionInfo { id: string; title: string; updated: number; created: number; source: string; turns: number; project?: string }
 export interface ToolCall { id: string; name: string; args: Record<string, unknown> }
 export interface WireMessage { role: 'user' | 'assistant' | 'tool'; content: string; tool_calls?: ToolCall[]; tool_call_id?: string; attachments?: string[] }
 export interface FileEntry { path: string; dir: boolean; size: number; mtime: number }
@@ -110,3 +110,8 @@ export interface Dashboard {
 
 export interface HabitDraft { kind: 'skill' | 'automation'; name: string; title: string; description: string; body: string; prompt: string; schedule: string }
 export interface HabitSuggestion { id: string; status: string; count: number; examples: string[]; draft: HabitDraft | null; created: number }
+
+export interface GitFile { path: string; status: 'new' | 'modified' | 'deleted' }
+export interface GitStatus { repo: boolean; branch: string; files: GitFile[] }
+export interface BrowseResult { path: string; parent: string | null; git: boolean; dirs: { name: string; path: string; git: boolean }[] }
+export interface RecentProject { path: string; name: string; ts: number; git?: boolean; branch?: string }

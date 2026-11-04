@@ -1,17 +1,45 @@
+import wordmark from '@/assets/argus-wordmark.png'
+import mark from '@/assets/argus-mark.png'
+import markLight from '@/assets/argus-mark-light.png'
 import { cn } from '@/lib/utils'
 
-/** Logo của Argus: một con mắt tối giản (vòng mống mắt và đồng tử) trên nền gradient. */
+/** Biểu tượng con cú trên ô vuông bo góc màu tím than (hợp cả giao diện tối lẫn sáng). */
 export function AgentMark({ size = 'lg', className }: { size?: 'sm' | 'lg'; className?: string }) {
   return (
-    <svg
-      viewBox="0 0 64 64"
-      role="img"
-      aria-label="Argus"
-      className={cn('shrink-0', size === 'lg' ? 'size-14' : 'mt-0.5 size-8', className)}
-    >
-      <rect width="64" height="64" rx="14" fill="#e5412d"/>
-<circle cx="32" cy="32" r="15" fill="none" stroke="#fff" strokeWidth="5.5"/>
-<circle cx="32" cy="32" r="5.5" fill="#fff"/>
-    </svg>
+    <span role="img" aria-label="Argus" className={cn('grid shrink-0 place-items-center bg-gradient-to-br from-[#26245a] to-[#0e0d22] ring-1 ring-white/10', size === 'lg' ? 'size-14 rounded-xl' : 'mt-0.5 size-8 rounded-lg', className)}>
+      <img src={mark} alt="" draggable={false} className={size === 'lg' ? 'w-[44px]' : 'w-[78%]'} />
+    </span>
+  )
+}
+
+/** Con cú Argus không có nền: bản sáng cho giao diện tối, bản navy cho giao diện sáng (đổi theo theme). */
+export function AgentOwl({ className }: { className?: string }) {
+  return (
+    <span role="img" aria-label="Argus" className={cn('inline-flex shrink-0', className)}>
+      <img src={mark} alt="" draggable={false} className="logo-on-dark h-full w-auto" />
+      <img src={markLight} alt="" draggable={false} className="logo-on-light h-full w-auto" />
+    </span>
+  )
+}
+
+/** Logo đứng như bản gốc: con cú ở trên, chữ ARGUS ở dưới; không có nền và đổi màu theo giao diện. */
+export function AgentLogoStacked({ className }: { className?: string }) {
+  const url = `url(${wordmark})`
+  return (
+    <span role="img" aria-label="Argus" className={cn('flex flex-col items-center gap-2', className)}>
+      <AgentOwl className="h-10" />
+      <span aria-hidden className="block h-[14px] bg-fg" style={{ aspectRatio: '7.33 / 1', WebkitMaskImage: url, maskImage: url, WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }} />
+    </span>
+  )
+}
+
+/** Logo ngang: con cú bên trái, chữ ARGUS bên phải; không có nền và đổi màu theo giao diện. */
+export function AgentLogo({ className }: { className?: string }) {
+  const url = `url(${wordmark})`
+  return (
+    <span role="img" aria-label="Argus" className={cn('flex items-center gap-3', className)}>
+      <AgentOwl className="h-9" />
+      <span aria-hidden className="block h-[17px] bg-fg" style={{ aspectRatio: '7.33 / 1', WebkitMaskImage: url, maskImage: url, WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }} />
+    </span>
   )
 }
