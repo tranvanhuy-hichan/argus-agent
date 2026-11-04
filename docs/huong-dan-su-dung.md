@@ -234,6 +234,37 @@ Khi bạn gửi cùng một kiểu yêu cầu ở **3 cuộc trò chuyện khác
 
 Bấm **Xem bản nháp**, chỉnh nếu muốn (kể cả đổi loại) rồi **Tạo**. Bấm dấu X để bỏ qua; việc đó sẽ không bị nhắc lại. Việc phát hiện chỉ so khớp từ khóa trên máy bạn, không tốn token; model chỉ được gọi một lần để soạn bản nháp. Tắt tại Cài đặt → Agent → "Gợi ý tạo kỹ năng từ việc lặp lại".
 
+## Hỏi đáp trên tài liệu của bạn
+
+Mục **Tài liệu** (thanh bên, nhóm Khả năng của agent) là kho tài liệu riêng của bạn. Kéo thả vào đó **file hoặc cả thư mục** hợp đồng, báo cáo, bảng tính, bài thuyết trình hay ghi chú, hoặc bấm **Chọn file** và **Chọn thư mục**. Hỗ trợ PDF, Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`), TXT, Markdown, CSV, JSON, HTML.
+
+Argus đọc từng file, cắt thành các đoạn ngắn và ghi nhớ vị trí của chúng (trang của PDF, mục của Word, sheet và dòng của Excel, slide của PowerPoint). File trùng nội dung được nhận ra và bỏ qua. Mỗi tài liệu hiện trạng thái **Đang xử lý**, **Sẵn sàng** hoặc **Lỗi** kèm lý do (ví dụ PDF là bản quét ảnh thì chưa đọc được chữ).
+
+Có tài liệu rồi thì có hai cách hỏi, cả hai đều là cuộc trò chuyện bình thường:
+
+- Ở trang **Tài liệu**, bấm **Hỏi đáp về tài liệu**: mở một cuộc trò chuyện mới với tùy chọn **Hỏi từ tài liệu** đã bật sẵn.
+- Ở bất kỳ cuộc trò chuyện nào, bật nút **Hỏi từ tài liệu** cạnh dấu **+** trong khung nhập (tắt đi là trò chuyện bình thường). Nút mờ nghĩa là chưa có tài liệu nào sẵn sàng.
+
+Khi tùy chọn bật, agent chỉ dựa vào kho tài liệu: tự tìm, rồi trả lời kèm nguồn, ví dụ *"(Nguồn: Hop-dong.pdf, trang 2)"*. Nếu tài liệu không nhắc đến, agent nói rõ thay vì đoán. Tìm kết hợp từ khóa (không phân biệt dấu) và ngữ nghĩa nên hỏi bằng lời của bạn vẫn ra đúng đoạn. Xóa tài liệu là xóa luôn các đoạn đã lập chỉ mục. Tài liệu nằm trên máy bạn; chỉ các đoạn liên quan tới câu hỏi mới được gửi cho model bạn đang dùng.
+
+### Phân tích tài liệu và đề xuất phương án
+
+Nút **Phân tích tài liệu** ở trang Tài liệu giao cho agent một việc nền: đọc kỹ các tài liệu (phần mở đầu từng file cùng các đoạn khớp với điều bạn muốn phân tích), tìm thêm các mục còn thiếu rồi viết báo cáo gồm **Tóm tắt, Yêu cầu và ràng buộc, Rủi ro và điểm chưa rõ, Phương án đề xuất (2-3 phương án, có ưu và nhược), Khuyến nghị, Các bước thực hiện**, mỗi ý kèm nguồn. Bạn có thể gõ trọng tâm (ví dụ "phân tích rủi ro và đề xuất phương án thực hiện trong 90 ngày"). Việc chạy nền nên có thể mất vài phút; kết quả xem ở trang **Tác vụ** và có thông báo khi xong.
+
+### Dùng kho tài liệu từ ứng dụng khác (API và MCP)
+
+Ứng dụng bên ngoài (Claude Code, Cursor, script của bạn) cũng thêm tài liệu và hỏi đáp được, bằng API token ở **Kết nối → API & Token** (có mục ví dụ lệnh `curl`):
+
+- `POST /v1/documents?name=ten.pdf` (thân là nội dung file) thêm tài liệu; `DELETE /v1/documents/{id}` xóa. Hai việc này cần token có quyền **Cho phép thêm và xóa tài liệu** (mặc định tắt).
+- `GET /v1/documents` liệt kê; `POST /v1/documents/search` chỉ tìm các đoạn khớp (không gọi model); `POST /v1/documents/ask` hỏi đáp và nhận câu trả lời kèm danh sách nguồn. Mọi token đều dùng được ba việc này.
+- MCP server của Argus (cách cài ở **Kết nối → API & Token**) có thêm các công cụ `kb_upload` (đường dẫn file trên máy), `kb_list`, `kb_search`, `kb_ask`, `kb_delete`.
+
+### Tìm theo nghĩa: dùng Ollama trên máy hay Gemini
+
+Ở **Cài đặt → Tính năng & Trí nhớ → Tìm kiếm theo nghĩa** có hai lựa chọn. **Trên máy bạn (Ollama)**: riêng tư và miễn phí, nên dùng model `bge-m3` (tiếng Việt tốt) hoặc `nomic-embed-text` (nhẹ); giao diện hiện sẵn lệnh `ollama pull` để chép. **Gemini (đám mây)**: không cần cài gì, chọn nhà cung cấp Gemini đã thêm ở Mô hình AI với model `gemini-embedding-001`; các đoạn văn bản được gửi tới Google để tính. Sau khi đổi, bấm **Lưu thay đổi** rồi **Lập lại chỉ mục**.
+
+Giới hạn: tối đa 60MB mỗi file; PDF bản quét ảnh cần OCR (chưa có); file `.doc` và `.xls` cũ cần lưu lại sang `.docx` và `.xlsx`.
+
 ## 8. Mô hình AI
 
 Trang **Mô hình AI** là nơi chọn "bộ não" cho agent.
@@ -255,15 +286,15 @@ Trong **Chỉnh sửa → Tùy chọn nâng cao** có: địa chỉ máy chủ (
 
 ## 9. Kết nối: công cụ ngoài, Telegram, API
 
-Trang **Kết nối** có ba tab (MCP server, Kênh chat, API & Token). Các dịch vụ bên ngoài nằm ở mục **Plugin** riêng trên thanh bên.
+Trang **Kết nối** có ba tab (MCP server, Kênh chat, API & Token). Các dịch vụ bên ngoài nằm ở mục **Tiện ích** riêng trên thanh bên.
 
-### MCP server và Plugin
+### MCP server và Tiện ích
 
 MCP là cách "cắm thêm" công cụ cho agent. Có hai nơi:
 
 **Kết nối → tab "MCP server"**: máy chủ chạy trên máy bạn hoặc tự khai báo (duyệt web bằng Playwright, đọc/ghi file, server MCP của bạn). Bấm **Thêm MCP server**, chọn một mẫu (**Duyệt web**, **Đọc/ghi file**) hoặc **Tự cấu hình**, đặt tên, bấm **Thử kết nối** để thấy các công cụ nó cung cấp, rồi **Lưu**. Công cụ mới tự xuất hiện cho agent, tên dạng `tênserver__têntool`.
 
-**Mục "Plugin"** (thanh bên, nhóm Khả năng của agent): danh mục **54 dịch vụ đã kiểm chứng** chia theo lĩnh vực, kể cả những cái bạn chưa dùng: Lập trình và triển khai (GitHub, GitLab, Vercel, Netlify, Cloudflare, Sentry, Datadog, Context7, DeepWiki, Microsoft Learn…), Dữ liệu và hạ tầng (Neon, Supabase, PostHog, Apify, Hugging Face…), Tìm kiếm và tài liệu (Exa, Firecrawl, Tavily), Công việc và cộng tác (Notion, Linear, Asana, Atlassian, ClickUp, monday, Airtable, Todoist, Miro, Zapier…), Thiết kế và website (Canva, Webflow, Wix), Kinh doanh và thanh toán (Stripe, PayPal, Square, Intercom, Ramp, Clay, Close, Shopify, GoDaddy), cùng Buildkite, Better Stack, Grafana, Globalping, AWS Knowledge, AllTrails, Amplitude, Cloudinary. Gõ vào ô tìm kiếm để lọc. Muốn dùng dịch vụ nào, bấm **Dùng** ở dòng đó. Có ba kiểu, ghi rõ ở từng dòng:
+**Mục "Tiện ích"** (thanh bên, nhóm Khả năng của agent): danh mục **54 dịch vụ đã kiểm chứng** chia theo lĩnh vực, kể cả những cái bạn chưa dùng: Lập trình và triển khai (GitHub, GitLab, Vercel, Netlify, Cloudflare, Sentry, Datadog, Context7, DeepWiki, Microsoft Learn…), Dữ liệu và hạ tầng (Neon, Supabase, PostHog, Apify, Hugging Face…), Tìm kiếm và tài liệu (Exa, Firecrawl, Tavily), Công việc và cộng tác (Notion, Linear, Asana, Atlassian, ClickUp, monday, Airtable, Todoist, Miro, Zapier…), Thiết kế và website (Canva, Webflow, Wix), Kinh doanh và thanh toán (Stripe, PayPal, Square, Intercom, Ramp, Clay, Close, Shopify, GoDaddy), cùng Buildkite, Better Stack, Grafana, Globalping, AWS Knowledge, AllTrails, Amplitude, Cloudinary. Gõ vào ô tìm kiếm để lọc. Muốn dùng dịch vụ nào, bấm **Dùng** ở dòng đó. Có ba kiểu, ghi rõ ở từng dòng:
 
 - **Đăng nhập bằng tài khoản** (đa số): Argus thêm kết nối và mở trang đăng nhập của dịch vụ trong tab mới. Bạn bấm **Cho phép** (trong vòng 5 phút) rồi đóng tab; dòng dịch vụ chuyển sang **Đã kết nối** kèm số công cụ.
 - **Không cần đăng nhập** (nhãn xanh): kết nối ngay.

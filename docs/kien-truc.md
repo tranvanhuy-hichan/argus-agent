@@ -81,6 +81,14 @@ Nguyên tắc thiết kế chính:
 - **Mở rộng bằng cách thả file.** Thêm công cụ, router API hoặc lệnh CLI chỉ cần thêm một file theo quy ước, không sửa các file lõi (xem [mục 12](#12-mở-rộng-hệ-thống)).
 - **Tách mã và dữ liệu.** Mã cố định nằm trong `app/`, dữ liệu cá nhân nằm trong `user-data/`.
 
+### Kho tài liệu (`services/knowledge.py`, `tools_kb.py`, `api/knowledge.py`)
+
+Hỏi đáp trên tài liệu của người dùng. `add_file` lưu bản sao vào `workspace/knowledge/<id>/`, chống trùng bằng sha256 rồi đọc và lập chỉ mục ở luồng nền (`_index`). Bộ đọc theo định dạng trả về `(vị trí, văn bản)`: PDF theo trang (`pypdf`, báo "cần OCR" nếu quá nửa số trang không có chữ), Word theo mục tiêu đề hoặc cụm đoạn (đọc XML bằng `zipfile`), Excel theo sheet và cụm 25 dòng có kèm dòng tiêu đề, PowerPoint theo slide, còn lại theo cụm 40 dòng. Có chặn file nén quá lớn. Văn bản chia bằng `memory_index.chunk_text` (≈900 ký tự).
+
+Bảng `kb_docs`, `kb_chunks`, `kb_fts` (FTS5 trên chữ đã bỏ dấu) và `kb_vecs` (vector theo `model_id`), tách riêng khỏi `memory_vectors` nên `memory reindex` không xóa tài liệu. `search()` gộp từ khóa và vector bằng reciprocal-rank fusion; lỗi embedding thì vẫn tìm được bằng từ khóa. Tool `kb_search` trả các đoạn kèm `Nguồn: tên file, vị trí`; tool bị ẩn khi kho trống (tiết kiệm token) và `knowledge_note()` nhắc agent dùng nó và luôn trích nguồn.
+
+**Giao diện ngoài cho kho tài liệu.** `api/external.py` có `/v1/documents` (liệt kê, thêm, xóa, `search`, `ask`); thêm và xóa cần cột `api_tokens.allow_docs` (mặc định 0), đọc và hỏi đáp thì mọi token đều dùng được. `ask` chạy `api_run.run_once(..., docs=True)` rồi `knowledge.plain_sources` đổi thẻ `[[src:...]]` thành chữ thường và trả danh sách nguồn. `mcp_server.py` bọc các endpoint đó thành công cụ `kb_*`. Chế độ "Hỏi từ tài liệu" là cờ `docs` của `/api/chat` (và `use_docs` của `agent.run_turn`): giới hạn công cụ còn `kb_search`, tìm sẵn các đoạn liên quan đưa vào lời nhắc để thường chỉ cần một lượt gọi model. Phân tích tài liệu là job `kind="analysis"` trong `jobs.execute`: dùng `knowledge.overview` (đầu mỗi tài liệu cộng các đoạn khớp trọng tâm) và `ANALYSIS_PROMPT` để ra báo cáo có cấu trúc.
+
 ## Ứng dụng desktop (`app/desktop/`)
 
 Dành cho người dùng không chuyên. Gồm hai lớp:
@@ -349,7 +357,7 @@ Một kỹ năng là thư mục có `SKILL.md` (đầu file là YAML frontmatter
   - `mcp_registry.py`: tìm trong thư viện MCP chính thức (`GET /api/mcp/registry?q=&cursor=`), chỉ giữ mục có máy chủ từ xa (`streamable-http`/`sse`, không có biến trong URL), bỏ trùng, gắn nhãn `community` cho tên miền không chứng minh được thương hiệu. Nội dung do cộng đồng đăng, không kiểm duyệt.
   - `mcp_probe.py`: `POST /api/mcp/probe` gửi `initialize` không kèm xác thực rồi đọc phản hồi để phân loại `oauth` / `oauth-manual` / `token` / `open` / `down` (đi theo `WWW-Authenticate`, metadata tài nguyên và máy chủ cấp quyền, kiểm tra có `registration_endpoint`). API chặn địa chỉ nội bộ (`_check_url`). Kết quả thăm dò chỉ là gợi ý; luồng đăng nhập thật của SDK mới là phép thử cuối (Figma công bố đăng ký động nhưng trả 403).
   - Cờ `service` trong cấu hình server MCP đánh dấu server thêm từ tab dịch vụ (cả OAuth, token lẫn mở), để tab `MCP truyền thống` không hiển thị lẫn.
-- **Giao diện Kết nối**: tab `MCP server` (`McpTab`, server không dùng OAuth và không có cờ `service`) và mục **Plugin** riêng ở thanh bên, route `/plugins` (`PluginsPage` bọc `ServicesTab`; `/integrations?tab=services` chuyển hướng sang đó) (`ServicesTab`: ô tìm kiếm, danh mục theo nhóm với logo (`ServiceLogo`: `simple-icons`, vài SVG riêng, chữ cái đầu cho dịch vụ chưa có logo), hộp thoại token, kết quả thư viện với cảnh báo). Nút Dùng lưu cấu hình rồi gọi `POST /api/mcp/{name}/oauth/start` (kiểu OAuth).
+- **Giao diện Kết nối**: tab `MCP server` (`McpTab`, server không dùng OAuth và không có cờ `service`) và mục **Tiện ích** (plugin) riêng ở thanh bên, route `/plugins` (`PluginsPage` bọc `ServicesTab`; `/integrations?tab=services` chuyển hướng sang đó) (`ServicesTab`: ô tìm kiếm, danh mục theo nhóm với logo (`ServiceLogo`: `simple-icons`, vài SVG riêng, chữ cái đầu cho dịch vụ chưa có logo), hộp thoại token, kết quả thư viện với cảnh báo). Nút Dùng lưu cấu hình rồi gọi `POST /api/mcp/{name}/oauth/start` (kiểu OAuth).
 - **Server** (`mcp_server.py`): chạy độc lập qua stdio, chỉ gọi HTTP `/v1/*` của agent đang chạy nên không phụ thuộc phần còn lại của mã. Cho phép Claude Code, Cursor… giao việc cho agent. Cần `ARGUS_TOKEN`.
 
 ### 6.4 Kế hoạch, việc nền và agent con
