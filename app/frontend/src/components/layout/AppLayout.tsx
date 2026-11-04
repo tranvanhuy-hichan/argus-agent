@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Bot, Cable, Clock, FolderCog, ListTodo, House, LayoutDashboard, LogOut, MessageSquare, Moon, Plug, Puzzle, Settings, Sun, type LucideIcon } from 'lucide-react'
+import { Bell, Cable, Clock, FolderCog, ListTodo, House, LayoutDashboard, LogOut, MessageSquare, Moon, Plug, Puzzle, Settings, Sun, type LucideIcon } from 'lucide-react'
 import { api } from '@/lib/api'
 import { t, tk } from '@/lib/i18n.ts'
+import { AgentMark } from '@/components/ui/AgentMark'
 import { LangSwitcher } from './LangSwitcher'
 import { cn } from '@/lib/utils'
 
@@ -59,12 +60,11 @@ export function AppLayout() {
   const logout = () => { void api.post('/api/auth/logout').then(() => window.dispatchEvent(new Event('auth-required'))) }
   return (
     <div className="flex h-full">
-      <aside className="flex w-14 shrink-0 flex-col border-r border-line bg-panel md:w-56">
+      <aside className="flex w-14 shrink-0 flex-col border-r border-line bg-panel/60 md:w-56">
         <div className="flex h-14 items-center gap-2.5 px-3.5 md:px-4">
-          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent text-accent-fg"><Bot className="size-[18px]" /></div>
+          <AgentMark size="sm" className="!mt-0" />
           <span className="hidden text-[15px] font-semibold tracking-tight md:block">Argus Agent</span>
         </div>
-        <div className="px-2 pb-1"><LangSwitcher /></div>
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2" aria-label={t('Điều hướng chính')}>
           {TOP.map((i) => <NavRow key={i.to} item={i} unread={0} />)}
           {GROUPS.map((g) => (
@@ -76,6 +76,7 @@ export function AppLayout() {
           ))}
         </nav>
         <div className="space-y-0.5 border-t border-line p-2">
+          <div className="hidden pb-1 md:block"><LangSwitcher /></div>
           {auth.data?.required && (
             <button onClick={logout} title={t('Đăng xuất')} className="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-sm text-muted transition hover:bg-panel2 hover:text-fg"><LogOut className="size-[18px] shrink-0" /><span className="hidden md:block">{t('Đăng xuất')}</span></button>
           )}

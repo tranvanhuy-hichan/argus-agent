@@ -401,6 +401,18 @@ const dict: Record<string, string> = {
   "Bỏ qua": "Dismiss",
   "Gợi ý tạo kỹ năng từ việc lặp lại": "Suggest skills from repeated tasks",
   "Gợi ý kỹ năng": "Skill suggestions",
+  "MCP server: {n}/{m} đã kết nối": "MCP servers: {n}/{m} connected",
+  "Telegram đang lỗi": "Telegram has an error",
+  "Heartbeat đang lỗi": "Heartbeat has an error",
+  "{n} lỗi gọi model": "{n} model call errors",
+  "Giao việc dài": "Start a long task",
+  "Tuần qua của bạn": "Your past week",
+  "Thống kê chi tiết": "Detailed statistics",
+  "Cuộc trò chuyện": "Conversations",
+  "Tin nhắn trao đổi": "Messages exchanged",
+  "Việc agent đã làm": "Actions the agent took",
+  "Kỹ năng đang dùng": "Active skills",
+  "Số lần bạn nhờ agent mỗi ngày trong {n} ngày qua": "Times you asked the agent each day, last {n} days",
 }
 
 export default dict
