@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/argus-logo.png" alt="Argus" width="320"></p>
+
 # Argus Agent
 
 Trợ lý AI cá nhân chạy trên máy bạn: gateway chạy nền, giao diện web, **CLI `argus`**, skill dạng `SKILL.md`, bộ nhớ bằng markdown, tool, MCP, Telegram và automations.

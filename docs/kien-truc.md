@@ -81,6 +81,17 @@ Nguyên tắc thiết kế chính:
 - **Mở rộng bằng cách thả file.** Thêm công cụ, router API hoặc lệnh CLI chỉ cần thêm một file theo quy ước, không sửa các file lõi (xem [mục 12](#12-mở-rộng-hệ-thống)).
 - **Tách mã và dữ liệu.** Mã cố định nằm trong `app/`, dữ liệu cá nhân nằm trong `user-data/`.
 
+## Ứng dụng desktop (`app/desktop/`)
+
+Dành cho người dùng không chuyên. Gồm hai lớp:
+
+1. **Server đóng gói** (`argus-server.spec`, PyInstaller): toàn bộ backend, giao diện web đã build (`frontend/dist`) và mẫu workspace trong một thư mục tự chứa. Điểm vào là `argus/desktop_server.py` (`server_entry.py`): chọn cổng (ưu tiên 18787 cố định để đăng nhập OAuth của MCP còn hiệu lực, bận thì lấy cổng trống), in `ARGUS_READY <cổng>` khi sẵn sàng. `core/paths.py` nhận biết bản đóng băng (`sys.frozen`, `sys._MEIPASS`) để tìm `frontend/dist` và `templates`. Chạy ở chế độ UTF-8 vì Windows mặc định cp1252.
+2. **Vỏ Electron** (`main.js`): khoá một bản chạy, chạy server với `ARGUS_HOME` là thư mục dữ liệu người dùng, đợi dòng sẵn sàng rồi mở `BrowserWindow` trỏ vào `http://127.0.0.1:<cổng>`. Liên kết ra ngoài mở bằng trình duyệt hệ thống. Thoát app thì dừng cả cây tiến trình server.
+
+`electron-builder` tạo AppImage và deb (Linux), trình cài đặt NSIS (Windows). Workflow `.github/workflows/desktop.yml` dựng cả hai khi có tag `v*`, chạy `smoke_test.py` trên bản server đóng gói trước khi đóng app.
+
+Tương thích Windows ở backend: lệnh `exec` dùng bash nếu có (Git Bash) và nếu không thì cmd.exe, đồng thời prompt báo cho model biết; tìm Chrome/Edge ở đường dẫn mặc định; bỏ qua các lời gọi chỉ có trên POSIX (`getuid`, `SIGKILL`).
+
 ## 2. Cấu trúc thư mục
 
 ```

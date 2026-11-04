@@ -34,6 +34,19 @@ Argus Agent là một trợ lý AI cá nhân **chạy ngay trên máy của bạ
 
 ## 2. Cài đặt và chạy lần đầu
 
+### Cách dành cho người dùng bình thường: ứng dụng desktop
+
+Tải bản cài đặt ở trang **Releases** của dự án rồi cài như một phần mềm bình thường:
+
+- **Windows:** chạy `Argus-Agent-<phiên bản>-win-x64.exe`. Cài một cú bấm, có shortcut ở Start Menu.
+- **Linux:** `Argus-Agent-<phiên bản>-linux-x86_64.AppImage` (cấp quyền chạy rồi bấm đúp) hoặc gói `.deb` (`sudo apt install ./Argus-Agent-*.deb`).
+
+Mở "Argus Agent" là có ngay cửa sổ riêng, không cần dòng lệnh, không cần cài Python. App tự chạy server bên trong và tự tắt khi bạn đóng cửa sổ. Dữ liệu (cấu hình, hội thoại, workspace) nằm ở thư mục dữ liệu của người dùng và **được giữ lại khi cập nhật hay gỡ cài đặt**: menu **Trợ giúp → Mở thư mục dữ liệu**. Nếu app không mở được, menu **Trợ giúp → Xem nhật ký**.
+
+Bản desktop có dữ liệu riêng, tách khỏi bản chạy bằng CLI hay Docker trên cùng máy, nên hai bên không đụng nhau. Người dùng kỹ thuật vẫn cài và dùng `argus` như mô tả bên dưới.
+
+### Cách dành cho người dùng kỹ thuật: CLI
+
 Cần Python 3.11 trở lên (và Node 20 trở lên nếu muốn tự build giao diện).
 
 ```bash
