@@ -59,9 +59,19 @@ class Rename(BaseModel):
     title: str
 
 
+class PinBody(BaseModel):
+    pinned: bool = True
+
+
 @router.patch("/sessions/{sid}")
 def rename_session(sid: str, body: Rename):
     sessions.rename(sid, body.title)
+    return {"ok": True}
+
+
+@router.post("/sessions/{sid}/pin")
+def pin_session(sid: str, body: PinBody):
+    sessions.pin(sid, body.pinned)
     return {"ok": True}
 
 
@@ -78,15 +88,18 @@ class ChatBody(BaseModel):
     provider: str | None = None
     attachments: list[str] = []
     permission: Literal["default", "readonly", "guarded", "full"] = "default"
-    effort: Literal["auto", "low", "medium", "high"] = "auto"
+    effort: Literal["auto", "low", "medium", "high", "thinking"] = "auto"
     docs: bool = False  # "Hỏi từ tài liệu": chỉ trả lời dựa trên kho tài liệu, có nguồn
+    temperature: float | None = None
+    max_tokens: int | None = None
 
 
 @router.post("/chat")
 def chat(body: ChatBody):
     def gen():
         for ev in chat_runner.stream_chat(body.session, body.text, body.provider, attachments=body.attachments, permission=body.permission,
-                                            effort=None if body.effort == "auto" else body.effort, docs=body.docs):
+                                            effort=None if body.effort == "auto" else body.effort, docs=body.docs,
+                                            temperature=body.temperature, max_tokens=body.max_tokens):
             if ev["type"] == "ping":
                 yield ": ping\n\n"
             else:

@@ -10,7 +10,7 @@ from .ui import L, ask_yes_no, bold, cyan, dim, err, green, interactive, red, ye
 KIND = {"exec": ("chạy lệnh shell", "run a shell command"), "mcp": ("gọi tool MCP", "call an MCP tool"), "file_read": ("đọc file ngoài workspace", "read a file outside the workspace"),
         "file_write": ("ghi file", "write a file"), "http_request": ("gửi yêu cầu HTTP thay đổi dữ liệu", "send a state-changing HTTP request")}
 PERMS = ("default", "readonly", "guarded", "full")
-EFFORTS = ("auto", "low", "medium", "high")
+EFFORTS = ("auto", "low", "medium", "high", "thinking")
 
 
 def _trace(ev: dict) -> str | None:
@@ -105,7 +105,7 @@ def run(args) -> int:
 HELP = {
     "/help": ("Hiện trợ giúp", "Show help"), "/new": ("Bắt đầu hội thoại mới", "Start a new conversation"), "/sessions": ("Liệt kê hội thoại gần đây", "List recent conversations"),
     "/open <id>": ("Mở lại một hội thoại", "Reopen a conversation"), "/model <name>": ("Đổi provider", "Switch provider"), "/perm <mode>": ("default | readonly | guarded | full", "default | readonly | guarded | full"),
-    "/effort <level>": ("auto | low | medium | high", "auto | low | medium | high"), "/skills": ("Liệt kê skill", "List skills"), "/files": ("Liệt kê file của phiên", "List the conversation's files"), "/exit": ("Thoát (hoặc Ctrl+D)", "Quit (or Ctrl+D)"),
+    "/effort <level>": ("auto | low | medium | high | thinking", "auto | low | medium | high | thinking"), "/skills": ("Liệt kê skill", "List skills"), "/files": ("Liệt kê file của phiên", "List the conversation's files"), "/exit": ("Thoát (hoặc Ctrl+D)", "Quit (or Ctrl+D)"),
 }
 
 

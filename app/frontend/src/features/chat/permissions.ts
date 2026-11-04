@@ -2,7 +2,7 @@ import { ShieldAlert, ShieldCheck, ShieldEllipsis, ShieldQuestion, type LucideIc
 import { tk } from '@/lib/i18n.ts'
 
 export type Permission = 'default' | 'readonly' | 'guarded' | 'full'
-export type Effort = 'auto' | 'low' | 'medium' | 'high'
+export type Effort = 'auto' | 'low' | 'medium' | 'high' | 'thinking'
 
 export const PERMISSIONS: { id: Permission; label: string; desc: string; icon: LucideIcon; tone: string }[] = [
   { id: 'default', label: tk('Mặc định'), desc: tk('Theo chính sách đã cấu hình trong Cài đặt.'), icon: ShieldCheck, tone: 'text-muted' },
@@ -16,4 +16,5 @@ export const EFFORTS: { id: Effort; label: string }[] = [
   { id: 'low', label: tk('Thấp') },
   { id: 'medium', label: tk('Vừa') },
   { id: 'high', label: tk('Cao') },
+  { id: 'thinking', label: tk('Suy nghĩ (Thinking)') },
 ]

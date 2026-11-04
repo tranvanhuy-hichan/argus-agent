@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AgentLogoStacked } from '../../components/ui/AgentMark'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Activity, Download, FileSearch, Folder, FolderTree, GitCompare, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
+import { Activity, Copy, Download, FileCode, FileSearch, FileText, Folder, FolderTree, GitCompare, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { BrandIcon, detectBrand } from '@/components/ui/BrandIcon'
 import { Loading } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
 import { useConfig, useMcp, useSessions, useSkills } from '@/lib/queries'
@@ -44,6 +45,26 @@ function exportMarkdown(items: Item[]): string {
   }).filter(Boolean).join('\n')
 }
 
+function exportJson(items: Item[], sessionTitle?: string): string {
+  const data = {
+    title: sessionTitle || 'Hội thoại Argus',
+    exported_at: new Date().toISOString(),
+    messages: items.map((i) => {
+      if (i.kind === 'tool') {
+        return { kind: i.kind, name: i.name, args: i.args, result: i.result }
+      }
+      if (i.kind === 'user' || i.kind === 'assistant') {
+        return { kind: i.kind, text: i.text }
+      }
+      return { kind: i.kind }
+    }),
+  }
+  return JSON.stringify(data, null, 2)
+}
+
+
+
+
 export function ChatPage() {
   const chat = useChat()
   const cfg = useConfig()
@@ -60,6 +81,10 @@ export function ChatPage() {
   const [provider, setProvider] = useState<string | null>(null)
   const [permission, setPermission] = useState<Permission>('default') // moi hoi thoai bat dau o 'Mac dinh', khong luu lai
   const [effort, setEffort] = useState<Effort>(() => (store.get('effort', 'auto') as Effort))
+  const [temperature, setTemperature] = useState(() => Number(store.get('chat_temperature', '0.7')))
+  const [maxTokens, setMaxTokens] = useState(() => Number(store.get('chat_max_tokens', '4096')))
+  const changeTemperature = (v: number) => { setTemperature(v); store.set('chat_temperature', String(v)) }
+  const changeMaxTokens = (v: number) => { setMaxTokens(v); store.set('chat_max_tokens', String(v)) }
   const [attachments, setAttachments] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -78,6 +103,15 @@ export function ChatPage() {
   const projectSeen = useRef<string | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportBoxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!exportOpen) return
+    const down = (e: MouseEvent) => { if (!exportBoxRef.current?.contains(e.target as Node)) setExportOpen(false) }
+    document.addEventListener('mousedown', down)
+    return () => document.removeEventListener('mousedown', down)
+  }, [exportOpen])
 
   const initial = (location.state as { prompt?: string } | null)?.prompt
   const wantDocs = (location.state as { docs?: boolean } | null)?.docs
@@ -121,6 +155,21 @@ export function ChatPage() {
   }
   const openFile = useCallback((p: string) => { setPanelOpen(true); setTab('files'); setOpenPath(p) }, [])
   const onNew = () => { chat.reset(); setAttachments([]); setOpenPath(null); setPermission('default'); setUseDocs(false) }
+
+  useEffect(() => {
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSessionsOpen((s) => !s)
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        onNew()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onNew])
+
   const onOpen = (id: string) => {
     if (sessions.data?.find((s) => s.id === id)?.project) { nav(`/code/${id}`); return }
     setOpenPath(null); setAttachments([]); setPermission('default'); void chat.open(id) }
@@ -154,7 +203,7 @@ export function ChatPage() {
   const submit = () => {
     if (!text.trim() || chat.busy || uploading) return
     stick.current = true
-    void chat.send(skill ? `${t('Dùng skill `{name}`: ', { name: skill })}${text}` : text, active, attachments, { permission, effort, docs: isDocs })
+    void chat.send(skill ? `${t('Dùng skill `{name}`: ', { name: skill })}${text}` : text, active, attachments, { permission, effort, docs: isDocs, temperature, max_tokens: maxTokens })
     setText('')
     setSkill(null)
     setAttachments([])
@@ -165,13 +214,31 @@ export function ChatPage() {
     stick.current = true
     void chat.send(override ?? last.text, active, last.attachments)
   }
-  const download = () => {
+  const downloadMd = () => {
     const blob = new Blob([exportMarkdown(chat.items)], { type: 'text/markdown' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = t('hoi-thoai-{id}.md', { id: chat.sessionId ?? t('moi') })
     a.click()
     URL.revokeObjectURL(a.href)
+    setExportOpen(false)
+  }
+
+  const downloadJson = () => {
+    const currentTitle = sessions.data?.find((s) => s.id === chat.sessionId)?.title
+    const blob = new Blob([exportJson(chat.items, currentTitle)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = t('hoi-thoai-{id}.json', { id: chat.sessionId ?? t('moi') })
+    a.click()
+    URL.revokeObjectURL(a.href)
+    setExportOpen(false)
+  }
+
+  const copyConversation = () => {
+    navigator.clipboard.writeText(exportMarkdown(chat.items))
+    toast(t('Đã sao chép toàn bộ hội thoại vào bộ nhớ tạm'))
+    setExportOpen(false)
   }
 
   return (
@@ -221,7 +288,35 @@ export function ChatPage() {
             <span title={active} className="grid size-5 shrink-0 place-items-center rounded-full bg-ok text-[10px] font-bold text-white" aria-hidden>{active.slice(0, 1).toUpperCase()}</span>
           </div>
           <div className="flex items-center gap-1">
-            {chat.items.length > 0 && <button onClick={download} aria-label={t('Xuất hội thoại ra Markdown')} title={t('Xuất Markdown')} className="rounded-lg p-2 text-muted hover:bg-panel2 hover:text-fg"><Download className="size-4" /></button>}
+            {chat.items.length > 0 && (
+              <div className="relative" ref={exportBoxRef}>
+                <button
+                  onClick={() => setExportOpen(!exportOpen)}
+                  aria-label={t('Xuất hoặc chia sẻ hội thoại')}
+                  title={t('Xuất hội thoại')}
+                  className={cn('rounded-lg p-2 transition hover:bg-panel2', exportOpen ? 'bg-panel2 text-fg' : 'text-muted hover:text-fg')}
+                >
+                  <Download className="size-4" />
+                </button>
+                {exportOpen && (
+                  <div className="absolute right-0 top-full z-40 mt-1.5 w-52 overflow-hidden rounded-xl border border-line bg-panel p-1 shadow-xl">
+                    <button onClick={downloadMd} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs hover:bg-panel2">
+                      <FileText className="size-3.5 text-accent" />
+                      <span>{t('Tải file Markdown (.md)')}</span>
+                    </button>
+                    <button onClick={downloadJson} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs hover:bg-panel2">
+                      <FileCode className="size-3.5 text-accent" />
+                      <span>{t('Tải file JSON (.json)')}</span>
+                    </button>
+                    <div className="my-1 border-t border-line/60" />
+                    <button onClick={copyConversation} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs hover:bg-panel2">
+                      <Copy className="size-3.5 text-muted" />
+                      <span>{t('Sao chép vào Clipboard')}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="hidden items-center gap-0.5 xl:flex" role="group" aria-label={t('Không gian làm việc')}>
               {PANEL_BUTTONS.filter((x) => project || x.id !== 'changes').map(({ id, label, icon: Icon }) => {
                 const on = panelOpen && tab === id
@@ -256,7 +351,15 @@ export function ChatPage() {
                   onEdit={(txt) => void resend(txt)} onRegenerate={() => void resend()} />
               ))
             )}
-            {chat.busy && chat.status && <p className="ml-10 flex items-center gap-2 text-xs text-muted" role="status"><LoaderCircle className="size-3.5 animate-spin text-accent" />{chat.status}</p>}
+            {chat.busy && chat.status && (
+              <p className="ml-10 flex items-center gap-2 text-xs text-muted" role="status">
+                <span className="grid size-5 shrink-0 place-items-center rounded-md bg-panel2">
+                  <BrandIcon brand={detectBrand(chat.status) || detectBrand(active) || (cfg.data?.config.providers[active] ? detectBrand(cfg.data.config.providers[active]) : null)} className="size-3.5" />
+                </span>
+                <LoaderCircle className="size-3.5 animate-spin text-accent" />
+                <span>{chat.status}</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -264,6 +367,7 @@ export function ChatPage() {
         <Composer mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
           docs={isDocs} onDocs={setUseDocs} docsReady={docsReady} permission={permission} onPermission={setPermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
+          temperature={temperature} onTemperature={changeTemperature} maxTokens={maxTokens} onMaxTokens={changeMaxTokens}
           providers={providers.map((id) => ({ id, model: cfg.data.config.providers[id].model, type: cfg.data.config.providers[id].type }))} />
 
         {dragging && <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center border-2 border-dashed border-accent bg-bg/80"><p className="flex items-center gap-2 text-sm font-medium"><Upload className="size-5 text-accent" />{t('Thả file để đính kèm')}</p></div>}

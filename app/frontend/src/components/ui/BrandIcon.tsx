@@ -45,3 +45,33 @@ export function BrandIcon({ brand, className }: { brand: Brand | null | undefine
   }
   return <img src={b.src} alt="" aria-hidden className={cn('size-6 object-contain', className)} />
 }
+
+export function detectBrand(input?: string | { id?: string; name?: string; model?: string; base_url?: string; type?: string; cli?: string } | null): Brand | null {
+  if (!input) return null
+  if (typeof input === 'object') {
+    const { id = '', name = '', model = '', base_url = '', type = '', cli = '' } = input
+    if (cli === 'claude') return 'claude'
+    if (cli === 'agy') return 'antigravity'
+    if (cli === 'codex') return 'codex'
+    const combined = `${id} ${name} ${model} ${base_url} ${type}`.toLowerCase()
+    return detectBrand(combined)
+  }
+  const s = input.toLowerCase()
+  if (s.includes('ollama') || s.includes('local') || s.includes('11434')) return 'ollama'
+  if (s.includes('deepseek')) return 'deepseek'
+  if (s.includes('qwen')) return 'qwen'
+  if (s.includes('gemini') || s.includes('google') || s.includes('generativelanguage')) return 'gemini'
+  if (s.includes('claude') || s.includes('anthropic')) return 'claude'
+  if (s.includes('antigravity') || s.includes('agy')) return 'antigravity'
+  if (s.includes('openai') || s.includes('gpt') || s.includes('chatgpt')) return 'openai'
+  if (s.includes('mistral')) return 'mistral'
+  if (s.includes('groq')) return 'groq'
+  if (s.includes('openrouter')) return 'openrouter'
+  if (s.includes('together')) return 'together'
+  if (s.includes('fireworks')) return 'fireworks'
+  if (s.includes('cerebras')) return 'cerebras'
+  if (s.includes('xai') || s.includes('grok')) return 'xai'
+  if (s.includes('lmstudio') || s.includes('1234')) return 'lmstudio'
+  if (s.includes('vllm') || s.includes('llama.cpp') || s.includes('8000')) return 'vllm'
+  return null
+}

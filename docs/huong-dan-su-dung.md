@@ -11,14 +11,15 @@ Tài liệu này dành cho người dùng, không cần biết lập trình. N�
 5. [Giao việc dài: trang Tác vụ](#5-giao-việc-dài-trang-tác-vụ)
 6. [Việc tự động theo lịch](#6-việc-tự-động-theo-lịch)
 7. [Kỹ năng (Skills)](#7-kỹ-năng-skills)
-8. [Mô hình AI](#8-mô-hình-ai)
-9. [Kết nối: công cụ ngoài, Telegram, API](#9-kết-nối-công-cụ-ngoài-telegram-api)
-10. [Tính cách và trí nhớ](#10-tính-cách-và-trí-nhớ)
-11. [Các tính năng nâng cao](#11-các-tính-năng-nâng-cao)
-12. [Thống kê và lịch sử](#12-thống-kê-và-lịch-sử)
-13. [An toàn và quyền riêng tư](#13-an-toàn-và-quyền-riêng-tư)
-14. [Sao lưu và khôi phục](#14-sao-lưu-và-khôi-phục)
-15. [Xử lý sự cố](#15-xử-lý-sự-cố)
+8. [Kho tài liệu (Knowledge Base & RAG)](#8-kho-tài-liệu-knowledge-base--rag)
+9. [Mô hình AI](#9-mô-hình-ai)
+10. [Kết nối: công cụ ngoài, Telegram, API](#10-kết-nối-công-cụ-ngoài-telegram-api)
+11. [Tính cách và trí nhớ](#11-tính-cách-và-trí-nhớ)
+12. [Các tính năng nâng cao](#12-các-tính-năng-nâng-cao)
+13. [Thống kê và lịch sử](#13-thống-kê-và-lịch-sử)
+14. [An toàn và quyền riêng tư](#14-an-toàn-và-quyền-riêng-tư)
+15. [Sao lưu và khôi phục](#15-sao-lưu-và-khôi-phục)
+16. [Xử lý sự cố](#16-xử-lý-sự-cố)
 
 ---
 
@@ -96,7 +97,8 @@ Thanh bên trái gom các trang theo nhóm:
 |---|---|---|
 | (đầu) | **Trang chủ** | Xem tổng quan, ô gõ nhanh, danh sách việc nên làm tiếp để hoàn tất cài đặt |
 | (đầu) | **Trò chuyện** | Nói chuyện và giao việc cho agent |
-| **Công việc** | **Tác vụ** | Giao việc dài cho agent làm ngầm |
+| **Công việc** | **Tài liệu** | Nạp và tra cứu tài liệu cá nhân (PDF, Word, Excel, PowerPoint...) |
+| | **Tác vụ** | Giao việc dài cho agent làm ngầm |
 | | **Tự động hóa** | Việc lặp lại theo lịch (mỗi sáng 8 giờ…) |
 | | **Hộp thư** | Thông báo agent gửi cho bạn |
 | **Khả năng của agent** | **Kỹ năng** | Dạy agent làm thêm việc mới |
@@ -122,32 +124,60 @@ Mọi file agent tạo ra (script, báo cáo, ảnh…) và file bạn đính k�
 
 ### Ô soạn tin
 
-- **Dấu +**: đính kèm file hoặc ảnh. Bạn cũng có thể kéo thả file vào khung chat.
-- **Microphone**: nhập bằng giọng nói (dùng nhận dạng giọng nói của trình duyệt).
-- **Gõ `/`**: chọn một kỹ năng để dùng ngay.
-- **Gõ `@`**: gọi một dịch vụ MCP (Notion, Linear…) hoặc MCP server cụ thể, xem [mục 9](#9-kết-nối-công-cụ-ngoài-telegram-api).
-- **Chọn mô hình** (ví dụ "local · qwen2.5:3b"): đổi mô hình cho riêng hội thoại này.
-- **Mức nỗ lực** ("Tự động", thấp, vừa, cao): bắt mô hình suy nghĩ kỹ hơn ở câu khó, nhưng chậm và tốn hơn.
+Thanh công cụ bên dưới ô nhập văn bản được bố trí tinh gọn và phân loại khoa học:
 
-### Quyền của agent (ô "Mặc định" ở góc dưới trái)
+* **Bên trái (Công cụ nhập & Dữ liệu):**
+  - **Dấu +**: đính kèm file hoặc ảnh, gọi dịch vụ `@`, hoặc kích hoạt nhanh một kỹ năng `/`. Bạn cũng có thể kéo thả file trực tiếp vào khung chat.
+  - **Hỏi từ tài liệu**: bật/tắt chế độ tra cứu từ kho tri thức cá nhân (RAG). Khi bật, Agent sẽ tìm các đoạn tài liệu liên quan để đối chiếu và trích dẫn trực tiếp nguồn gốc vào câu trả lời.
 
-Đây là cài đặt quan trọng nhất về an toàn. Bạn đổi được ngay trong từng hội thoại:
+* **Bên phải (Mô hình & Cài đặt hội thoại):**
+  - **Chọn mô hình** (ví dụ "gemini-3-flash-preview", "qwen3:4b"...): hiển thị logo nền tảng và tên model chi tiết; bấm vào để đổi mô hình nhanh cho riêng hội thoại này.
+  - **Nút Mức suy luận & Tham số (`[Brain] Tự động` / `Suy nghĩ`)**:
+    - **Mức suy luận**: chọn giữa `Tự động`, `Suy nghĩ chuyên sâu (Thinking)`, `Thấp`, `Vừa`, `Cao`. Khi chọn "Suy nghĩ chuyên sâu", nút sẽ đổi sang biểu tượng phát sáng `Suy nghĩ` và kích hoạt chế độ suy luận chuyên sâu.
+    - **Nhiệt độ (Temperature)**: thanh trượt từ `0.0` (chính xác, phù hợp code/số liệu) đến `0.6` (cân bằng, suy luận) và `1.2+` (sáng tạo).
+    - **Độ dài tối đa (Max Tokens)**: chọn giới hạn token phản hồi nhanh bằng các mốc `1k`, `2k`, `4k`, `8k`, kèm nút khôi phục mặc định.
+  - **Nút Quyền hạn & Hạn mức (`[Shield] Mặc định` / `An toàn` / `Toàn quyền`)**:
+    - **Quyền hạn của Agent**: chọn quyền chạy lệnh shell và ghi file cho hội thoại hiện tại (`Mặc định`, `An toàn`, `Toàn quyền`).
+    - **Hạn mức & Quota**: xem trực tiếp biểu đồ đo tỷ lệ sử dụng token trong 5 giờ và 7 ngày của provider hiện tại.
+  - **Microphone**: nhập bằng giọng nói (dùng nhận dạng giọng nói tích hợp của trình duyệt).
+  - **Nút gửi / Dừng**: gửi tin nhắn (hoặc dừng phản hồi khi agent đang làm việc).
+
+### Quyền của agent
+
+Đây là cài đặt quan trọng nhất về an toàn. Bạn đổi được ngay trong nút quyền hạn ở góc dưới phải:
 
 | Chế độ | Ý nghĩa |
 |---|---|
 | **Mặc định** | Theo chính sách trong Cài đặt: ghi file trong thư mục của hội thoại thì được, chạy lệnh shell hoặc đụng file ngoài thư mục thì hỏi bạn |
-| **Chỉ đọc** | Chỉ được đọc và tra cứu. Chặn ghi file, chạy lệnh, và các công cụ làm thay đổi dữ liệu |
-| **Hỏi trước** | Hỏi bạn trước **mỗi** lần ghi file, chạy lệnh, gọi công cụ ngoài hoặc gửi yêu cầu HTTP làm thay đổi dữ liệu |
-| **Toàn quyền** | Không hỏi gì cả. Chỉ dùng khi bạn tin tưởng hoàn toàn việc đang làm |
+| **An toàn** | Hỏi bạn trước **mọi** lần chạy lệnh shell và sửa/ghi file |
+| **Toàn quyền** | Không hỏi gì cả. Chỉ dùng khi bạn tin tưởng hoàn toàn yêu cầu của mình |
 
 Khi agent cần xin phép, một thẻ **"Agent muốn chạy lệnh shell…"** hiện ra kèm đúng lệnh sẽ chạy. Bấm **Cho phép** hoặc **Từ chối**. Đọc kỹ lệnh trước khi cho phép.
+
+### Chế độ Suy nghĩ chuyên sâu (Deep Thinking)
+
+Với các mô hình có khả năng lý luận (như DeepSeek-R1, Qwen 2.5/3 Reasoning, Claude Thinking...):
+- Khi agent đang suy nghĩ, giao diện hiển thị trạng thái đang gọi kèm spinner và logo mô hình.
+- Chuỗi suy nghĩ bên trong thẻ `<think>` được tự động bóc tách và đưa vào một khối accordion **"Suy nghĩ"** có thể bấm thu gọn hoặc mở rộng bất cứ lúc nào, giúp phần trả lời chính luôn mạch lạc và sạch đẹp.
+
+### Xem trước trực tiếp (Live Preview)
+
+Khi bạn yêu cầu Agent viết code HTML, ứng dụng mini, trang web demo hoặc biểu đồ vector SVG:
+- Trong khung chat sẽ xuất hiện nút **"Xem trước (Preview)"**.
+- Bấm vào để mở một cửa sổ popup chạy thử nghiệm trực tiếp giao diện tương tác đó trong môi trường sandbox iframe an toàn mà không cần mở file thủ công.
+
+### Quản lý danh sách hội thoại
+
+- **Tự động đặt tên thông minh (Auto-naming)**: Sau câu trả lời đầu tiên, Argus tự động tóm tắt nội dung chính thành một tiêu đề ngắn gọn (3–5 từ) giúp bạn dễ dàng nhận biết chủ đề thảo luận.
+- **Ghim hội thoại (Pin)**: Bấm biểu tượng ghim 📌 cạnh mỗi phiên trò chuyện để đưa các cuộc trò chuyện quan trọng lên đầu danh sách.
+- **Hiển thị đầy đủ tiêu đề**: Thanh bên danh sách trò chuyện được thiết kế rộng rãi (`288px`), tự động xuống 2 dòng (`line-clamp-2`) giúp hiển thị trọn vẹn câu hỏi mà không bị cắt cụt.
+- **Tìm kiếm toàn văn**: Ô tìm kiếm phía trên tìm kiếm cả tiêu đề lẫn nội dung chi tiết bên trong các cuộc trò chuyện cũ.
 
 ### Các thao tác với tin nhắn
 
 - **Sửa và gửi lại**: rê chuột vào tin nhắn cuối của bạn.
 - **Tạo lại**: yêu cầu agent trả lời lại câu cuối.
 - **Đọc to**: dưới mỗi câu trả lời có nút đọc bằng giọng nói của trình duyệt (không tốn phí, không gửi dữ liệu đi).
-- **Tìm kiếm hội thoại**: ô tìm ở danh sách bên trái tìm cả nội dung các cuộc trò chuyện cũ.
 
 ### Kế hoạch cho việc nhiều bước
 
@@ -238,18 +268,36 @@ Khi bạn gửi cùng một kiểu yêu cầu ở **3 cuộc trò chuyện khác
 
 Bấm **Xem bản nháp**, chỉnh nếu muốn (kể cả đổi loại) rồi **Tạo**. Bấm dấu X để bỏ qua; việc đó sẽ không bị nhắc lại. Việc phát hiện chỉ so khớp từ khóa trên máy bạn, không tốn token; model chỉ được gọi một lần để soạn bản nháp. Tắt tại Cài đặt → Agent → "Gợi ý tạo kỹ năng từ việc lặp lại".
 
-## Hỏi đáp trên tài liệu của bạn
+## 8. Kho tài liệu (Knowledge Base & RAG)
 
-Mục **Tài liệu** (thanh bên, nhóm Khả năng của agent) là kho tài liệu riêng của bạn. Kéo thả vào đó **file hoặc cả thư mục** hợp đồng, báo cáo, bảng tính, bài thuyết trình hay ghi chú, hoặc bấm **Chọn file** và **Chọn thư mục**. Hỗ trợ PDF, Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`), TXT, Markdown, CSV, JSON, HTML.
+Mục **Tài liệu** (thanh bên, nhóm Công việc) là kho tri thức riêng của bạn. Kéo thả vào đó **file hoặc cả thư mục** hợp đồng, báo cáo, bảng tính, bài thuyết trình hay tài liệu kỹ thuật, hoặc bấm **Chọn file** và **Chọn thư mục**.
 
-Argus đọc từng file, cắt thành các đoạn ngắn và ghi nhớ vị trí của chúng (trang của PDF, mục của Word, sheet và dòng của Excel, slide của PowerPoint). File trùng nội dung được nhận ra và bỏ qua. Mỗi tài liệu hiện trạng thái **Đang xử lý**, **Sẵn sàng** hoặc **Lỗi** kèm lý do (ví dụ PDF là bản quét ảnh thì chưa đọc được chữ).
+### Các định dạng hỗ trợ
 
-Có tài liệu rồi thì có hai cách hỏi, cả hai đều là cuộc trò chuyện bình thường:
+- **Văn bản & Sách**: PDF (tự động phân trang, trích xuất text), Word (`.docx`), Markdown (`.md`), Text (`.txt`).
+- **Bảng tính & Dữ liệu**: Excel (`.xlsx`, `.xlsm`, `.csv`, `.tsv`) - trích xuất dữ liệu theo từng sheet và cụm 25 dòng có kèm hàng tiêu đề cột, giúp Agent tính toán số liệu chính xác.
+- **Trình chiếu**: PowerPoint (`.pptx`) - đọc nội dung theo từng slide.
 
-- Ở trang **Tài liệu**, bấm **Hỏi đáp về tài liệu**: mở một cuộc trò chuyện mới với tùy chọn **Hỏi từ tài liệu** đã bật sẵn.
-- Ở bất kỳ cuộc trò chuyện nào, bật nút **Hỏi từ tài liệu** cạnh dấu **+** trong khung nhập (tắt đi là trò chuyện bình thường). Nút mờ nghĩa là chưa có tài liệu nào sẵn sàng.
+### Quá trình nạp và lập chỉ mục
 
-Khi tùy chọn bật, agent chỉ dựa vào kho tài liệu: tự tìm, rồi trả lời kèm nguồn, ví dụ *"(Nguồn: Hop-dong.pdf, trang 2)"*. Nếu tài liệu không nhắc đến, agent nói rõ thay vì đoán. Tìm kết hợp từ khóa (không phân biệt dấu) và ngữ nghĩa nên hỏi bằng lời của bạn vẫn ra đúng đoạn. Xóa tài liệu là xóa luôn các đoạn đã lập chỉ mục. Tài liệu nằm trên máy bạn; chỉ các đoạn liên quan tới câu hỏi mới được gửi cho model bạn đang dùng.
+Argus đọc từng file, cắt thành các đoạn ngắn (chunks ≈ 900 ký tự) và ghi nhớ vị trí cụ thể (trang của PDF, mục của Word, sheet và dòng của Excel, slide của PowerPoint). File trùng nội dung được nhận dạng bằng sha256 và bỏ qua.
+Thanh tiến trình nạp trực quan hiển thị % xử lý và trạng thái: **Đang xử lý**, **Sẵn sàng** hoặc **Lỗi** kèm lý do cụ thể.
+
+Tìm kiếm kết hợp hai cơ chế:
+1. **Tìm kiếm toàn văn FTS5**: tìm kiếm từ khóa chính xác (không phân biệt dấu tiếng Việt).
+2. **Tìm kiếm ngữ nghĩa Vector**: tính toán vector embedding để tìm theo ý niệm và ngữ nghĩa tương đồng.
+3. Kết hợp bằng thuật toán **Reciprocal Rank Fusion** để đưa ra đoạn tài liệu phù hợp nhất.
+
+### Hỏi đáp và Trích dẫn nguồn gốc tương tác (Citations)
+
+Có hai cách hỏi tài liệu:
+- Ở trang **Tài liệu**, bấm **Hỏi đáp về tài liệu**: mở cuộc trò chuyện mới với chế độ tra cứu bật sẵn.
+- Trong bất kỳ cuộc trò chuyện nào, bật nút **Hỏi từ tài liệu** bên cạnh dấu `+` ở thanh công cụ.
+
+Khi bật:
+- Agent tự động tra cứu các đoạn liên quan và trả lời kèm trích dẫn nguồn gốc: `[1]`, `[2]`.
+- **Trích dẫn tương tác (Clickable Citations)**: Bạn có thể nhấp chuột trực tiếp vào số trích dẫn `[1]` hoặc `[2]` để mở thẻ popover xem ngay câu trích thực tế cùng số trang và tên file gốc.
+- Xóa tài liệu sẽ tự động dọn dẹp các vector và chỉ mục liên quan. Tài liệu lưu trữ cục bộ trên máy bạn; chỉ những đoạn liên quan tới câu hỏi mới được gửi cho mô hình AI xử lý.
 
 ### Phân tích tài liệu và đề xuất phương án
 
@@ -269,13 +317,13 @@ Trang **Mô hình AI** có hai tab: **Model xử lý** (các model trả lời b
 
 Giới hạn: tối đa 60MB mỗi file; PDF bản quét ảnh cần OCR (chưa có); file `.doc` và `.xls` cũ cần lưu lại sang `.docx` và `.xlsx`.
 
-## 8. Mô hình AI
+## 9. Mô hình AI
 
 Trang **Mô hình AI** là nơi chọn "bộ não" cho agent.
 
 - **Mô hình của bạn**: mỗi mô hình là một thẻ cho biết đang là mô hình chính hay không, đã có khóa API chưa. Bấm **Thử kết nối** để kiểm tra, **Chỉnh sửa** để nhập khóa API và chọn model, **Dùng làm chính** để đặt làm mô hình mặc định.
 - **Thêm mô hình AI**: bấm một ô dịch vụ.
-  - *Chạy trên máy bạn* (miễn phí, riêng tư): **Ollama**, **LM Studio**. Cần cài sẵn và tải model về máy.
+  - *Chạy trên máy bạn* (miễn phí, riêng tư): **Ollama**, **LM Studio**. Cần cài sẵn và tải model về máy. Có trình chọn mô hình trực quan phát hiện các model đang có sẵn trong máy.
   - *Dịch vụ đám mây* (cần khóa API lấy từ trang của họ): **Google Gemini**, **Claude**, **OpenAI**, **DeepSeek**, **OpenRouter**, **Groq**, và "Dịch vụ khác" cho mọi dịch vụ tương thích OpenAI. Mục "Xem thêm dịch vụ" còn có vLLM, Mistral, xAI, Cerebras, Together, Fireworks, Qwen.
 - *Dùng CLI đã đăng nhập (không cần API key)*: dùng tài khoản đã đăng nhập sẵn trong một CLI trên máy bạn. Có ba CLI dựng sẵn: **Claude Code** (lệnh `claude`), **Antigravity** (lệnh `agy`, tài khoản Google) và **Codex** (lệnh `codex`, tài khoản ChatGPT/OpenAI); thêm **CLI khác** cho mọi chương trình nhận câu hỏi qua stdin và in câu trả lời ra stdout. Bạn cần cài CLI và chạy nó một lần trong terminal để đăng nhập. Đây là cách thứ hai để xác thực, bên cạnh API key: bạn chọn một trong hai bằng cách bấm ô tương ứng (ví dụ Claude dùng API key, hay Claude Code dùng CLI). Xem lưu ý bên dưới.
 - **Mô hình dự phòng**: nếu mô hình chính lỗi hoặc quá tải, agent tự chuyển sang các mô hình bạn tick, theo thứ tự.
@@ -292,7 +340,7 @@ Trong **Chỉnh sửa → Tùy chọn nâng cao** có: địa chỉ máy chủ (
 
 Mỗi mô hình ở trang **Mô hình AI** hiện dòng **Argus đã dùng** (token và số lượt trong 5 giờ và 7 ngày qua). Với **Claude Code** (CLI đã đăng nhập bằng gói thuê bao), Argus còn đọc hạn mức thật bằng lệnh `claude -p /usage` và vẽ hai thanh: **Phiên 5 giờ** và **Tuần**, kèm phần trăm đã dùng, phần trăm còn lại và giờ làm mới. Cùng thông tin này xuất hiện trong nút **Tuỳ chọn** ở khung chat (mục **Hạn mức**) cho model đang chọn. Số liệu được lưu đệm 60 giây; nút làm mới cạnh dòng "Argus đã dùng" lấy lại ngay. Antigravity và Codex chưa có lệnh xem hạn mức nên chỉ hiện phần Argus đã dùng. Hạn mức của gói thuê bao là chung cho mọi nơi bạn dùng (Claude Code, trình duyệt…), không chỉ riêng Argus.
 
-## 9. Kết nối: công cụ ngoài, Telegram, API
+## 10. Kết nối: công cụ ngoài, Telegram, API
 
 Trang **Kết nối** có ba tab (MCP server, Kênh chat, API & Token). Các dịch vụ bên ngoài nằm ở mục **Tiện ích** riêng trên thanh bên.
 
@@ -354,7 +402,7 @@ curl -s http://127.0.0.1:8787/v1/run \
 
 Mặc định API từ chối chạy lệnh shell. Muốn cho phép, tạo token với tùy chọn **cho phép chạy lệnh** và truyền `exec_policy` (`deny`, `allow` hoặc `allowlist`). Xem thêm trong [kien-truc.md](kien-truc.md#8-api-bên-ngoài).
 
-## 10. Tính cách và trí nhớ
+## 11. Tính cách và trí nhớ
 
 Trang **Tính cách & trí nhớ** là nơi bạn sửa bốn file định hình agent:
 
@@ -369,7 +417,7 @@ Tab **MEMORY** có nút **Dọn bằng AI**: AI gộp mục trùng, bỏ thông 
 
 Ngoài MEMORY.md, agent còn **tìm lại các hội thoại cũ** khi cần nhớ điều bạn từng nói (công cụ `memory_search`), kết hợp tìm theo từ khóa và tìm theo ý nghĩa (xem [mục 11](#11-các-tính-năng-nâng-cao)).
 
-## 11. Các tính năng nâng cao
+## 12. Các tính năng nâng cao
 
 Vào **Cài đặt → tab Tính năng**.
 
@@ -414,24 +462,24 @@ Chỉnh độ sâu tối đa (agent con có được tạo agent con khác khôn
 - **An toàn**: chạy lệnh trong **Docker** cách ly; **mật khẩu giao diện**; tình trạng **mã hóa khóa bí mật**.
 - **Nâng cao**: địa chỉ ClawHub.
 
-## 12. Thống kê và lịch sử
+## 13. Thống kê và lịch sử
 
 Trang **Thống kê** có hai tab:
 
 - **Thống kê & chi phí**: số tin nhắn, số token đã dùng, số lần gọi công cụ, độ trễ trung bình, biểu đồ theo ngày (7/30/90 ngày), bảng theo từng mô hình và các công cụ dùng nhiều nhất. Chi phí chỉ là ước tính theo giá bạn nhập ở trang Mô hình AI.
 - **Lịch sử thao tác**: nhật ký mọi công cụ agent đã gọi, nguồn gọi (chat, API, Telegram, tự động…), có cho phép hay từ chối, và kết quả. Có bộ lọc để tra cứu khi cần kiểm tra agent đã làm gì.
 
-## 13. An toàn và quyền riêng tư
+## 14. An toàn và quyền riêng tư
 
 - **Chỉ nhận kết nối từ chính máy bạn.** Máy chủ nghe ở `127.0.0.1`, và từ chối các yêu cầu có tên máy chủ lạ (chống tấn công DNS rebinding).
 - **Đặt mật khẩu nếu mở cho mạng LAN.** Vào **Cài đặt → An toàn → Bảo mật giao diện**. Nếu bạn cho phép truy cập từ máy khác (`argus start --host 0.0.0.0`), hãy luôn đặt mật khẩu và dùng HTTPS.
-- **Khóa bí mật được mã hóa.** Khóa API, token Telegram và biến môi trường của MCP được mã hóa trong `user-data/config.json` bằng khóa chủ `user-data/data/master.key`. Điều này bảo vệ khi file config lộ riêng lẻ (gửi kèm báo lỗi, đẩy nhầm lên git); **không** bảo vệ khi kẻ tấn công có cả hai file hoặc đang chạy trên máy của bạn. Hãy sao lưu khóa chủ (xem mục 14).
+- **Khóa bí mật được mã hóa.** Khóa API, token Telegram và biến môi trường của MCP được mã hóa trong `user-data/config.json` bằng khóa chủ `user-data/data/master.key`. Điều này bảo vệ khi file config lộ riêng lẻ (gửi kèm báo lỗi, đẩy nhầm lên git); **không** bảo vệ khi kẻ tấn công có cả hai file hoặc đang chạy trên máy của bạn. Hãy sao lưu khóa chủ (xem mục 15).
 - **Lệnh nguy hiểm luôn hỏi.** Chạy lệnh shell, đọc/ghi ngoài thư mục làm việc, gọi công cụ ngoài, gửi yêu cầu HTTP thay đổi dữ liệu. Chỉ chế độ Toàn quyền bỏ qua việc hỏi.
 - **Sandbox Docker (tùy chọn).** Cài đặt → An toàn: chạy lệnh shell của agent trong container cách ly, mặc định không có mạng, chỉ thấy thư mục làm việc của hội thoại. Khuyên dùng khi cài kỹ năng từ internet.
 - **Kỹ năng và MCP stdio chạy với quyền của bạn.** Chỉ cài thứ bạn tin tưởng.
 - **Các việc bạn chưa duyệt không tự chạy.** Việc chạy ngầm và API mặc định từ chối mọi thao tác cần xin phép.
 
-## 14. Sao lưu và khôi phục
+## 15. Sao lưu và khôi phục
 
 Toàn bộ dữ liệu cá nhân nằm trong `user-data/`. Sao lưu định kỳ:
 
@@ -450,7 +498,7 @@ argus restore <file-sao-lưu> --force
 
 `--force` sao lưu dữ liệu hiện tại trước khi ghi đè. Nếu bản sao lưu không kèm khóa chủ, truyền `--master-key-file <đường-dẫn>`; thiếu khóa chủ thì các khóa API đã mã hóa không đọc lại được. Chi tiết xem [cli.md](cli.md#backup).
 
-## 15. Xử lý sự cố
+## 16. Xử lý sự cố
 
 Bước đầu tiên luôn là chạy:
 

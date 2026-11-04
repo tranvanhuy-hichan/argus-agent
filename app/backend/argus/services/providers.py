@@ -79,18 +79,38 @@ class OpenAICompat:
             out.append(m)
         return out
 
-    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None) -> Iterator[dict]:
+    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None,
+               temperature: float | None = None, max_tokens: int | None = None, **kwargs) -> Iterator[dict]:
         headers = {"Authorization": f"Bearer {_key(self.cfg)}"} if _key(self.cfg) else {}
-        body = {"model": self.cfg.model, "messages": self._wire(messages), "temperature": self.cfg.temperature,
+        actual_temp = temperature if temperature is not None else self.cfg.temperature
+        body = {"model": self.cfg.model, "messages": self._wire(messages), "temperature": actual_temp,
                 "stream": True, "stream_options": {"include_usage": True}}
+        if max_tokens:
+            body["max_tokens"] = max_tokens
         if tools:
             body["tools"] = [{"type": "function", "function": t} for t in tools]
-        if effort in ("low", "medium", "high"):
-            body["reasoning_effort"] = effort  # chi gui khi nguoi dung chon; mot so model khong nhan tham so nay
+        if effort in ("low", "medium", "high", "thinking"):
+            body["reasoning_effort"] = "high" if effort == "thinking" else effort
+            if effort in ("high", "thinking"):
+                body["think"] = True  # Ollama think parameter
         content, calls, by_index, usage = "", [], {}, {"prompt": 0, "completion": 0}
-        try:
-            with httpx.stream("POST", self.cfg.base_url.rstrip("/") + "/chat/completions", json=body, headers=headers, timeout=TIMEOUT) as r:
-                if r.status_code >= 400:
+        in_think = False
+
+        def _do_stream(req_body):
+            nonlocal content, calls, by_index, usage, in_think
+            with httpx.stream("POST", self.cfg.base_url.rstrip("/") + "/chat/completions", json=req_body, headers=headers, timeout=TIMEOUT) as r:
+                if r.status_code == 400 and ("reasoning_effort" in req_body or "think" in req_body):
+                    r.read()
+                    err_txt = r.text.lower()
+                    if "thinking" in err_txt or "reasoning" in err_txt or "extra" in err_txt or "unknown" in err_txt:
+                        # Model (như Ollama qwen2.5) không hỗ trợ thinking/reasoning_effort -> tự động bỏ và gọi lại
+                        no_effort_body = dict(req_body)
+                        no_effort_body.pop("reasoning_effort", None)
+                        no_effort_body.pop("think", None)
+                        yield from _do_stream(no_effort_body)
+                        return
+                    raise ProviderError(f"HTTP {r.status_code}: {r.text[:300]}", r.status_code)
+                elif r.status_code >= 400:
                     r.read()
                     raise ProviderError(f"HTTP {r.status_code}: {r.text[:300]}", r.status_code)
                 for line in r.iter_lines():
@@ -104,17 +124,37 @@ class OpenAICompat:
                         usage = {"prompt": chunk["usage"].get("prompt_tokens", 0), "completion": chunk["usage"].get("completion_tokens", 0)}
                     for ch in chunk.get("choices", []):
                         d = ch.get("delta") or {}
-                        reasoning = d.get("reasoning_content") or d.get("reasoning")
+                        reasoning = d.get("reasoning_content") or d.get("reasoning") or d.get("thought")
                         if reasoning:
                             yield {"type": "thinking", "text": reasoning}
                         if d.get("content"):
-                            content += d["content"]
-                            yield {"type": "delta", "text": d["content"]}
+                            text = d["content"]
+                            while text:
+                                if not in_think:
+                                    if "<think>" in text:
+                                        before, _, after = text.partition("<think>")
+                                        if before:
+                                            content += before
+                                            yield {"type": "delta", "text": before}
+                                        in_think = True
+                                        text = after
+                                    else:
+                                        content += text
+                                        yield {"type": "delta", "text": text}
+                                        break
+                                else:
+                                    if "</think>" in text:
+                                        think_part, _, after = text.partition("</think>")
+                                        if think_part:
+                                            yield {"type": "thinking", "text": think_part}
+                                        in_think = False
+                                        text = after
+                                    else:
+                                        yield {"type": "thinking", "text": text}
+                                        break
                         for tc in d.get("tool_calls") or []:
                             fn = tc.get("function") or {}
                             idx = tc.get("index", 0)
-                            # OpenAI: chunk dau cua moi loi goi co id, cac chunk sau chi co index. Gemini/mot so
-                            # gateway gui index=0 cho moi loi goi, nen id moi => loi goi moi.
                             if tc.get("id") and (idx not in by_index or calls[by_index[idx]]["id"] != tc["id"]):
                                 by_index[idx] = len(calls)
                                 calls.append({"id": tc["id"], "name": "", "args": ""})
@@ -123,11 +163,14 @@ class OpenAICompat:
                                 calls.append({"id": "", "name": "", "args": ""})
                             slot = calls[by_index[idx]]
                             slot["name"] = fn.get("name") or slot["name"]
-                            if tc.get("extra_content"):  # Gemini: thought_signature phai duoc gui lai o luot sau
+                            if tc.get("extra_content"):
                                 slot["extra_content"] = tc["extra_content"]
                             a = fn.get("arguments")
                             if a:
                                 slot["args"] = (slot["args"] + a) if isinstance(a, str) and isinstance(slot["args"], str) else a
+
+        try:
+            yield from _do_stream(body)
         except httpx.HTTPError as e:
             raise ProviderError(f"{type(e).__name__}: {e}", transient=_transient(e)) from e
         tool_calls = [{"id": c["id"] or f"call_{i}", "name": c["name"], "args": _parse_args(c["args"]), **({"extra_content": c["extra_content"]} if c.get("extra_content") else {})}
@@ -135,11 +178,13 @@ class OpenAICompat:
         yield {"type": "final", "content": content, "tool_calls": tool_calls, "usage": usage}
 
 
+
 class Anthropic:
     def __init__(self, cfg: ProviderCfg):
         self.cfg = cfg
 
-    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None) -> Iterator[dict]:  # noqa: ARG002 - Anthropic: chua ho tro
+    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None,
+               temperature: float | None = None, max_tokens: int | None = None, **kwargs) -> Iterator[dict]:  # noqa: ARG002
         system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
         conv: list[dict] = []
         for m in messages:

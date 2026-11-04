@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Download, Upload } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -64,6 +65,82 @@ function PasswordCard({ has }: { has: boolean }) {
     </Card>
   )
 }
+
+function BackupRestoreCard() {
+  const toast = useToast()
+  const [restoring, setRestoring] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleRestore = async (file: File) => {
+    if (!confirm(t('Khôi phục sẽ ghi đè toàn bộ dữ liệu hiện tại bằng dữ liệu trong file sao lưu. Hệ thống sẽ tự động tạo một bản sao lưu dự phòng trước khi áp dụng. Bạn có chắc chắn muốn khôi phục?'))) {
+      return
+    }
+    setRestoring(true)
+    try {
+      const res = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: file,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(err.detail || 'Lỗi khôi phục')
+      }
+      toast(t('Khôi phục thành công! Đang tải lại dữ liệu...'))
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
+    } catch (e) {
+      toast(errMsg(e), 'bad')
+      setRestoring(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={t('Sao lưu & Khôi phục dữ liệu')}
+        hint={t('Sao lưu toàn bộ cấu hình, tài liệu, trí nhớ, cơ sở dữ liệu hội thoại và không gian làm việc.')}
+      />
+      <div className="p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href="/api/backup/download"
+            download
+            className="inline-flex items-center gap-2 rounded-xl border border-line bg-panel2 px-4 py-2.5 text-sm font-medium transition hover:border-accent hover:text-accent"
+          >
+            <Download className="size-4 text-accent" />
+            {t('Tải bản sao lưu (.tar.gz)')}
+          </a>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            accept=".tar.gz,.enc,application/gzip"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleRestore(file)
+              e.target.value = ''
+            }}
+          />
+
+          <Button
+            loading={restoring}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="size-4" />
+            {t('Khôi phục từ file')}
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          {t('Khi khôi phục, hệ thống tự động lưu bản sao lưu an toàn (pre-restore) để bạn có thể quay lại nếu cần.')}
+        </p>
+      </div>
+    </Card>
+  )
+}
+
 
 export function SettingsPage() {
   const cfg = useConfig()
@@ -166,6 +243,7 @@ export function SettingsPage() {
         </Card>
         <PasswordCard has={cfg.data.config.auth.has_password} />
         <SecretsCard s={cfg.data.secrets} />
+        <BackupRestoreCard />
           </>
         )}
       </div>

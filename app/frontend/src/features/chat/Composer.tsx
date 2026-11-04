@@ -37,6 +37,10 @@ interface Props {
   docsReady: boolean
   skill: string | null
   onSkill: (name: string | null) => void
+  temperature?: number
+  onTemperature?: (t: number) => void
+  maxTokens?: number
+  onMaxTokens?: (m: number) => void
 }
 
 export function Composer(p: Props) {
@@ -157,7 +161,7 @@ export function Composer(p: Props) {
             </button>
 
             <div className="ml-auto flex items-center gap-0.5">
-              <SettingsMenu providers={p.providers} provider={p.provider} onProvider={p.onProvider} effort={p.effort} onEffort={p.onEffort} effortOff={effortOff} permission={p.permission} onPermission={p.onPermission} />
+              <SettingsMenu providers={p.providers} provider={p.provider} onProvider={p.onProvider} effort={p.effort} onEffort={p.onEffort} effortOff={effortOff} permission={p.permission} onPermission={p.onPermission} temperature={p.temperature} onTemperature={p.onTemperature} maxTokens={p.maxTokens} onMaxTokens={p.onMaxTokens} />
               {dictation.supported && (
                 <button onClick={dictation.toggle} aria-pressed={dictation.listening} aria-label={dictation.listening ? t('Dừng ghi âm') : t('Nói để nhập')} title={dictation.listening ? t('Dừng ghi âm') : t('Nói để nhập')}
                   className={cn('grid size-8 place-items-center rounded-full transition', dictation.listening ? 'animate-pulse bg-bad/15 text-bad' : 'text-muted hover:bg-panel2 hover:text-fg')}><Mic className="size-4" /></button>

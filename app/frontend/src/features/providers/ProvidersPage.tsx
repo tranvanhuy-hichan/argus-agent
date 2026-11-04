@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { ChevronDown, CircleCheck, CircleX, KeyRound, Plus, Star, Trash2, Zap } from 'lucide-react'
+import { Activity, ChevronDown, CircleCheck, CircleX, KeyRound, Plus, Star, Trash2, Zap } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
@@ -11,11 +11,12 @@ import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { Tabs } from '@/components/ui/Tabs'
 import { EmbeddingPanel } from './EmbeddingPanel'
 import { LimitsBars } from './LimitsBars'
+import { LocalModelPicker } from './LocalModelPicker'
 import { useToast } from '@/components/ui/Toast'
 import { api } from '@/lib/api'
-import { useConfig, useSaveConfig } from '@/lib/queries'
+import { useConfig, useDashboard, useSaveConfig } from '@/lib/queries'
 import type { AppConfig, ProviderCfg } from '@/lib/types'
-import { cn, errMsg } from '@/lib/utils'
+import { cn, errMsg, fmtNum } from '@/lib/utils'
 import { t, tk } from '@/lib/i18n.ts'
 
 const openai = (base_url: string, model: string, api_key_env = ''): ProviderCfg => ({ type: 'openai', base_url, model, api_key: '', api_key_env, temperature: 0.7 })
@@ -72,16 +73,45 @@ const EXTRA_BRANDS: Record<string, Brand> = { 'vLLM / llama.cpp (local)': 'vllm'
 const OTHER_PRESETS = Object.keys(PRESETS).filter((k) => !SERVICES.some((s) => s.preset === k))
 
 const isLocal = (p: ProviderCfg) => /localhost|127\.0\.0\.1/.test(p.base_url)
-const brandOf = (p: ProviderCfg): Brand | null => {
-  if (p.type === 'cli') return p.cli === 'claude' ? 'claude' : p.cli === 'agy' ? 'antigravity' : p.cli === 'codex' ? 'codex' : null
+
+const brandOf = (p: ProviderCfg, name: string = ''): Brand | null => {
+  if (p.type === 'cli') {
+    return p.cli === 'claude' ? 'claude' : p.cli === 'agy' ? 'antigravity' : p.cli === 'codex' ? 'codex' : null
+  }
+  const url = (p.base_url || '').toLowerCase()
+  const model = (p.model || '').toLowerCase()
+  const n = name.toLowerCase()
+
+  if (url.includes('11434') || n.includes('ollama') || n.includes('local')) return 'ollama'
+  if (url.includes('1234') || n.includes('lmstudio')) return 'lmstudio'
+  if (url.includes('googleapis.com') || model.includes('gemini') || n.includes('google') || n.includes('gemini')) return 'gemini'
+  if (url.includes('anthropic.com') || model.includes('claude') || n.includes('claude')) return 'claude'
+  if (url.includes('openai.com') || model.includes('gpt') || n.includes('openai') || n.includes('chatgpt')) return 'openai'
+  if (url.includes('deepseek.com') || model.includes('deepseek') || n.includes('deepseek')) return 'deepseek'
+  if (url.includes('openrouter.ai') || n.includes('openrouter')) return 'openrouter'
+  if (url.includes('groq.com') || n.includes('groq')) return 'groq'
+  if (url.includes('cerebras.ai') || n.includes('cerebras')) return 'cerebras'
+  if (url.includes('mistral.ai') || model.includes('mistral') || n.includes('mistral')) return 'mistral'
+  if (url.includes('together.xyz') || n.includes('together')) return 'together'
+  if (url.includes('fireworks.ai') || n.includes('fireworks')) return 'fireworks'
+  if (url.includes('dashscope') || model.includes('qwen') || n.includes('qwen')) return 'qwen'
+  if (url.includes('x.ai') || model.includes('grok') || n.includes('xai') || n.includes('grok')) return 'xai'
+  if (url.includes('8000') || n.includes('vllm')) return 'vllm'
+
+  const svc = SERVICES.find((s) => PRESETS[s.preset]?.base_url === p.base_url && PRESETS[s.preset]?.type === p.type)
+  if (svc?.brand) return svc.brand
+
   const hit = Object.entries(PRESETS).find(([, c]) => c.base_url === p.base_url && c.type === p.type)?.[0]
-  return hit ? (EXTRA_BRANDS[hit] ?? null) : null
+  if (hit && EXTRA_BRANDS[hit]) return EXTRA_BRANDS[hit]
+
+  return null
 }
 const hasKey = (p: ProviderCfg) => !!p.api_key || !!p.api_key_env
 
-function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, onDelete, onMakeDefault }: {
+function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, onDelete, onMakeDefault, usage }: {
   name: string; p: ProviderCfg; isDefault: boolean; models: string[]; open: boolean; onToggle: () => void
   onChange: (p: ProviderCfg) => void; onDelete: () => void; onMakeDefault: () => void
+  usage?: { calls: number; tokens: number; latency: number; cost: number; errors: number }
 }) {
   const [result, setResult] = useState<TestResult | null>(null)
   const [fetched, setFetched] = useState<string[]>([])
@@ -97,12 +127,11 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
   const isOllama = p.type === 'openai' && p.base_url.includes('11434')
   const isCli = p.type === 'cli'
   const needsKey = !isCli && !isLocal(p) && !hasKey(p)
-  const svc = SERVICES.find((x) => PRESETS[x.preset]?.base_url === p.base_url && PRESETS[x.preset]?.type === p.type && PRESETS[x.preset]?.cli === p.cli)
 
   return (
     <Card className={cn(isDefault && 'border-accent/50')}>
       <div className="flex items-start gap-3 p-4">
-        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-panel2"><BrandIcon brand={svc?.brand ?? brandOf(p)} /></div>
+        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-panel2"><BrandIcon brand={brandOf(p, name)} /></div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{name}</span>
@@ -110,18 +139,30 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
             {isCli ? <Badge tone="info">{t('Dùng CLI đã đăng nhập')}</Badge> : needsKey ? <Badge tone="warn"><KeyRound className="size-3" />{t('Cần khóa API')}</Badge> : isLocal(p) ? <Badge>{t('Chạy trên máy bạn')}</Badge> : <Badge tone="ok">{t('Đã có khóa')}</Badge>}
           </div>
           <p className="mt-0.5 truncate font-mono text-xs text-muted">{p.model || t('(chưa chọn model)')}</p>
+          {p.description && (
+            <p className="mt-1 line-clamp-2 text-xs text-muted/80">{p.description}</p>
+          )}
         </div>
         {!isDefault && <Button size="sm" variant="ghost" onClick={onMakeDefault}>{t('Dùng làm chính')}</Button>}
         <Button size="sm" variant="ghost" onClick={onDelete} aria-label={t('Xóa {name}', { name })}><Trash2 className="size-4" /></Button>
       </div>
-      <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-2.5">
-        <Button size="sm" loading={test.isPending} onClick={() => { setResult(null); test.mutate() }}><Zap className="size-3.5" />{t('Thử kết nối')}</Button>
-        <Button size="sm" variant="ghost" onClick={onToggle} aria-expanded={open}><ChevronDown className={cn('size-3.5 transition', open && 'rotate-180')} />{t('Chỉnh sửa')}</Button>
-        {result && (
-          <span className={cn('flex min-w-0 items-center gap-1.5 text-xs', result.ok ? 'text-ok' : 'text-bad')}>
-            {result.ok ? <CircleCheck className="size-4 shrink-0" /> : <CircleX className="size-4 shrink-0" />}
-            <span className="truncate">{result.ok ? t('Hoạt động · {ms}ms · “{reply}”', { ms: result.latency_ms ?? 0, reply: result.reply ?? '' }) : result.error}</span>
-          </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" loading={test.isPending} onClick={() => { setResult(null); test.mutate() }}><Zap className="size-3.5" />{t('Thử kết nối')}</Button>
+          <Button size="sm" variant="ghost" onClick={onToggle} aria-expanded={open}><ChevronDown className={cn('size-3.5 transition', open && 'rotate-180')} />{t('Chỉnh sửa')}</Button>
+          {result && (
+            <span className={cn('flex min-w-0 items-center gap-1.5 text-xs', result.ok ? 'text-ok' : 'text-bad')}>
+              {result.ok ? <CircleCheck className="size-4 shrink-0" /> : <CircleX className="size-4 shrink-0" />}
+              <span className="truncate">{result.ok ? t('Hoạt động · {ms}ms · “{reply}”', { ms: result.latency_ms ?? 0, reply: result.reply ?? '' }) : result.error}</span>
+            </span>
+          )}
+        </div>
+        {usage && usage.calls > 0 && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted">
+            <Activity className="size-3 text-accent" />
+            <span>{t('{calls} lần gọi · {tokens} token · {lat}s', { calls: fmtNum(usage.calls), tokens: fmtNum(usage.tokens), lat: (usage.latency / 1000).toFixed(1) })}</span>
+            {usage.errors > 0 && <span className="text-bad font-medium">· {t('{n} lỗi', { n: usage.errors })}</span>}
+          </div>
         )}
       </div>
       <div className="border-t border-line px-4 py-3"><LimitsBars name={name} /></div>
@@ -138,6 +179,9 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
                   <Input value={p.command ?? ''} onChange={(e) => set('command', e.target.value)} className="font-mono" placeholder={p.cli === 'custom' ? 'my-cli --quiet' : p.cli} />
                 </Field>
               </div>
+              <Field label={t('Mô tả')}>
+                <Input value={p.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder={t('Ghi chú vai trò của model này…')} />
+              </Field>
               <div className="space-y-1.5 rounded-lg border border-line bg-panel2 p-3 text-xs text-muted">
                 {p.cli === 'codex' && <p className="text-warn">{t('Chưa kiểm chứng với bản Codex thật (chưa cài trên máy phát triển): nếu gặp lỗi, hãy báo kèm thông báo lỗi.')}</p>}
                 <p className="text-warn">{t('Hãy đọc điều khoản của hãng về việc dùng gói thuê bao theo cách này. Nếu không chắc, dùng API key.')}</p>
@@ -145,7 +189,8 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
             </div>
           ) : (
           <>
-          <div className="grid gap-4 lg:grid-cols-2">
+          {isOllama && <LocalModelPicker baseUrl={p.base_url} model={p.model} onPick={(m) => set('model', m)} />}
+          <div className={cn('grid gap-4 lg:grid-cols-2', isOllama && 'hidden')}>
             {p.type === 'anthropic' || !isLocal(p) ? (
               <Field label={t('Khóa API')}>
                 <Input type="password" autoComplete="off" value={p.api_key} onChange={(e) => set('api_key', e.target.value)} placeholder={t('Dán khóa API vào đây')} />
@@ -156,6 +201,9 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
               <datalist id={`models-${name}`}>{[...new Set([...fetched, ...(isOllama ? models : [])])].map((m) => <option key={m} value={m} />)}</datalist>
             </Field>
           </div>
+          <Field label={t('Mô tả')}>
+            <Input value={p.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder={t('Ghi chú vai trò của model này…')} />
+          </Field>
           <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm">
             <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={!!p.vision} onChange={(e) => set('vision', e.target.checked)} />
             <span><span className="font-medium">{t('Model hiểu được ảnh (vision)')}</span></span>
@@ -163,6 +211,7 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
           <details>
             <summary className="cursor-pointer select-none text-sm text-muted hover:text-fg">{t('Tùy chọn nâng cao')}</summary>
             <div className="mt-3 grid gap-4 lg:grid-cols-2">
+              {isOllama && <div className="lg:col-span-2"><Field label={t('Tên model khác')}><Input value={p.model} onChange={(e) => set('model', e.target.value)} className="font-mono" list={`models-${name}`} placeholder="qwen3:4b" /></Field></div>}
               {p.type === 'openai' && <div className="lg:col-span-2"><Field label={t('Địa chỉ máy chủ (Base URL)')}><Input value={p.base_url} onChange={(e) => set('base_url', e.target.value)} className="font-mono" /></Field></div>}
               <Field label={t('Hoặc lấy khóa từ biến môi trường')}><Input value={p.api_key_env} onChange={(e) => set('api_key_env', e.target.value)} placeholder="OPENAI_API_KEY" className="font-mono" /></Field>
               <Field label={t('Độ sáng tạo (temperature): {v}', { v: p.temperature })}>
@@ -193,6 +242,7 @@ function Tile({ brand, label, desc, onClick }: { brand: Brand | null; label: str
 
 export function ProvidersPage() {
   const cfg = useConfig()
+  const dash = useDashboard(7)
   const save = useSaveConfig()
   const toast = useToast()
   const [draft, setDraft] = useState<Pick<AppConfig, 'providers' | 'default_provider' | 'fallback' | 'memory'> | null>(null)
@@ -226,6 +276,22 @@ export function ProvidersPage() {
     const left = Object.keys(rest)
     setDraft({ providers: rest, default_provider: draft.default_provider === n ? left[0] : draft.default_provider, fallback: draft.fallback.filter((f) => f !== n), memory: draft.memory })
   }
+  const makeDefault = (n: string) => {
+    if (!cfg.data) return
+    const nextDraft = {
+      ...draft,
+      default_provider: n,
+      fallback: draft.fallback.filter((f) => f !== n),
+    }
+    setDraft(nextDraft)
+    save.mutate(
+      { ...cfg.data.config, ...nextDraft },
+      {
+        onSuccess: () => toast(t('Đã chuyển {name} làm mô hình chính', { name: n })),
+        onError: (e) => toast(errMsg(e), 'bad'),
+      }
+    )
+  }
   const onSave = () => save.mutate({ ...cfg.data.config, ...draft }, { onSuccess: () => toast(t('Đã lưu')), onError: (e) => toast(errMsg(e), 'bad') })
   const others = names.filter((n) => n !== draft.default_provider)
 
@@ -240,13 +306,23 @@ export function ProvidersPage() {
         {tab === 'embedding' ? <EmbeddingPanel memory={draft.memory} onChange={(patch) => setDraft({ ...draft, memory: { ...draft.memory, ...patch } })} providerInfo={draft.providers} isDirty={dirty} /> : (
           <>
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold">{t('Mô hình của bạn')}</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">{t('Mô hình của bạn')}</h2>
+          <Link to="/activity" className="flex items-center gap-1 text-xs text-accent hover:underline">
+            <Activity className="size-3.5" />
+            {t('Xem thống kê chi tiết')} →
+          </Link>
+        </div>
         <div className="grid items-start gap-3 xl:grid-cols-2">
-          {names.map((n) => (
-            <ProviderCard key={n} name={n} p={draft.providers[n]} isDefault={n === draft.default_provider} models={models} open={openCards.has(n)} onToggle={() => toggle(n)}
-              onChange={(p) => setDraft({ ...draft, providers: { ...draft.providers, [n]: p } })} onDelete={() => remove(n)}
-              onMakeDefault={() => setDraft({ ...draft, default_provider: n, fallback: draft.fallback.filter((f) => f !== n) })} />
-          ))}
+          {names.map((n) => {
+            const usage = dash.data?.by_provider.find((x) => x.provider === n)
+            return (
+              <ProviderCard key={n} name={n} p={draft.providers[n]} isDefault={n === draft.default_provider} models={models} open={openCards.has(n)} onToggle={() => toggle(n)}
+                usage={usage}
+                onChange={(p) => setDraft({ ...draft, providers: { ...draft.providers, [n]: p } })} onDelete={() => remove(n)}
+                onMakeDefault={() => makeDefault(n)} />
+            )
+          })}
         </div>
       </section>
 

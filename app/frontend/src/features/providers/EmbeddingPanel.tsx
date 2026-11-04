@@ -55,7 +55,7 @@ function MemoryStatusLine({ isDirty }: { isDirty?: boolean }) {
   )
 }
 
-function CopyButton({ text }: { text: string }) {
+export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   const onCopy = () => {
     void navigator.clipboard.writeText(text)
@@ -85,7 +85,7 @@ const LOCAL_MODELS = [
 ]
 
 /** Thẻ chọn một phương án (kiểu radio, cả thẻ bấm được). */
-function Choice({ on, onClick, title, desc, badge, children }: { on: boolean; onClick: () => void; title: React.ReactNode; desc: React.ReactNode; badge?: React.ReactNode; children?: React.ReactNode }) {
+export function Choice({ on, onClick, title, desc, badge, children }: { on: boolean; onClick: () => void; title: React.ReactNode; desc: React.ReactNode; badge?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <button type="button" role="radio" aria-checked={on} onClick={onClick}
       className={`flex w-full flex-col items-start gap-1 rounded-lg border p-3 text-left transition ${on ? 'border-accent bg-accent/10' : 'border-line bg-bg hover:border-fg/30'}`}>

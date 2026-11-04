@@ -10,7 +10,7 @@ export type ToolItem = { key: string; kind: 'tool'; callId: string; name: string
 export type Item =
   | { key: string; kind: 'user'; text: string; attachments?: string[] }
   | { key: string; kind: 'assistant'; text: string; provider?: string; streaming?: boolean; duration?: number }
-  | { key: string; kind: 'thinking'; text: string; streaming: boolean }
+  | { key: string; kind: 'thinking'; text: string; streaming: boolean; provider?: string }
   | ToolItem
   | { key: string; kind: 'approval'; aid: string; approvalKind: string; detail: string; status: 'pending' | 'allowed' | 'denied' }
   | { key: string; kind: 'notice' | 'error'; text: string }
@@ -41,10 +41,14 @@ export function useChat() {
   const [plan, setPlan] = useState<PlanItem[]>([])
   const abort = useRef<AbortController | null>(null)
   const sessionRef = useRef<string | null>(null)
+  const currentProviderRef = useRef<string | null>(null)
   sessionRef.current = sessionId
 
   const apply = useCallback((e: ChatEvent) => {
-    if (e.type === 'status') return setStatus(e.tpl ? t(e.tpl, e.vars) : e.text)
+    if (e.type === 'status') {
+      if (e.vars?.name) currentProviderRef.current = String(e.vars.name)
+      return setStatus(e.tpl ? t(e.tpl, e.vars) : e.text)
+    }
     if (e.type === 'files') return setFilesTick((n) => n + 1)
     if (e.type === 'plan') return setPlan(e.items)
     if (e.type === 'session') { setSessionId(e.id); sessionRef.current = e.id; return }
@@ -54,12 +58,19 @@ export function useChat() {
       const last = base[base.length - 1]
       switch (e.type) {
         case 'thinking':
-          if (last?.kind === 'thinking' && last.streaming) return [...base.slice(0, -1), { ...last, text: last.text + e.text }]
-          return [...base, { key: k(), kind: 'thinking', text: e.text, streaming: true }]
-        case 'delta':
           setStatus(null)
-          if (last?.kind === 'assistant' && last.streaming) return [...base.slice(0, -1), { ...last, text: last.text + e.text }]
-          return [...base, { key: k(), kind: 'assistant', text: e.text, streaming: true }]
+          if (last?.kind === 'thinking' && last.streaming) return [...base.slice(0, -1), { ...last, text: last.text + e.text }]
+          return [...base, { key: k(), kind: 'thinking', text: e.text, streaming: true, provider: currentProviderRef.current || undefined }]
+        case 'delta': {
+          setStatus(null)
+          let txt = e.text
+          if (txt.includes('<think>') || txt.includes('</think>')) {
+            txt = txt.replace(/<\/?think>/g, '')
+          }
+          if (!txt) return base
+          if (last?.kind === 'assistant' && last.streaming) return [...base.slice(0, -1), { ...last, text: last.text + txt }]
+          return [...base, { key: k(), kind: 'assistant', text: txt, streaming: true }]
+        }
         case 'assistant': {
           const done = { kind: 'assistant' as const, text: e.content, provider: e.provider, streaming: false, duration: e.duration_ms }
           if (last?.kind === 'assistant' && last.streaming) return [...base.slice(0, -1), { ...last, ...done }]
@@ -90,8 +101,9 @@ export function useChat() {
     return r.id
   }, [qc])
 
-  const send = useCallback(async (text: string, provider: string | null, attachments: string[] = [], opts: { permission?: string; effort?: string; docs?: boolean } = {}) => {
+  const send = useCallback(async (text: string, provider: string | null, attachments: string[] = [], opts: { permission?: string; effort?: string; docs?: boolean; temperature?: number; max_tokens?: number } = {}) => {
     if (busy || !text.trim()) return
+    currentProviderRef.current = provider
     setBusy(true)
     setStatus(t('Đang gửi…'))
     setItems((p) => [...p, { key: k(), kind: 'user', text, attachments }])

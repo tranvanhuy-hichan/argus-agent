@@ -169,11 +169,11 @@ Quy tắc phụ thuộc: `api` và `cli` → `services` → `core`. `services` k
 | Nhóm | Module | Vai trò |
 |---|---|---|
 | Lõi agent | `agent.py` | Vòng lặp agent, dựng system prompt, thực thi công cụ, chuyển nhà cung cấp dự phòng |
-| | `chat_runner.py` | Chạy một lượt chat ở thread riêng, đẩy sự kiện vào queue cho SSE, quản lý phê duyệt |
+| | `chat_runner.py` | Chạy một lượt chat ở thread riêng, đẩy sự kiện vào queue cho SSE, quản lý phê duyệt, tự động đặt tên hội thoại thông minh (`_auto_title`) |
 | | `tools.py` | Đăng ký công cụ (`@tool`), `ToolContext`, công cụ cốt lõi (file, exec, web, http…) |
-| | `providers.py` | Bộ chuyển đổi mô hình: OpenAI-compatible và Anthropic, streaming, liệt kê model |
+| | `providers.py` | Bộ chuyển đổi mô hình: OpenAI-compatible, Anthropic, CLI; streaming, bóc tách khối suy nghĩ `<think>`, nhận tham số `temperature` và `max_tokens` |
 | | `compaction.py` | Tóm tắt phần đầu hội thoại khi quá dài |
-| | `sessions.py` | Hội thoại và tin nhắn (CRUD, tìm kiếm FTS) |
+| | `sessions.py` | Hội thoại và tin nhắn (CRUD, tìm kiếm FTS, ghim phiên `pinned`) |
 | | `workfiles.py` | Thư mục làm việc từng phiên, kiểm tra đường dẫn an toàn |
 | Công cụ mở rộng | `tools_plan.py`, `plans.py` | Kế hoạch từng phiên (`plan_set/update/show`) |
 | | `tools_agents.py`, `jobs.py` | Agent con (`delegate`) và việc nền (`task_*`) |

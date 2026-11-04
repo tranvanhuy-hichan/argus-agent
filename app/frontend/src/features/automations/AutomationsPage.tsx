@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { Switch } from '@/components/ui/Switch'
 import { useToast } from '@/components/ui/Toast'
+import { Markdown } from '@/features/chat/Markdown'
 import { api } from '@/lib/api'
 import { useConfig, useHeartbeat, useJobs } from '@/lib/queries'
 import type { Job } from '@/lib/types'
@@ -100,10 +101,17 @@ function JobCard({ j, onEdit, refresh }: { j: Job; onEdit: () => void; refresh: 
             {j.last_run && <span className={ok ? 'text-ok' : 'text-bad'}>{ok ? <CircleCheck className="mr-1 inline size-3.5" /> : <CircleX className="mr-1 inline size-3.5" />}{t('Lần trước {ago}', { ago: timeAgo(j.last_run) })}</span>}
           </p>
           {j.last_output && (
-            <button onClick={() => setOpen(!open)} className="mt-2 flex w-full items-start gap-1.5 rounded-lg bg-bg px-3 py-2 text-left text-xs text-muted hover:text-fg" aria-expanded={open}>
-              <ChevronDown className={cn('mt-0.5 size-3.5 shrink-0 transition', open && 'rotate-180')} />
-              <span className={cn('whitespace-pre-wrap', !open && 'line-clamp-2')}>{j.last_output}</span>
-            </button>
+            <div className="mt-2.5">
+              <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 text-xs text-accent hover:underline" aria-expanded={open}>
+                <ChevronDown className={cn('size-3.5 transition', open && 'rotate-180')} />
+                <span>{open ? t('Thu gọn kết quả') : t('Xem kết quả lần chạy gần nhất')}</span>
+              </button>
+              {open && (
+                <div className="mt-2 max-h-60 overflow-y-auto rounded-lg border border-line bg-bg p-3 text-xs leading-relaxed">
+                  <Markdown text={j.last_output} />
+                </div>
+              )}
+            </div>
           )}
         </div>
         <Switch checked={j.enabled} onChange={() => toggle.mutate()} label={t('Bật {name}', { name: j.name })} />

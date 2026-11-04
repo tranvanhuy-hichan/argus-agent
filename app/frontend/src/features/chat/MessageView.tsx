@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { AgentMark } from '../../components/ui/AgentMark'
-import { Brain, Cable, Check, ChevronRight, ExternalLink, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
+import { Brain, Cable, Check, ChevronRight, ExternalLink, Eye, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { BrandIcon, detectBrand } from '@/components/ui/BrandIcon'
 import { Button } from '@/components/ui/Button'
 import { t, tk } from '@/lib/i18n.ts'
 import { T } from '@/lib/T.tsx'
@@ -37,24 +38,64 @@ function sessionFiles(text: string): string[] {
   return [...found].slice(0, 6)
 }
 const NEW_TAB = /\.(html?|pdf|png|jpe?g|gif|svg|webp)$/i
+const PREVIEWABLE = /\.(html?|svg)$/i
 
-function FileChips({ text, sid, onOpen }: { text: string; sid?: string | null; onOpen: (p: string) => void }) {
-  const files = sessionFiles(text)
-  if (!files.length) return null
+function LivePreviewModal({ path, sid, onClose }: { path: string; sid: string; onClose: () => void }) {
+  const url = `/api/sessions/${sid}/file?path=${encodeURIComponent(path)}&raw=true`
   return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      {files.map((f) => (
-        <span key={f} className="flex items-center overflow-hidden rounded-lg border border-line bg-panel text-xs">
-          <button onClick={() => onOpen(f)} className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-panel2"><FileText className="size-3.5 text-muted" /><span className="font-medium">{f.split('/').pop()}</span><span className="text-accent">{t('Mở')}</span></button>
-          {sid && NEW_TAB.test(f) && <a href={`/api/sessions/${sid}/file?path=${encodeURIComponent(f)}&raw=true`} target="_blank" rel="noreferrer" className="flex items-center gap-1 border-l border-line px-2.5 py-1.5 text-muted hover:bg-panel2 hover:text-fg"><ExternalLink className="size-3.5" />{t('Tab mới')}</a>}
-        </span>
-      ))}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="flex h-[85vh] w-full max-w-5xl flex-col rounded-2xl border border-line bg-panel shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Eye className="size-4 text-accent" />
+            <span className="font-semibold">{t('Xem trước: {name}', { name: path.split('/').pop() ?? path })}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs text-muted hover:bg-panel2 hover:text-fg">
+              <ExternalLink className="size-3.5" />
+              {t('Tab mới')}
+            </a>
+            <button onClick={onClose} aria-label={t('Đóng')} className="rounded-lg p-1 text-muted hover:bg-panel2 hover:text-fg">
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden p-2">
+          <iframe
+            src={url}
+            sandbox="allow-scripts allow-forms allow-same-origin"
+            className="h-full w-full rounded-xl border border-line bg-white shadow-inner"
+            title={path}
+          />
+        </div>
+      </div>
     </div>
   )
 }
 
-function ToolCard({ item, onOpenFile }: { item: ToolItem; onOpenFile: (p: string) => void }) {
+function FileChips({ text, sid, onOpen }: { text: string; sid?: string | null; onOpen: (p: string) => void }) {
+  const [preview, setPreview] = useState<string | null>(null)
+  const files = sessionFiles(text)
+  if (!files.length) return null
+  return (
+    <>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {files.map((f) => (
+          <span key={f} className="flex items-center overflow-hidden rounded-lg border border-line bg-panel text-xs">
+            <button onClick={() => onOpen(f)} className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-panel2"><FileText className="size-3.5 text-muted" /><span className="font-medium">{f.split('/').pop()}</span><span className="text-accent">{t('Mở')}</span></button>
+            {sid && PREVIEWABLE.test(f) && <button onClick={() => setPreview(f)} className="flex items-center gap-1 border-l border-line px-2.5 py-1.5 text-accent hover:bg-panel2"><Eye className="size-3.5" />{t('Xem trước')}</button>}
+            {sid && NEW_TAB.test(f) && <a href={`/api/sessions/${sid}/file?path=${encodeURIComponent(f)}&raw=true`} target="_blank" rel="noreferrer" className="flex items-center gap-1 border-l border-line px-2.5 py-1.5 text-muted hover:bg-panel2 hover:text-fg"><ExternalLink className="size-3.5" />{t('Tab mới')}</a>}
+          </span>
+        ))}
+      </div>
+      {preview && sid && <LivePreviewModal path={preview} sid={sid} onClose={() => setPreview(null)} />}
+    </>
+  )
+}
+
+function ToolCard({ item, sid, onOpenFile }: { item: ToolItem; sid?: string | null; onOpenFile: (p: string) => void }) {
   const [open, setOpen] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
   const running = item.result === undefined
   const Icon = (item.risk && RISK_ICON[item.risk as keyof typeof RISK_ICON]) || Wrench
   const server = item.risk === 'mcp' ? item.name.split('__')[0] : null
@@ -73,7 +114,9 @@ function ToolCard({ item, onOpenFile }: { item: ToolItem; onOpenFile: (p: string
         {item.duration !== undefined && <span className="text-[11px] tabular-nums text-muted">{fmtMs(item.duration)}</span>}
         {running ? <Badge tone="info">{t('đang chạy')}</Badge> : item.ok === false ? <Badge tone="bad">{t('lỗi')}</Badge> : <Badge tone="ok">{t('xong')}</Badge>}
         {path && <button onClick={() => onOpenFile(path)} className="rounded border border-line px-1.5 py-0.5 text-[11px] text-accent hover:bg-panel2">{t('Mở file')}</button>}
+        {path && sid && PREVIEWABLE.test(path) && <button onClick={() => setPreview(path)} className="flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-accent hover:bg-panel2"><Eye className="size-3" />{t('Xem trước')}</button>}
       </div>
+      {preview && sid && <LivePreviewModal path={preview} sid={sid} onClose={() => setPreview(null)} />}
       {item.result && <div className="px-3 pb-2"><Images text={item.result} onOpen={onOpenFile} /></div>}
       {open && (
         <div className="space-y-2 border-t border-line p-3">
@@ -90,13 +133,18 @@ function WithMentions({ text }: { text: string }) {
   return <>{text.split(/((?<![\w@./-])@[a-z0-9][\w-]*)/).map((part, i) => (part.startsWith('@') ? <span key={i} className="font-medium text-accent">{part}</span> : part))}</>
 }
 
-function Thinking({ text, streaming }: { text: string; streaming: boolean }) {
+function Thinking({ text, streaming, provider }: { text: string; streaming: boolean; provider?: string }) {
   const [open, setOpen] = useState(false)
   const show = open || streaming
+  const brand = detectBrand(provider)
   return (
     <div className="fade-in ml-10 text-[13px]">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 text-muted hover:text-fg" aria-expanded={show}>
-        <Brain className={cn('size-3.5', streaming && 'animate-pulse text-accent')} />{streaming ? t('Đang suy nghĩ…') : t('Đã suy nghĩ')}
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 text-muted hover:text-fg" aria-expanded={show}>
+        <span className="grid size-5 shrink-0 place-items-center rounded-md bg-panel2">
+          <BrandIcon brand={brand} className="size-3.5" />
+        </span>
+        <Brain className={cn('size-3.5', streaming && 'animate-pulse text-accent')} />
+        <span className="font-medium">{streaming ? t('Đang suy nghĩ…') : t('Đã suy nghĩ')}</span>
         <ChevronRight className={cn('size-3 transition', show && 'rotate-90')} />
       </button>
       {show && <p className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap border-l-2 border-line pl-3 text-xs italic text-muted">{text}</p>}
@@ -180,9 +228,9 @@ export function MessageView({ item, sid, onDecide, onOpenFile, isLastUser, isLas
         </div>
       )
     case 'thinking':
-      return <Thinking text={item.text} streaming={item.streaming} />
+      return <Thinking text={item.text} streaming={item.streaming} provider={item.provider} />
     case 'tool':
-      return <ToolCard item={item} onOpenFile={onOpenFile} />
+      return <ToolCard item={item} sid={sid} onOpenFile={onOpenFile} />
     case 'approval':
       return <ApprovalCard item={item} onDecide={onDecide} />
     case 'notice':

@@ -525,3 +525,12 @@ def passage(did: str, loc: str, limit_chars: int = 6000) -> dict | None:
             break
         text += r["text"] + "\n\n"
     return {"name": d["name"], "loc": loc, "text": text.strip(), "truncated": truncated, "has_file": bool(d.get("path") and Path(d["path"]).is_file())}
+
+
+def doc_chunks(did: str, limit: int = 200) -> list[dict]:
+    """Lấy danh sách các đoạn trích (chunks) của một tài liệu để người dùng xem trước cách chia đoạn và nội dung."""
+    ensure_schema()
+    with db() as c:
+        rows = c.execute("SELECT id, ord, loc, text FROM kb_chunks WHERE doc_id=? ORDER BY ord LIMIT ?", (did, limit)).fetchall()
+    return [dict(r) for r in rows]
+

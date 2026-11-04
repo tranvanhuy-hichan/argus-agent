@@ -23,9 +23,9 @@ def get(sid: str) -> dict | None:
 
 def list_all(limit: int = 200, q: str = "") -> list[dict]:
     with db() as c:
-        rows = c.execute("""SELECT s.id,s.title,s.created,s.updated,s.source,s.project,
+        rows = c.execute("""SELECT s.id,s.title,s.created,s.updated,s.source,s.project,COALESCE(s.pinned,0) AS pinned,
                             (SELECT COUNT(*) FROM messages m WHERE m.session_id=s.id AND m.role='user') AS turns
-                            FROM sessions s WHERE (?='' OR s.title LIKE '%'||?||'%') ORDER BY updated DESC LIMIT ?""", (q, q, limit)).fetchall()
+                            FROM sessions s WHERE (?='' OR s.title LIKE '%'||?||'%') ORDER BY COALESCE(s.pinned,0) DESC, updated DESC LIMIT ?""", (q, q, limit)).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -43,6 +43,11 @@ def delete(sid: str) -> None:
 def rename(sid: str, title: str) -> None:
     with db() as c:
         c.execute("UPDATE sessions SET title=? WHERE id=?", (title[:60], sid))
+
+
+def pin(sid: str, pinned: bool = True) -> None:
+    with db() as c:
+        c.execute("UPDATE sessions SET pinned=? WHERE id=?", (1 if pinned else 0, sid))
 
 
 def _row_to_msg(r) -> dict:

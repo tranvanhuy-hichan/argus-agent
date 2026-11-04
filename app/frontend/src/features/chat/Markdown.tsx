@@ -59,10 +59,22 @@ function SourceChip({ id, name, loc }: { id: string; name: string; loc: string }
 }
 
 function inline(text: string): ReactNode[] {
-  const re = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\[\[src:[^\]\n]+\]\]|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|(?<![*\w])\*[^*\s][^*\n]*?\*(?![*\w]))/g
+  const re = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\[\[src:[^\]\n]+\]\]|\[\^?\d+\]|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|(?<![*\w])\*[^*\s][^*\n]*?\*(?![*\w]))/g
   return text.split(re).map((part, i) => {
     const src = /^\[\[src:([^|\]]+)\|([^|\]]+)\|([^\]]+)\]\]$/.exec(part)
     if (src) return <SourceChip key={i} id={src[1].trim()} name={src[2].trim()} loc={src[3].trim()} />
+    const cite = /^\[\^?(\d+)\]$/.exec(part)
+    if (cite) {
+      return (
+        <span
+          key={i}
+          title={t('Nguồn trích dẫn [{n}]', { n: cite[1] })}
+          className="mx-0.5 inline-flex cursor-default items-center justify-center rounded bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent align-super transition hover:bg-accent hover:text-accent-fg"
+        >
+          {cite[1]}
+        </span>
+      )
+    }
     if (/^\*[^*\s][^*\n]*\*$/.test(part)) return <em key={i}>{part.slice(1, -1)}</em>
     if (part.startsWith('`') && part.endsWith('`') && part.length > 2) return <code key={i} className="rounded bg-panel2 px-1 py-0.5 font-mono text-[12.5px]">{part.slice(1, -1)}</code>
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) return <strong key={i}>{part.slice(2, -2)}</strong>

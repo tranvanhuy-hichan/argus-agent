@@ -230,7 +230,8 @@ class CliProvider:
     def __init__(self, cfg: ProviderCfg):
         self.cfg = cfg
 
-    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None) -> Iterator[dict]:
+    def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None,
+               temperature: float | None = None, max_tokens: int | None = None, **kwargs) -> Iterator[dict]:
         from .providers import ProviderError
 
         try:

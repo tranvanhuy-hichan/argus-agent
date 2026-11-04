@@ -12,6 +12,7 @@ MASK = "***"
 
 
 class ProviderCfg(BaseModel):
+    description: str = ""  # mo ta cua nguoi dung cho model
     type: Literal["openai", "anthropic", "cli"] = "openai"  # cli: dung CLI da dang nhap san (khong can API key)
     cli: Literal["claude", "agy", "codex", "custom"] = "claude"  # type=cli: CLI nao
     command: str = ""  # type=cli: duong dan toi `claude`/`agy`/`codex`, hoac (cli=custom) ca dong lenh nhan prompt qua stdin va in tra loi ra stdout

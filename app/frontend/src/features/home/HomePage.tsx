@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ArrowRight, ArrowUp, Bell, Circle, Clock, FolderCog, HeartPulse, ListTodo, MessageSquare, Plug, Puzzle, Send, type LucideIcon } from 'lucide-react'
+import { ArrowRight, ArrowUp, Bell, CheckCircle2, Circle, Clock, FolderCog, HeartPulse, ListTodo, MessageSquare, Plug, Puzzle, Send, type LucideIcon } from 'lucide-react'
 import { AgentLogoStacked } from '@/components/ui/AgentMark'
 import { Loading, Page } from '@/components/ui/misc'
 import { api } from '@/lib/api'
@@ -189,7 +189,22 @@ export function HomePage() {
                 </Link>
               ))}
             </Block>
-          ) : <div className="hidden lg:block" />}
+          ) : (
+            <Block title={t('Trạng thái hệ thống')} to="/settings" cta={t('Cấu hình')}>
+              <div className="py-2 space-y-3">
+                <div className="flex items-center gap-2 text-sm text-ok">
+                  <CheckCircle2 className="size-4 shrink-0" />
+                  <span className="font-medium">{t('Đã sẵn sàng hoạt động')}</span>
+                </div>
+                <p className="text-xs text-muted">{t('Tất cả các bước thiết lập cơ bản đã hoàn tất. Agent đang hoạt động tốt với model mặc định {def}.', { def: def || 'chính' })}</p>
+                <div className="border-t border-line/60 pt-2 text-xs text-muted space-y-1.5">
+                  <div className="flex justify-between"><span>{t('Mô hình mặc định:')}</span><span className="font-mono text-fg">{def}</span></div>
+                  <div className="flex justify-between"><span>{t('Kỹ năng đã kích hoạt:')}</span><span className="font-medium text-fg">{skills.data?.filter((s) => s.enabled).length ?? 0}</span></div>
+                  <div className="flex justify-between"><span>{t('MCP Servers:')}</span><span className="font-medium text-fg">{mcpOk} / {mcpList.length}</span></div>
+                </div>
+              </div>
+            </Block>
+          )}
         </div>
       </div>
     </Page>

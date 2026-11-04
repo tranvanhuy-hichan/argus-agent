@@ -29,8 +29,9 @@ def knowledge_note() -> str:
     if not knowledge.has_docs():
         return ""
     s = knowledge.stats()
-    return (f"Người dùng đã thêm {s['docs']} tài liệu vào kho. Khi câu hỏi có thể nằm trong tài liệu của họ (hợp đồng, báo cáo, bảng tính, tài liệu nội bộ), "
-            "hãy dùng tool kb_search trước khi trả lời và chỉ dựa vào các đoạn tìm được. Sau mỗi ý, chèn nguyên văn thẻ nguồn [[src:...]] của đoạn bạn dựa vào (lấy từ kết quả kb_search), đặt ở cuối câu; không viết lại tên file, không bọc thẻ trong ngoặc hay dấu * . "
+    return (f"Người dùng đã thêm {s['docs']} tài liệu vào kho. Chỉ dùng tool kb_search khi câu hỏi rõ ràng nói về nội dung tài liệu của họ (nhắc tới tài liệu, hợp đồng, báo cáo, bảng tính, tài liệu nội bộ, hoặc một chủ đề chỉ có trong đó). "
+            "KHÔNG dùng kb_search cho chào hỏi, trò chuyện, kiến thức chung, ngày giờ, thời tiết, tin tức, sự kiện, lễ hội: những câu đó hãy trả lời trực tiếp hoặc dùng công cụ web. "
+            "Khi đã dùng kb_search thì chỉ dựa vào các đoạn tìm được. Sau mỗi ý, chèn nguyên văn thẻ nguồn [[src:...]] của đoạn bạn dựa vào (lấy từ kết quả kb_search), đặt ở cuối câu; không viết lại tên file, không bọc thẻ trong ngoặc hay dấu * . "
             "Nếu không tìm thấy, nói rõ là tài liệu không đề cập, không tự bịa.")
 
 
@@ -175,12 +176,25 @@ def _window(history: list[dict], limit: int) -> list[dict]:
 
 
 def _stream_with_retry(name: str, pcfg: cfgmod.ProviderCfg, messages: list[dict], schemas: list[dict],
-                       emit: Callable[[dict], None], cancel: Event | None, effort: str | None = None) -> Iterator[dict]:
+                       emit: Callable[[dict], None], cancel: Event | None, effort: str | None = None,
+                       temperature: float | None = None, max_tokens: int | None = None) -> Iterator[dict]:
     delay = 1.5
     for attempt in range(RETRIES):
         started = False
         try:
-            for ev in make_provider(pcfg).stream(messages, schemas, effort=effort):
+            prov = make_provider(pcfg)
+            kwargs = {}
+            if effort is not None:
+                kwargs["effort"] = effort
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+            if max_tokens is not None:
+                kwargs["max_tokens"] = max_tokens
+            import inspect
+            sig = inspect.signature(prov.stream)
+            if not any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+                kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
+            for ev in prov.stream(messages, schemas, **kwargs):
                 if ev["type"] in ("delta", "thinking"):
                     started = True
                 yield ev
@@ -201,7 +215,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
              emit: Callable[[dict], None], cancel: Event | None = None, only_tools: list[str] | None = None,
              source: str = "chat", attachments: list[str] | None = None, permission: str = "default", effort: str | None = None,
              system_extra: str = "", max_steps: int | None = None, depth: int = 0, job_id: str | None = None, workdir_sid: str | None = None,
-             use_docs: bool = False, docs_pre: str | None = None) -> None:
+             use_docs: bool = False, docs_pre: str | None = None, temperature: float | None = None, max_tokens: int | None = None) -> None:
     cfg = cfgmod.load()
     skills = skillmod.discover(cfg)
     workdir = workfiles.workdir_for(cfg, workdir_sid or sid)  # agent con/viec nen dung chung thu muc voi phien da giao viec
@@ -278,7 +292,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
             emit(ui_event("status", "Đang gọi {name} · {model}…", name=name, model=pcfg.model) if step == 0
                  else ui_event("status", "{name} đang xử lý kết quả tool…", name=name))
             try:
-                for ev in _stream_with_retry(name, pcfg, shrink_stale(messages), tools.schemas(ctx), emit, cancel, effort):
+                for ev in _stream_with_retry(name, pcfg, shrink_stale(messages), tools.schemas(ctx), emit, cancel, effort, temperature=temperature, max_tokens=max_tokens):
                     if ev["type"] in ("delta", "thinking"):
                         started = True
                         emit(ev)

@@ -87,6 +87,15 @@ def passage(did: str, loc: str):
     return p
 
 
+@router.get("/knowledge/{did}/chunks")
+def doc_chunks(did: str):
+    d = knowledge.get(did)
+    if not d:
+        raise HTTPException(404, "không có tài liệu này")
+    return {"doc": d, "chunks": knowledge.doc_chunks(did)}
+
+
+
 @router.get("/knowledge/{did}/file")
 def file(did: str):
     d = knowledge.get(did)

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, CircleCheck, CircleX, Copy, Eye, ListTodo, LoaderCircle, Play, ShieldCheck, Square, Trash2, Zap, type LucideIcon } from 'lucide-react'
+import { Check, ChevronDown, CircleCheck, CircleX, Copy, Eye, ListTodo, LoaderCircle, Maximize2, Play, ShieldCheck, Square, Trash2, Zap, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Form'
+import { Modal } from '@/components/ui/Modal'
 import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
 import { Markdown } from '@/features/chat/Markdown'
@@ -18,7 +19,10 @@ const EXAMPLES = [
   tk('Tìm 5 bài báo mới nhất về trí tuệ nhân tạo và viết tóm tắt vào file tom-tat.md'),
   tk('So sánh 3 cách học tiếng Anh online tốt nhất và lập bảng ưu nhược điểm'),
   tk('Đọc các file trong thư mục làm việc và liệt kê những việc còn dang dở'),
+  tk('Rà soát bảo mật và tối ưu hiệu năng dự án hiện tại, đề xuất phương án cải thiện'),
+  tk('Tổng hợp các điểm lưu ý pháp lý và rủi ro chính trong tài liệu đã tải lên'),
 ]
+
 
 const LEVELS: { id: string; icon: LucideIcon; title: string; desc: string }[] = [
   { id: 'readonly', icon: Eye, title: tk('Chỉ xem'), desc: tk('Chỉ đọc và tìm thông tin, không sửa hay tạo gì.') },
@@ -105,6 +109,7 @@ const firstLine = (s: string) => s.replace(/[#*`>\-]/g, '').split('\n').map((x) 
 function TaskCard({ task, refresh }: { task: Task; refresh: () => void }) {
   const toast = useToast()
   const [open, setOpen] = useState(false)
+  const [fullView, setFullView] = useState(false)
   const run = active(task.status)
   const cancel = useMutation({ mutationFn: () => api.post(`/api/tasks/${task.id}/cancel`, {}), onSuccess: refresh, onError: (e) => toast(errMsg(e), 'bad') })
   const del = useMutation({ mutationFn: () => api.del(`/api/tasks/${task.id}`), onSuccess: refresh, onError: (e) => toast(errMsg(e), 'bad') })
@@ -144,15 +149,26 @@ function TaskCard({ task, refresh }: { task: Task; refresh: () => void }) {
               <div className="max-h-[28rem] overflow-auto rounded-lg bg-bg p-4"><Markdown text={task.result} /></div>
               <div className="flex items-center gap-3">
                 <Button size="sm" onClick={copy}><Copy className="size-3.5" />{t('Chép kết quả')}</Button>
+                <Button size="sm" variant="ghost" onClick={() => setFullView(true)}><Maximize2 className="size-3.5" />{t('Xem toàn màn hình')}</Button>
                 {task.session_id && <Link to={`/chat?session=${task.session_id}`} className="text-xs text-accent hover:underline">{t('Xem agent đã làm thế nào')}</Link>}
               </div>
             </>
           ) : run ? <p className="text-muted">{t('Kết quả sẽ hiện ở đây khi agent làm xong.')}</p> : task.session_id && <Link to={`/chat?session=${task.session_id}`} className="text-xs text-accent hover:underline">{t('Xem agent đã làm thế nào')}</Link>}
         </div>
       )}
+
+      {fullView && (
+        <Modal open={fullView} onClose={() => setFullView(false)} wide title={task.goal}
+          footer={<><Button onClick={copy}><Copy className="size-3.5" />{t('Chép kết quả')}</Button><Button variant="primary" onClick={() => setFullView(false)}>{t('Đóng')}</Button></>}>
+          <div className="max-h-[70vh] overflow-auto rounded-xl bg-bg p-5">
+            <Markdown text={task.result} />
+          </div>
+        </Modal>
+      )}
     </Card>
   )
 }
+
 
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   if (!count) return null

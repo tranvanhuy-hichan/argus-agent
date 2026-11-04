@@ -58,6 +58,7 @@ MIGRATIONS = [
     ("sessions", "summary", "TEXT DEFAULT ''"),
     ("sessions", "summary_upto", "INTEGER DEFAULT 0"),
     ("sessions", "project", "TEXT DEFAULT ''"),
+    ("sessions", "pinned", "INTEGER DEFAULT 0"),
     ("messages", "attachments", "TEXT"),
     ("cron_jobs", "notify", "INTEGER DEFAULT 1"),
     ("api_tokens", "allow_docs", "INTEGER DEFAULT 0"),
