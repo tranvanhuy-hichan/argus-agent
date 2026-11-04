@@ -3,6 +3,7 @@ import base64
 import re
 import mimetypes
 import time
+from pathlib import Path
 from collections.abc import Callable, Iterator
 from datetime import datetime
 from threading import Event
@@ -23,7 +24,27 @@ def ui_event(kind: str, tpl: str, **vars) -> dict:
     return {"type": kind, "message" if kind != "status" else "text": text, "tpl": tpl, "vars": vars}
 
 
-def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str = "", sid: str | None = None, has_planning: bool = False) -> str:
+CODING_DOCS = ("AGENTS.md", "CLAUDE.md", "README.md")
+
+
+def coding_prompt(project) -> str:
+    """Chế độ Code: thư mục làm việc là một dự án thật của người dùng."""
+    text = (f"CHẾ ĐỘ LẬP TRÌNH. Thư mục làm việc là dự án của người dùng: {project}. Làm việc như một kỹ sư cẩn thận: "
+            "đọc code liên quan trước khi sửa, sửa nhỏ và đúng chỗ (dùng edit thay vì ghi đè cả file), giữ phong cách code hiện có, "
+            "chạy test hoặc build của dự án sau khi sửa và đọc kết quả để tự sửa lỗi. Không xóa file, không đổi git (commit, push, reset) "
+            "trừ khi người dùng yêu cầu rõ. Cuối cùng báo ngắn gọn đã đổi gì; người dùng xem diff ở tab Thay đổi.")
+    for name in CODING_DOCS:
+        p = Path(project) / name
+        if p.is_file():
+            try:
+                text += f"\n\n## {name} của dự án\n{p.read_text(errors='replace')[:3000].strip()}"
+            except OSError:
+                pass
+            break  # một tài liệu là đủ; AGENTS.md/CLAUDE.md được ưu tiên
+    return text
+
+
+def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str = "", sid: str | None = None, has_planning: bool = False, coding: bool = False) -> str:
     ws = cfg.workspace_path()
     parts = []
     for name in PROMPT_FILES:
@@ -34,6 +55,10 @@ def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str 
                  f"Thư mục làm việc của phiên này: {workdir}. Mọi file bạn tạo (script, dữ liệu trung gian, kết quả) hãy đặt ở đây; "
                  "đường dẫn tương đối được tính từ thư mục này và người dùng nhìn thấy chúng trong panel Workspace. "
                  "Khi cần nhớ chuyện đã nói trước đây, dùng tool memory_search.")
+    if note := tools.shell_note():
+        parts.append(note)
+    if coding:
+        parts.append(coding_prompt(workdir))
     if summary:
         parts.append(f"Tóm tắt phần hội thoại trước đó:\n{summary}")
     block = skillmod.prompt_block(skills)
@@ -162,7 +187,8 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
              system_extra: str = "", max_steps: int | None = None, depth: int = 0, job_id: str | None = None, workdir_sid: str | None = None) -> None:
     cfg = cfgmod.load()
     skills = skillmod.discover(cfg)
-    workdir = workfiles.session_dir(cfg, workdir_sid or sid)  # agent con/viec nen dung chung thu muc voi phien da giao viec
+    workdir = workfiles.workdir_for(cfg, workdir_sid or sid)  # agent con/viec nen dung chung thu muc voi phien da giao viec
+    project = (sessions.get(workdir_sid or sid) or {}).get("project") or ""
     workdir.mkdir(parents=True, exist_ok=True)
     decision: dict[str, str] = {}
 
@@ -175,6 +201,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
                             env=skillmod.env_for(skills, cfg), enabled=cfg.agent.tools_enabled, skills={n: s for n, s in skills.items() if s.active},
                             sandbox={"mode": cfg.agent.exec_sandbox, "image": cfg.agent.sandbox_image, "network": cfg.agent.sandbox_network})
     ctx.depth = depth
+    ctx.project = workdir if project else None
     # khong gui dinh nghia cua cong cu khong dung duoc (moi cong cu ton ~100 token o MOI luot goi mo hinh)
     hidden = [n for n in tools.TOOLS if (n.startswith("computer_") and not cfg.computer.enabled) or (n.startswith("browser_") and not cfg.browser.enabled)]
     ctx.enabled = {**ctx.enabled, **{n: False for n in hidden}}
@@ -207,7 +234,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     if attachments and cfg.providers[first].vision:
         current["images"] = _images(workdir, attachments)
     has_planning = "plan_set" in tools.TOOLS and ctx.enabled.get("plan_set", True)
-    system = build_system_prompt(cfg, skills, workdir, sess.get("summary", ""), sid, has_planning) + (f"\n\n{perm_note}" if perm_note else "") + (f"\n\n{mention_note}" if mention_note else "") + (f"\n\n{system_extra}" if system_extra else "")
+    system = build_system_prompt(cfg, skills, workdir, sess.get("summary", ""), sid, has_planning, bool(project)) + (f"\n\n{perm_note}" if perm_note else "") + (f"\n\n{mention_note}" if mention_note else "") + (f"\n\n{system_extra}" if system_extra else "")
     messages = [{"role": "system", "content": system}] \
         + [_augment(m) for m in _window(history, cfg.agent.max_history)] + [current]
 

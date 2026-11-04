@@ -7,11 +7,11 @@ from ..core.db import db
 from ..core.text import fold
 
 
-def create(title: str, source: str = "chat") -> str:
+def create(title: str, source: str = "chat", project: str = "") -> str:
     sid = uuid.uuid4().hex[:8]
     now = time.time()
     with db() as c:
-        c.execute("INSERT INTO sessions(id,title,created,updated,source) VALUES(?,?,?,?,?)", (sid, title[:60] or "Hội thoại mới", now, now, source))
+        c.execute("INSERT INTO sessions(id,title,created,updated,source,project) VALUES(?,?,?,?,?,?)", (sid, title[:60] or "Hội thoại mới", now, now, source, project))
     return sid
 
 
@@ -23,7 +23,7 @@ def get(sid: str) -> dict | None:
 
 def list_all(limit: int = 200, q: str = "") -> list[dict]:
     with db() as c:
-        rows = c.execute("""SELECT s.id,s.title,s.created,s.updated,s.source,
+        rows = c.execute("""SELECT s.id,s.title,s.created,s.updated,s.source,s.project,
                             (SELECT COUNT(*) FROM messages m WHERE m.session_id=s.id AND m.role='user') AS turns
                             FROM sessions s WHERE (?='' OR s.title LIKE '%'||?||'%') ORDER BY updated DESC LIMIT ?""", (q, q, limit)).fetchall()
     return [dict(r) for r in rows]

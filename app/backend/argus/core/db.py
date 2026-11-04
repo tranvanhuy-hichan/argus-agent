@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS channel_links(
 MIGRATIONS = [
     ("sessions", "summary", "TEXT DEFAULT ''"),
     ("sessions", "summary_upto", "INTEGER DEFAULT 0"),
+    ("sessions", "project", "TEXT DEFAULT ''"),
     ("messages", "attachments", "TEXT"),
     ("cron_jobs", "notify", "INTEGER DEFAULT 1"),
 ]

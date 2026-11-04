@@ -3,10 +3,12 @@ import html
 import ipaddress
 import json
 import os
+import platform
 import re
 import shutil
 import socket
 import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +26,7 @@ class ToolContext:
     enabled: dict[str, bool] = field(default_factory=dict)
     skills: dict = field(default_factory=dict)  # name -> skills.Skill
     extra: dict = field(default_factory=dict)  # name -> ToolDef (tool dong, vd. tu MCP)
+    project: Path | None = None  # du an nguoi dung da mo (che do Code): doc/ghi ben trong khong can hoi them
     cwd: Path | None = None  # thu muc lam viec cua phien; duong dan tuong doi tinh tu day
     session_id: str | None = None
     depth: int = 0  # do sau cua agent con (0 = agent chinh)
@@ -87,6 +90,9 @@ def _resolve(ctx: ToolContext, path: str, mode: str) -> Path:
     p = (p if p.is_absolute() else ctx.workdir / p).resolve()
     ws = ctx.workspace.resolve()
     outside = p != ws and ws not in p.parents
+    if outside and ctx.project:
+        root = ctx.project.resolve()
+        outside = p != root and root not in p.parents
     needs_ok = outside or (mode == "write" and ctx.confirm_writes)
     if needs_ok and not ctx.full_access and not ctx.approve(f"file_{mode}", str(p)):
         raise PermissionError("người dùng từ chối truy cập file này")
@@ -141,10 +147,26 @@ def list_dir(ctx, path="."):
     return "\n".join(sorted(x.name + ("/" if x.is_dir() else "") for x in d.iterdir()))[:5000] or "(rong)"
 
 
+def _shell() -> tuple[str | None, str]:
+    """(executable, tên hiển thị) của shell dùng để chạy lệnh: bash nếu có, nếu không thì shell mặc định của hệ điều hành (cmd.exe trên Windows)."""
+    if sys.platform != "win32" and Path("/bin/bash").exists():
+        return "/bin/bash", "bash"
+    found = shutil.which("bash")
+    if found:
+        return found, "bash"
+    return None, "cmd.exe" if sys.platform == "win32" else "sh"
+
+
+def shell_note() -> str:
+    """Câu báo cho model biết lệnh shell chạy bằng gì (chỉ khi không phải bash)."""
+    name = _shell()[1]
+    return "" if name == "bash" else f"Lệnh exec chạy bằng {name} trên {platform.system()}: viết lệnh đúng cú pháp của shell này, không dùng cú pháp bash."
+
+
 def _docker_cmd(ctx: ToolContext, command: str) -> list[str]:
     sb = ctx.sandbox
     cmd = ["docker", "run", "--rm", "--network", "bridge" if sb.get("network") else "none", "--memory", "1g", "--cpus", "2", "--pids-limit", "256",
-           "--user", f"{os.getuid()}:{os.getgid()}", "-e", "HOME=/tmp", "-v", f"{ctx.workdir.resolve()}:/work", "-w", "/work"]
+           *(["--user", f"{os.getuid()}:{os.getgid()}"] if hasattr(os, "getuid") else []), "-e", "HOME=/tmp", "-v", f"{ctx.workdir.resolve()}:/work", "-w", "/work"]
     for k, v in ctx.env.items():
         cmd += ["-e", f"{k}={v}"]
     return cmd + [sb.get("image") or "python:3.12-slim", "bash", "-c", command]
@@ -163,7 +185,7 @@ def exec_tool(ctx, command, timeout=60):
         if sandboxed:
             r = subprocess.run(_docker_cmd(ctx, command), capture_output=True, text=True, timeout=min(int(timeout), 300) + 30)
         else:
-            r = subprocess.run(command, shell=True, executable="/bin/bash", capture_output=True, text=True, cwd=ctx.workdir,
+            r = subprocess.run(command, shell=True, executable=_shell()[0], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=ctx.workdir,
                                env={**os.environ, **ctx.env}, timeout=min(int(timeout), 300))
     except subprocess.TimeoutExpired:
         return f"loi: lenh chay qua {timeout}s va bi dung"

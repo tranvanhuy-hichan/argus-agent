@@ -18,7 +18,7 @@ PREVIEW_CSP = "sandbox; default-src 'none'; img-src data: 'self'; style-src 'uns
 def _base(sid: str):
     if not sessions.get(sid):
         raise HTTPException(404, "không có phiên này")
-    return workfiles.session_dir(cfgmod.load(), sid)
+    return workfiles.workdir_for(cfgmod.load(), sid)
 
 
 def _path(sid: str, rel: str):
@@ -30,7 +30,8 @@ def _path(sid: str, rel: str):
 
 @router.get("/sessions/{sid}/files")
 def list_files(sid: str):
-    return workfiles.tree(_base(sid))
+    base = _base(sid)
+    return workfiles.tree(base, 3000 if (sessions.get(sid) or {}).get("project") else 500)
 
 
 @router.get("/sessions/{sid}/file")

@@ -92,3 +92,17 @@ def test_disabled_by_config():
     for _ in range(3):
         _send()
     assert habits.list_pending() == []
+
+
+def test_api_is_mounted_and_accept_dismiss(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from argus.main import app
+    c = TestClient(app)
+    monkeypatch.setattr(habits, "make_provider", lambda cfg: Fake(""))
+    for _ in range(3):
+        _send()
+    (s,) = c.get("/api/habits").json()
+    assert c.post(f"/api/habits/{s['id']}/accept", json={**s["draft"], "name": "tom-tat"}).json()["kind"] == "skill"
+    assert c.post(f"/api/habits/{s['id']}/dismiss").status_code == 404  # đã duyệt thì không còn
+    assert c.get("/api/habits").json() == []

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from ..services import habits
 from ..services.scheduler import ScheduleError
 
+AUTO = True
 router = APIRouter()
 
 

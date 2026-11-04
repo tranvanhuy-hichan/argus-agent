@@ -178,7 +178,7 @@ def stop() -> int:
             break
         time.sleep(0.1)
     else:
-        os.kill(pid, signal.SIGKILL)
+        os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
         warn(L("Server không tắt kịp, đã buộc dừng.", "The server did not exit in time and was killed."))
     _cleanup()
     ok(L("Đã dừng Argus Agent.", "Argus Agent stopped."))

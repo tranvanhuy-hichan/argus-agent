@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from .env import getenv
@@ -7,7 +8,9 @@ from .env import getenv
 #   CODE_ROOT = <repo>/app        ma nguon co dinh (backend, frontend, mau workspace) - an toan de cai lai/xoa
 #   ROOT      = <repo>/user-data  du lieu ca nhan (config.json, data/, workspace/, backups/) - KHONG xoa, nho sao luu
 # Dat ARGUS_HOME de dua du lieu ca nhan sang noi khac.
-CODE_ROOT = Path(__file__).resolve().parents[3]
+FROZEN = bool(getattr(sys, "frozen", False))  # chạy từ bản đóng gói (PyInstaller) trong ứng dụng desktop
+# Bản đóng gói đặt frontend/dist và templates/workspace cạnh nhau trong thư mục giải nén của PyInstaller.
+CODE_ROOT = Path(getattr(sys, "_MEIPASS", "")) if FROZEN else Path(__file__).resolve().parents[3]
 REPO_ROOT = CODE_ROOT.parent
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import atexit
+import os
 import queue
 import re
 import shutil
@@ -14,7 +15,14 @@ from typing import Any
 from ..core import config as cfgmod
 from ..core.paths import DATA
 
-CANDIDATES = ("/snap/bin/chromium", "chromium", "chromium-browser", "google-chrome", "google-chrome-stable")
+CANDIDATES = ("/snap/bin/chromium", "chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome", "msedge", "microsoft-edge")
+
+
+def _windows_browsers() -> list[str]:
+    """Chrome/Edge cài ở chỗ mặc định trên Windows (không nằm trong PATH)."""
+    roots = [os.environ.get(k) for k in ("ProgramFiles", "ProgramFiles(x86)", "LocalAppData")]
+    rel = ("Google/Chrome/Application/chrome.exe", "Microsoft/Edge/Application/msedge.exe")
+    return [str(Path(r) / x) for r in roots if r for x in rel if (Path(r) / x).exists()]
 PROFILE_ROOT = DATA / "browser" / "profile"  # thư mục KHÔNG ẩn: snap chromium không ghi được vào thư mục ẩn hoặc /tmp
 
 
@@ -26,7 +34,7 @@ def find_chromium(configured: str = "") -> str | None:
         p = shutil.which(c)
         if p:
             return p
-    return None
+    return next(iter(_windows_browsers()), None)
 
 
 class Session:

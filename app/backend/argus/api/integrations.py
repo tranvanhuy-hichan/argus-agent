@@ -138,4 +138,6 @@ def revoke_token(tid: str):
 @router.get("/integration-info")
 def info():
     script = Path(__file__).resolve().parents[1] / "mcp_server.py"
+    if getattr(sys, "frozen", False):  # bản đóng gói: chính file chạy này có chế độ --mcp
+        return {"python": sys.executable, "mcp_server_script": "--mcp"}
     return {"python": sys.executable, "mcp_server_script": str(script)}
