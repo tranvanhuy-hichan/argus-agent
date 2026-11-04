@@ -35,7 +35,7 @@ def test_invalid_policy():
 
 def test_token_lifecycle_only_hash_stored(tmp_env):
     info, token = tokens.create("ci", allow_exec=True)
-    assert token.startswith("agt_") and tokens.verify(token) == {"id": info["id"], "name": "ci", "allow_exec": True}
+    assert token.startswith("agt_") and tokens.verify(token) == {"id": info["id"], "name": "ci", "allow_exec": True, "allow_docs": False}
     assert tokens.verify("agt_wrong") is None
     import sqlite3
     raw = sqlite3.connect(tmp_env / "agent.db").execute("select hash, prefix from api_tokens").fetchone()

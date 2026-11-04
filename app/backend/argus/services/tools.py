@@ -313,7 +313,7 @@ def notify(ctx, title, message):
 # Module chua ton tai thi bo qua; loi ben trong module (thieu thu vien...) duoc ghi lai de `argus doctor` bao.
 import importlib  # noqa: E402
 
-OPTIONAL_MODULES = ("tools_plan", "tools_agents", "tools_browser", "tools_memory", "tools_media", "tools_computer")
+OPTIONAL_MODULES = ("tools_plan", "tools_agents", "tools_browser", "tools_memory", "tools_kb", "tools_media", "tools_computer")
 LOAD_ERRORS: dict[str, str] = {}
 for _m in OPTIONAL_MODULES:
     try:

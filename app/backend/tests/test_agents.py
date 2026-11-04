@@ -371,7 +371,7 @@ def test_mention_of_disconnected_service_warns_user(llm, monkeypatch):
     seen = _capture(llm)
     _, events = run_chat("@notion tìm trang họp")
     assert any(e["type"] == "notice" and "notion" in e["message"] for e in events)
-    assert "chưa kết nối" in seen["system"] and "mục Plugin" in seen["system"]
+    assert "chưa kết nối" in seen["system"] and "mục Tiện ích" in seen["system"]
 
 
 def test_mention_filter_survives_only_tools(llm, monkeypatch):

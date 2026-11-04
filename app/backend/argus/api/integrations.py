@@ -121,11 +121,12 @@ def list_tokens():
 class NewToken(BaseModel):
     name: str
     allow_exec: bool = False
+    allow_docs: bool = False
 
 
 @router.post("/tokens")
 def create_token(b: NewToken):
-    info, token = tokens.create(b.name, b.allow_exec)
+    info, token = tokens.create(b.name, b.allow_exec, b.allow_docs)
     return {**info, "token": token}
 
 

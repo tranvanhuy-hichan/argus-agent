@@ -115,6 +115,9 @@ def execute(job_id: str, approver: Callable[[str, str], bool] | None = None, can
     _registry[job_id] = cancel
     try:
         allowed, role_prompt = _profile_tools(cfg, job["role"] or "", job["depth"])
+        analysis = job["kind"] == "analysis"  # phân tích tài liệu: chỉ dùng kho tài liệu, đọc nhiều đoạn hơn
+        if analysis:
+            allowed = ["kb_search"]
         prof = cfg.agents.profiles.get(job["role"] or "")
         max_steps = job["max_steps"] or (prof.max_steps if prof else cfg.agents.task_max_steps)
         provider = job["provider"] or (prof.provider if prof else None)
@@ -124,6 +127,11 @@ def execute(job_id: str, approver: Callable[[str, str], bool] | None = None, can
             "Bạn đang chạy như một " + ("agent con" if job["kind"] == "subagent" else "việc nền") + " để hoàn thành mục tiêu được giao. "
             "Không hỏi lại người giao việc; tự quyết định hợp lý. Với việc nhiều bước, lập kế hoạch bằng plan_set. "
             "Khi xong, trả lời bằng KẾT QUẢ CUỐI CÙNG đầy đủ, ngắn gọn, đủ để người giao việc dùng ngay.")
+        docs_pre = None
+        if analysis:
+            from . import knowledge, tools_kb
+            extra = f"{extra}\n\n{knowledge.ANALYSIS_PROMPT}"
+            docs_pre = tools_kb.format_hits(knowledge.overview(job["goal"]))
         state = {"steps": 0, "last": "", "final": "", "error": None, "t": 0.0}
 
         def on_event(ev: dict) -> None:
@@ -143,7 +151,7 @@ def execute(job_id: str, approver: Callable[[str, str], bool] | None = None, can
                 _update(job_id, steps=state["steps"], progress=state["last"][:160])
 
         agent.run_turn(sid, job["goal"], provider, approver or (lambda kind, detail: False), on_event, cancel, only_tools=allowed, source=job["kind"],
-                       permission=job["permission"], system_extra=extra, max_steps=max_steps, depth=job["depth"] + (1 if job["kind"] == "subagent" else 0), job_id=job_id, workdir_sid=job["parent_session"])
+                       permission=job["permission"], system_extra=extra, max_steps=max_steps, depth=job["depth"] + (1 if job["kind"] == "subagent" else 0), job_id=job_id, workdir_sid=job["parent_session"], use_docs=analysis, docs_pre=docs_pre)
         status = "cancelled" if cancel.is_set() or db_cancelled(job_id) else ("failed" if state["error"] else "done")
         _update(job_id, status=status, steps=state["steps"], result=state["final"][:20000], error=state["error"], finished=time.time(), progress=state["last"][:160])
     except Exception as e:  # noqa: BLE001 - mot job loi khong duoc lam sap server
@@ -151,7 +159,7 @@ def execute(job_id: str, approver: Callable[[str, str], bool] | None = None, can
     finally:
         _registry.pop(job_id, None)
     done = get(job_id)
-    if done and done["notify"] and done["kind"] == "task":
+    if done and done["notify"] and done["kind"] in ("task", "analysis"):
         icon = {"done": "✅", "failed": "⚠️", "cancelled": "⏹"}.get(done["status"], "")
         notifications.add(f"{icon} Việc nền: {done['title']}", (done["result"] or done["error"] or "")[:600], source="task", session_id=done["session_id"])
     return done or {}

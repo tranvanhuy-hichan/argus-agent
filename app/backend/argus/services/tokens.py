@@ -11,13 +11,13 @@ def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def create(name: str, allow_exec: bool) -> tuple[dict, str]:
+def create(name: str, allow_exec: bool, allow_docs: bool = False) -> tuple[dict, str]:
     token = "agt_" + secrets.token_urlsafe(32)
     tid = uuid.uuid4().hex[:8]
     with db() as c:
-        c.execute("INSERT INTO api_tokens(id,name,hash,prefix,allow_exec,created) VALUES(?,?,?,?,?,?)",
-                  (tid, name[:60] or "token", _hash(token), token[:10], int(allow_exec), time.time()))
-    return {"id": tid, "name": name, "prefix": token[:10], "allow_exec": allow_exec}, token
+        c.execute("INSERT INTO api_tokens(id,name,hash,prefix,allow_exec,allow_docs,created) VALUES(?,?,?,?,?,?,?)",
+                  (tid, name[:60] or "token", _hash(token), token[:10], int(allow_exec), int(allow_docs), time.time()))
+    return {"id": tid, "name": name, "prefix": token[:10], "allow_exec": allow_exec, "allow_docs": allow_docs}, token
 
 
 def verify(token: str) -> dict | None:
@@ -26,13 +26,13 @@ def verify(token: str) -> dict | None:
         if not r:
             return None
         c.execute("UPDATE api_tokens SET last_used=? WHERE id=?", (time.time(), r["id"]))
-    return {"id": r["id"], "name": r["name"], "allow_exec": bool(r["allow_exec"])}
+    return {"id": r["id"], "name": r["name"], "allow_exec": bool(r["allow_exec"]), "allow_docs": bool(r["allow_docs"])}
 
 
 def list_all() -> list[dict]:
     with db() as c:
-        rows = c.execute("SELECT id,name,prefix,allow_exec,created,last_used FROM api_tokens ORDER BY created DESC").fetchall()
-    return [dict(r) | {"allow_exec": bool(r["allow_exec"])} for r in rows]
+        rows = c.execute("SELECT id,name,prefix,allow_exec,allow_docs,created,last_used FROM api_tokens ORDER BY created DESC").fetchall()
+    return [dict(r) | {"allow_exec": bool(r["allow_exec"]), "allow_docs": bool(r["allow_docs"])} for r in rows]
 
 
 def revoke(tid: str) -> None:

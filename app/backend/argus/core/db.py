@@ -60,6 +60,7 @@ MIGRATIONS = [
     ("sessions", "project", "TEXT DEFAULT ''"),
     ("messages", "attachments", "TEXT"),
     ("cron_jobs", "notify", "INTEGER DEFAULT 1"),
+    ("api_tokens", "allow_docs", "INTEGER DEFAULT 0"),
 ]
 
 fts_enabled = False

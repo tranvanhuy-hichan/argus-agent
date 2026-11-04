@@ -21,8 +21,14 @@ def status():
     with db() as c:
         msgs = c.execute("SELECT COUNT(*) n FROM messages WHERE role IN ('user','assistant') AND content!=''").fetchone()["n"]
     st = vectorstore.stats()
+    ollama_models_list = []
+    try:
+        url = embeddings._ollama_url(cfg)
+        ollama_models_list = embeddings.ollama_models(url)
+    except Exception:
+        pass
     return {"embedding": embeddings.status(cfg), "vectors": st, "notes": len(memory_index.note_lines(cfg)), "messages": msgs,
-            "fts": dbmod.fts_enabled, "reindex": dict(memory_index.progress)}
+            "fts": dbmod.fts_enabled, "reindex": dict(memory_index.progress), "ollama_models": ollama_models_list}
 
 
 @router.post("/memory/reindex")

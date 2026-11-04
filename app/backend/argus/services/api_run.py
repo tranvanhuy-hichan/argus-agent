@@ -38,13 +38,13 @@ def make_approver(policy: str, allow: list[str], token_allow_exec: bool) -> Call
 
 
 def run_once(prompt: str, *, session: str | None, provider: str | None, approver, only_tools: list[str] | None, timeout: float,
-             permission: str = "default", effort: str | None = None, source: str = "api") -> dict:
+             permission: str = "default", effort: str | None = None, source: str = "api", docs: bool = False) -> dict:
     out = {"session": session, "output": "", "provider": None, "usage": {"prompt": 0, "completion": 0},
            "tool_calls": [], "error": None, "timed_out": False}
     calls: dict[str, dict] = {}
     deadline = time.time() + timeout
     events: Iterator[dict] = chat_runner.stream_chat(session, prompt, provider, approver_override=approver, source=source, only_tools=only_tools,
-                                                      permission=permission, effort=effort)
+                                                      permission=permission, effort=effort, docs=docs)
     try:
         for ev in events:
             t = ev["type"]

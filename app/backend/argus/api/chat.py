@@ -71,13 +71,14 @@ class ChatBody(BaseModel):
     attachments: list[str] = []
     permission: Literal["default", "readonly", "guarded", "full"] = "default"
     effort: Literal["auto", "low", "medium", "high"] = "auto"
+    docs: bool = False  # "Hỏi từ tài liệu": chỉ trả lời dựa trên kho tài liệu, có nguồn
 
 
 @router.post("/chat")
 def chat(body: ChatBody):
     def gen():
         for ev in chat_runner.stream_chat(body.session, body.text, body.provider, attachments=body.attachments, permission=body.permission,
-                                            effort=None if body.effort == "auto" else body.effort):
+                                            effort=None if body.effort == "auto" else body.effort, docs=body.docs):
             if ev["type"] == "ping":
                 yield ": ping\n\n"
             else:

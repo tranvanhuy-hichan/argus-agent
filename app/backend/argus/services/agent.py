@@ -9,7 +9,7 @@ from datetime import datetime
 from threading import Event
 
 from ..core import config as cfgmod
-from . import audit, compaction, mcp_client, plans, sessions, skills as skillmod, tools, usage, workfiles
+from . import audit, compaction, knowledge, mcp_client, tools_kb, plans, sessions, skills as skillmod, tools, usage, workfiles
 from .providers import ProviderError, make_provider
 
 PROMPT_FILES = ("SOUL.md", "USER.md", "MEMORY.md")
@@ -23,6 +23,20 @@ def ui_event(kind: str, tpl: str, **vars) -> dict:
     text = tpl.format(**vars)
     return {"type": kind, "message" if kind != "status" else "text": text, "tpl": tpl, "vars": vars}
 
+
+def knowledge_note() -> str:
+    """Có tài liệu trong kho thì nhắc agent dùng kb_search và luôn trích nguồn."""
+    if not knowledge.has_docs():
+        return ""
+    s = knowledge.stats()
+    return (f"Người dùng đã thêm {s['docs']} tài liệu vào kho. Khi câu hỏi có thể nằm trong tài liệu của họ (hợp đồng, báo cáo, bảng tính, tài liệu nội bộ), "
+            "hãy dùng tool kb_search trước khi trả lời và chỉ dựa vào các đoạn tìm được. Sau mỗi ý, chèn nguyên văn thẻ nguồn [[src:...]] của đoạn bạn dựa vào (lấy từ kết quả kb_search), đặt ở cuối câu; không viết lại tên file, không bọc thẻ trong ngoặc hay dấu * . "
+            "Nếu không tìm thấy, nói rõ là tài liệu không đề cập, không tự bịa.")
+
+
+DOCS_PROMPT = ("CHẾ ĐỘ HỎI TỪ TÀI LIỆU. Chỉ trả lời dựa trên kho tài liệu của người dùng: LUÔN gọi kb_search trước (có thể gọi nhiều lần với cách diễn đạt khác để tìm đủ), "
+               "rồi trả lời ngắn gọn, đúng trọng tâm bằng ngôn ngữ của người dùng. Sau mỗi ý, chèn nguyên văn thẻ nguồn [[src:...]] của đoạn bạn dựa vào (lấy từ kết quả kb_search), đặt ở cuối câu; không viết lại tên file, không bọc thẻ trong ngoặc hay dấu *. Trình bày gọn: tiêu đề ngắn, gạch đầu dòng, không lặp lại cùng một thẻ nhiều lần liên tiếp. "
+               "Nếu các đoạn tìm được không có thông tin, nói rõ \"tài liệu không đề cập\" và gợi ý người dùng hỏi lại hoặc thêm tài liệu; tuyệt đối không bịa.")
 
 CODING_DOCS = ("AGENTS.md", "CLAUDE.md", "README.md")
 
@@ -55,6 +69,8 @@ def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str 
                  f"Thư mục làm việc của phiên này: {workdir}. Mọi file bạn tạo (script, dữ liệu trung gian, kết quả) hãy đặt ở đây; "
                  "đường dẫn tương đối được tính từ thư mục này và người dùng nhìn thấy chúng trong panel Workspace. "
                  "Khi cần nhớ chuyện đã nói trước đây, dùng tool memory_search.")
+    if kb_note := knowledge_note():
+        parts.append(kb_note)
     if note := tools.shell_note():
         parts.append(note)
     if coding:
@@ -147,7 +163,7 @@ def apply_mentions(ctx: tools.ToolContext, names: list[str]) -> tuple[str, list[
     note = ("Người dùng chỉ định dịch vụ bằng dấu @: " + ", ".join(f"@{n}" for n in names) + ". Hãy làm yêu cầu bằng các công cụ có tên bắt đầu bằng "
             + ", ".join(f"'{prefix[n]}'" for n in names) + "; không dùng công cụ của dịch vụ khác.")
     if down:
-        note += " Dịch vụ chưa kết nối: " + ", ".join(down) + ". Nếu không có công cụ tương ứng, hãy bảo người dùng vào mục Plugin, tìm dịch vụ đó rồi bấm Đăng nhập."
+        note += " Dịch vụ chưa kết nối: " + ", ".join(down) + ". Nếu không có công cụ tương ứng, hãy bảo người dùng vào mục Tiện ích, tìm dịch vụ đó rồi bấm Đăng nhập."
     return note, down
 
 
@@ -184,7 +200,8 @@ def _stream_with_retry(name: str, pcfg: cfgmod.ProviderCfg, messages: list[dict]
 def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[[str, str], bool],
              emit: Callable[[dict], None], cancel: Event | None = None, only_tools: list[str] | None = None,
              source: str = "chat", attachments: list[str] | None = None, permission: str = "default", effort: str | None = None,
-             system_extra: str = "", max_steps: int | None = None, depth: int = 0, job_id: str | None = None, workdir_sid: str | None = None) -> None:
+             system_extra: str = "", max_steps: int | None = None, depth: int = 0, job_id: str | None = None, workdir_sid: str | None = None,
+             use_docs: bool = False, docs_pre: str | None = None) -> None:
     cfg = cfgmod.load()
     skills = skillmod.discover(cfg)
     workdir = workfiles.workdir_for(cfg, workdir_sid or sid)  # agent con/viec nen dung chung thu muc voi phien da giao viec
@@ -204,16 +221,27 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     ctx.project = workdir if project else None
     # khong gui dinh nghia cua cong cu khong dung duoc (moi cong cu ton ~100 token o MOI luot goi mo hinh)
     hidden = [n for n in tools.TOOLS if (n.startswith("computer_") and not cfg.computer.enabled) or (n.startswith("browser_") and not cfg.browser.enabled)]
+    if not knowledge.has_docs():
+        hidden.append("kb_search")
     ctx.enabled = {**ctx.enabled, **{n: False for n in hidden}}
     ctx.session_id, ctx.permission, ctx.provider, ctx.emit, ctx.cancel = sid, permission if permission in ("default", "readonly", "guarded", "full") else "default", provider, emit, cancel
     ctx.extra = mcp_client.manager.tool_defs()
+    if use_docs and not knowledge.has_docs():
+        emit(ui_event("notice", "Chưa có tài liệu nào sẵn sàng nên Argus trả lời như bình thường"))
+    elif use_docs:  # "Hỏi từ tài liệu": chỉ cho dùng công cụ tìm tài liệu, trả lời có nguồn
+        only_tools = only_tools if only_tools is not None else ["kb_search"]
+        emit(ui_event("status", "Đang tìm trong tài liệu…"))
+        found = docs_pre if docs_pre is not None else tools_kb.format_hits(knowledge.search(user_text, 6))  # tìm sẵn trước khi hỏi model: bớt được một lượt gọi model
+        pre = (f"\n\nCác đoạn tài liệu liên quan tới câu hỏi (đã tìm sẵn):\n{found}\n\nNếu các đoạn trên đủ để trả lời thì trả lời ngay, không cần gọi kb_search; "
+               "chỉ gọi thêm kb_search (với từ khóa khác) khi còn thiếu thông tin.") if found else ""
+        system_extra = f"{system_extra}\n\n{DOCS_PROMPT}{pre}".strip()
     if only_tools is not None:  # gioi han tool cho rieng luot nay (dung cho API ben ngoai)
         ctx.enabled = {n: n in only_tools for n in [*tools.TOOLS, *ctx.extra]}
     mention_note = ""
     if names_at := mentioned_servers(user_text, cfg):
         mention_note, down = apply_mentions(ctx, names_at)
         if down:
-            emit(ui_event("notice", "Dịch vụ {names} chưa kết nối: vào mục Plugin để đăng nhập", names=", ".join(down)))
+            emit(ui_event("notice", "Dịch vụ {names} chưa kết nối: vào mục Tiện ích để đăng nhập", names=", ".join(down)))
     if permission not in PERMISSIONS:
         permission = "default"
     perm_note = apply_permission(ctx, permission)

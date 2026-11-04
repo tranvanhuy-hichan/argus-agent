@@ -144,9 +144,11 @@ def reindex(cfg, on_progress: Callable[[int, int], None] | None = None) -> dict:
         if on_progress:
             on_progress(done, total)
     n = index_notes(cfg)
+    from . import knowledge  # kho tài liệu có bảng vector riêng nên nhúng lại cùng lúc
+    docs = knowledge.ensure_vectors()
     if on_progress:
         on_progress(total, total)
-    return {"messages": len(rows), "notes": n, "model": e.model_id}
+    return {"messages": len(rows), "notes": n, "documents": docs, "model": e.model_id}
 
 
 def start_reindex(cfg) -> bool:
