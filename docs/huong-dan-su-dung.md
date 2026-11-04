@@ -261,7 +261,7 @@ Nút **Phân tích tài liệu** ở trang Tài liệu giao cho agent một vi�
 
 ### Tìm theo nghĩa: dùng Ollama trên máy hay Gemini
 
-Ở **Cài đặt → Tính năng & Trí nhớ → Tìm kiếm theo nghĩa** có hai lựa chọn. **Trên máy bạn (Ollama)**: riêng tư và miễn phí, nên dùng model `bge-m3` (tiếng Việt tốt) hoặc `nomic-embed-text` (nhẹ); giao diện hiện sẵn lệnh `ollama pull` để chép. **Gemini (đám mây)**: không cần cài gì, chọn nhà cung cấp Gemini đã thêm ở Mô hình AI với model `gemini-embedding-001`; các đoạn văn bản được gửi tới Google để tính. Sau khi đổi, bấm **Lưu thay đổi** rồi **Lập lại chỉ mục**.
+Trang **Mô hình AI** có hai tab: **Model xử lý** (các model trả lời bạn) và **Model embedding** (model dùng để tìm theo nghĩa). Ở tab Model embedding có hai lựa chọn. **Trên máy bạn (Ollama)**: riêng tư và miễn phí, nên dùng model `bge-m3` (tiếng Việt tốt) hoặc `nomic-embed-text` (nhẹ); giao diện hiện sẵn lệnh `ollama pull` để chép. **Gemini (đám mây)**: không cần cài gì, chọn nhà cung cấp Gemini đã thêm ở Mô hình AI với model `gemini-embedding-001`; các đoạn văn bản được gửi tới Google để tính. Sau khi đổi, bấm **Lưu thay đổi** rồi **Lập lại chỉ mục**.
 
 Giới hạn: tối đa 60MB mỗi file; PDF bản quét ảnh cần OCR (chưa có); file `.doc` và `.xls` cũ cần lưu lại sang `.docx` và `.xlsx`.
 

@@ -552,6 +552,9 @@ const dict: Record<string, string> = {
   "Bạn muốn phân tích điều gì? (không bắt buộc)": "What do you want analysed? (optional)",
   "Ví dụ: Phân tích rủi ro và đề xuất phương án thực hiện trong 90 ngày.": "For example: Analyse the risks and propose a plan to deliver in 90 days.",
   "Argus đọc kỹ các tài liệu, rồi viết báo cáo gồm: tóm tắt, yêu cầu chính, rủi ro, các phương án, khuyến nghị và các bước thực hiện, kèm nguồn. Việc này chạy nền (có thể mất vài phút); kết quả xem ở trang Tác vụ.": "Argus reads the documents carefully, then writes a report with a summary, key requirements, risks, options, a recommendation and steps, with sources. This runs in the background (it can take a few minutes); see the result on the Tasks page.",
+  "Model embedding được cấu hình cùng các mô hình AI khác.": "The embedding model is configured together with your other AI models.",
+  "Model xử lý": "Processing model",
+  "Mở Mô hình AI, tab Embedding": "Open AI models, Embedding tab",
 }
 
 export default dict

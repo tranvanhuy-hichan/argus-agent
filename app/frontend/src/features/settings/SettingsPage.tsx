@@ -134,7 +134,7 @@ export function SettingsPage() {
         </Card>
           </>
         )}
-        {tab === 'features' && <FeaturesTab value={extra} onChange={setExtra} providers={Object.keys(cfg.data.config.providers)} providerInfo={cfg.data.config.providers} tools={cfg.data.tools.map((x) => x.name)} isDirty={dirty} />}
+        {tab === 'features' && <FeaturesTab value={extra} onChange={setExtra} providers={Object.keys(cfg.data.config.providers)} tools={cfg.data.tools.map((x) => x.name)} />}
         {tab === 'tools' && (
           <>
         <Card>

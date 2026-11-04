@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { ChevronDown, CircleCheck, CircleX, KeyRound, Plus, Star, Trash2, Zap } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -7,6 +8,8 @@ import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Form'
 import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
+import { Tabs } from '@/components/ui/Tabs'
+import { EmbeddingPanel } from './EmbeddingPanel'
 import { useToast } from '@/components/ui/Toast'
 import { api } from '@/lib/api'
 import { useConfig, useSaveConfig } from '@/lib/queries'
@@ -190,19 +193,21 @@ export function ProvidersPage() {
   const cfg = useConfig()
   const save = useSaveConfig()
   const toast = useToast()
-  const [draft, setDraft] = useState<Pick<AppConfig, 'providers' | 'default_provider' | 'fallback'> | null>(null)
+  const [draft, setDraft] = useState<Pick<AppConfig, 'providers' | 'default_provider' | 'fallback' | 'memory'> | null>(null)
   const [models, setModels] = useState<string[]>([])
   const [openCards, setOpenCards] = useState<Set<string>>(new Set())
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'embedding' ? 'embedding' : 'chat'
 
   useEffect(() => {
-    if (cfg.data) setDraft({ providers: cfg.data.config.providers, default_provider: cfg.data.config.default_provider, fallback: cfg.data.config.fallback })
+    if (cfg.data) setDraft({ providers: cfg.data.config.providers, default_provider: cfg.data.config.default_provider, fallback: cfg.data.config.fallback, memory: cfg.data.config.memory })
   }, [cfg.data])
   useEffect(() => { void api.get<{ models: string[] }>('/api/ollama/models').then((r) => setModels(r.models)).catch(() => {}) }, [])
 
   if (cfg.error) return <Page><ErrorNote error={cfg.error} /></Page>
   if (!draft || !cfg.data) return <Loading />
   const names = Object.keys(draft.providers)
-  const dirty = JSON.stringify(draft) !== JSON.stringify({ providers: cfg.data.config.providers, default_provider: cfg.data.config.default_provider, fallback: cfg.data.config.fallback })
+  const dirty = JSON.stringify(draft) !== JSON.stringify({ providers: cfg.data.config.providers, default_provider: cfg.data.config.default_provider, fallback: cfg.data.config.fallback, memory: cfg.data.config.memory })
   const toggle = (n: string) => setOpenCards((s) => { const x = new Set(s); if (x.has(n)) x.delete(n); else x.add(n); return x })
 
   const add = (preset: string) => {
@@ -217,7 +222,7 @@ export function ProvidersPage() {
     if (names.length < 2) return toast(t('Cần ít nhất một mô hình'), 'bad')
     const { [n]: _, ...rest } = draft.providers
     const left = Object.keys(rest)
-    setDraft({ providers: rest, default_provider: draft.default_provider === n ? left[0] : draft.default_provider, fallback: draft.fallback.filter((f) => f !== n) })
+    setDraft({ providers: rest, default_provider: draft.default_provider === n ? left[0] : draft.default_provider, fallback: draft.fallback.filter((f) => f !== n), memory: draft.memory })
   }
   const onSave = () => save.mutate({ ...cfg.data.config, ...draft }, { onSuccess: () => toast(t('Đã lưu')), onError: (e) => toast(errMsg(e), 'bad') })
   const others = names.filter((n) => n !== draft.default_provider)
@@ -227,6 +232,11 @@ export function ProvidersPage() {
       <PageHeader title={t('Mô hình AI')}
         action={<Button variant="primary" disabled={!dirty} loading={save.isPending} onClick={onSave}>{t('Lưu thay đổi')}</Button>} />
 
+      <Tabs value={tab} onChange={(v) => setParams(v === 'chat' ? {} : { tab: v }, { replace: true })}
+        tabs={[{ id: 'chat', label: t('Model xử lý') }, { id: 'embedding', label: t('Model embedding') }]} />
+      <div className="mt-5">
+        {tab === 'embedding' ? <EmbeddingPanel memory={draft.memory} onChange={(patch) => setDraft({ ...draft, memory: { ...draft.memory, ...patch } })} providerInfo={draft.providers} isDirty={dirty} /> : (
+          <>
       <section className="mb-8">
         <h2 className="mb-3 text-sm font-semibold">{t('Mô hình của bạn')}</h2>
         <div className="grid items-start gap-3 xl:grid-cols-2">
@@ -266,6 +276,9 @@ export function ProvidersPage() {
           </div>
         </Card>
       )}
+          </>
+        )}
+      </div>
     </Page>
   )
 }
