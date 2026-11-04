@@ -112,6 +112,7 @@ Mọi file agent tạo ra (script, báo cáo, ảnh…) và file bạn đính k�
 - **Dấu +**: đính kèm file hoặc ảnh. Bạn cũng có thể kéo thả file vào khung chat.
 - **Microphone**: nhập bằng giọng nói (dùng nhận dạng giọng nói của trình duyệt).
 - **Gõ `/`**: chọn một kỹ năng để dùng ngay.
+- **Gõ `@`**: gọi một dịch vụ MCP (Notion, Linear…) hoặc MCP server cụ thể, xem [mục 9](#9-kết-nối-công-cụ-ngoài-telegram-api).
 - **Chọn mô hình** (ví dụ "local · qwen2.5:3b"): đổi mô hình cho riêng hội thoại này.
 - **Mức nỗ lực** ("Tự động", thấp, vừa, cao): bắt mô hình suy nghĩ kỹ hơn ở câu khó, nhưng chậm và tốn hơn.
 
@@ -211,6 +212,15 @@ Bạn cũng tự tạo kỹ năng bằng nút **Tạo kỹ năng**. Một kỹ n
 
 > **Cẩn thận:** kỹ năng tải từ internet chỉ là hướng dẫn, nhưng có thể bảo agent chạy lệnh. Hãy đọc `SKILL.md` trước khi cài và giữ bật xác nhận chạy lệnh. Bạn cũng có thể cài nhanh từ dòng lệnh: `argus skills install <chủ>/<tên>`.
 
+### Gợi ý tạo kỹ năng từ việc lặp lại
+
+Khi bạn gửi cùng một kiểu yêu cầu ở **3 cuộc trò chuyện khác nhau**, Argus nhận ra và hiện thẻ "Tạo kỹ năng (hoặc tự động hóa) cho việc này nhé?" ở Trang chủ, kèm một thông báo. Bản nháp đã được soạn sẵn:
+
+- Việc mang tính định kỳ ("mỗi sáng", "hằng tuần") được đề xuất thành **tự động hóa** (có sẵn lịch cron và lời nhắc).
+- Các việc còn lại thành **kỹ năng** (tên, mô tả, các bước).
+
+Bấm **Xem bản nháp**, chỉnh nếu muốn (kể cả đổi loại) rồi **Tạo**. Bấm dấu X để bỏ qua; việc đó sẽ không bị nhắc lại. Việc phát hiện chỉ so khớp từ khóa trên máy bạn, không tốn token; model chỉ được gọi một lần để soạn bản nháp. Tắt tại Cài đặt → Agent → "Gợi ý tạo kỹ năng từ việc lặp lại".
+
 ## 8. Mô hình AI
 
 Trang **Mô hình AI** là nơi chọn "bộ não" cho agent.
@@ -219,14 +229,14 @@ Trang **Mô hình AI** là nơi chọn "bộ não" cho agent.
 - **Thêm mô hình AI**: bấm một ô dịch vụ.
   - *Chạy trên máy bạn* (miễn phí, riêng tư): **Ollama**, **LM Studio**. Cần cài sẵn và tải model về máy.
   - *Dịch vụ đám mây* (cần khóa API lấy từ trang của họ): **Google Gemini**, **Claude**, **OpenAI**, **DeepSeek**, **OpenRouter**, **Groq**, và "Dịch vụ khác" cho mọi dịch vụ tương thích OpenAI. Mục "Xem thêm dịch vụ" còn có vLLM, Mistral, xAI, Cerebras, Together, Fireworks, Qwen.
-- *Dùng CLI đã đăng nhập (không cần API key)*: **Claude Code** dùng tài khoản Claude đã đăng nhập sẵn trên máy bạn (cần cài `claude` và chạy nó một lần trong terminal để đăng nhập), và **CLI khác** cho mọi chương trình nhận câu hỏi qua stdin và in câu trả lời ra stdout. Đây là cách thứ hai để xác thực, bên cạnh API key: bạn chọn một trong hai bằng cách bấm ô tương ứng (Claude dùng API key, hay Claude Code dùng CLI). Xem lưu ý bên dưới.
+- *Dùng CLI đã đăng nhập (không cần API key)*: dùng tài khoản đã đăng nhập sẵn trong một CLI trên máy bạn. Có ba CLI dựng sẵn: **Claude Code** (lệnh `claude`), **Antigravity** (lệnh `agy`, tài khoản Google) và **Codex** (lệnh `codex`, tài khoản ChatGPT/OpenAI); thêm **CLI khác** cho mọi chương trình nhận câu hỏi qua stdin và in câu trả lời ra stdout. Bạn cần cài CLI và chạy nó một lần trong terminal để đăng nhập. Đây là cách thứ hai để xác thực, bên cạnh API key: bạn chọn một trong hai bằng cách bấm ô tương ứng (ví dụ Claude dùng API key, hay Claude Code dùng CLI). Xem lưu ý bên dưới.
 - **Mô hình dự phòng**: nếu mô hình chính lỗi hoặc quá tải, agent tự chuyển sang các mô hình bạn tick, theo thứ tự.
 
 Sau khi đổi, nhớ bấm **Lưu thay đổi** ở góc phải trên.
 
 Trong **Chỉnh sửa → Tùy chọn nâng cao** có: địa chỉ máy chủ (Base URL), lấy khóa từ biến môi trường, độ sáng tạo (temperature), giá token để ước tính chi phí, và công tắc **"Model hiểu được ảnh"** (chỉ bật nếu mô hình hỗ trợ).
 
-**Về mô hình dùng CLI.** Argus chạy CLI ở chế độ không giao diện và tắt công cụ riêng của nó; Argus vẫn tự điều khiển công cụ nên phê duyệt, kế hoạch và trí nhớ hoạt động như thường. Đổi lại, mỗi bước mở một tiến trình CLI nên chậm hơn (khoảng 3 giây mỗi bước), không xem được ảnh và không có ô chọn "mức nỗ lực". Biến `ANTHROPIC_API_KEY` trong môi trường bị bỏ qua để CLI dùng đúng tài khoản đăng nhập. **Hãy đọc điều khoản của hãng** về việc dùng gói thuê bao theo cách này (Anthropic từng cấm dùng token đăng nhập của gói thuê bao trong ứng dụng bên thứ ba; Argus không lấy token, chỉ chạy chính CLI chính thức, nhưng bạn nên tự xác nhận). Nếu không chắc, dùng API key.
+**Về mô hình dùng CLI.** Argus chạy CLI ở chế độ không giao diện và tắt công cụ riêng của nó; Argus vẫn tự điều khiển công cụ nên phê duyệt, kế hoạch và trí nhớ hoạt động như thường. Đổi lại, mỗi bước mở một tiến trình CLI nên chậm hơn (khoảng 3 giây mỗi bước với Claude Code, 7–17 giây với Antigravity), không xem được ảnh và không có ô chọn "mức nỗ lực". Biến `ANTHROPIC_API_KEY` trong môi trường bị bỏ qua để CLI dùng đúng tài khoản đăng nhập. Antigravity và Codex có công cụ riêng (đọc/ghi file, chạy lệnh) mà không tắt được bằng cờ; Argus yêu cầu chúng chỉ trả lời bằng văn bản, và Codex được chạy ở chế độ sandbox chỉ đọc. Antigravity tạo một hội thoại trong lịch sử của `agy` mỗi lần gọi. Codex **chưa được kiểm chứng với bản thật** (chưa cài trên máy phát triển). **Hãy đọc điều khoản của hãng** về việc dùng gói thuê bao theo cách này (Anthropic từng cấm dùng token đăng nhập của gói thuê bao trong ứng dụng bên thứ ba; Argus không lấy token, chỉ chạy chính CLI chính thức, nhưng bạn nên tự xác nhận). Nếu không chắc, dùng API key.
 
 **Chọn mô hình nào?** Mô hình nhỏ chạy trên máy (như qwen2.5:3b) miễn phí và riêng tư nhưng yếu, hay quên và gọi công cụ kém. Việc nhiều bước, giao việc cho agent con, hoặc điều khiển trình duyệt nên dùng mô hình đám mây mạnh hơn.
 
@@ -234,9 +244,27 @@ Trong **Chỉnh sửa → Tùy chọn nâng cao** có: địa chỉ máy chủ (
 
 Trang **Kết nối** có ba tab.
 
-### Máy chủ MCP (công cụ ngoài)
+### MCP truyền thống và MCP dịch vụ
 
-MCP là cách "cắm thêm" công cụ cho agent, ví dụ duyệt web hay làm việc với một thư mục file. Bấm **Thêm**, chọn một mẫu (**Duyệt web**, **Đọc/ghi file**) hoặc **Tự cấu hình** cho một server MCP của bạn, đặt tên, bấm **Thử kết nối** để thấy các công cụ nó cung cấp, rồi **Lưu**. Công cụ mới tự xuất hiện cho agent, tên dạng `tênserver__têntool`.
+MCP là cách "cắm thêm" công cụ cho agent. Trang **Kết nối** chia làm hai tab:
+
+**Tab "MCP truyền thống"**: máy chủ chạy trên máy bạn hoặc tự khai báo (duyệt web bằng Playwright, đọc/ghi file, server MCP của bạn). Bấm **Thêm MCP server**, chọn một mẫu (**Duyệt web**, **Đọc/ghi file**) hoặc **Tự cấu hình**, đặt tên, bấm **Thử kết nối** để thấy các công cụ nó cung cấp, rồi **Lưu**. Công cụ mới tự xuất hiện cho agent, tên dạng `tênserver__têntool`.
+
+**Tab "MCP dịch vụ"**: danh mục **42 dịch vụ đã kiểm chứng** chia theo lĩnh vực, kể cả những cái bạn chưa dùng: Lập trình và triển khai (GitHub, GitLab, Vercel, Netlify, Cloudflare, Sentry, Datadog, Context7, DeepWiki, Microsoft Learn…), Dữ liệu và hạ tầng (Neon, Supabase, PostHog, Apify, Hugging Face…), Tìm kiếm và tài liệu (Exa, Firecrawl, Tavily), Công việc và cộng tác (Notion, Linear, Asana, Atlassian, ClickUp, monday, Airtable, Todoist, Miro, Zapier…), Thiết kế và website (Canva, Webflow, Wix), Kinh doanh và thanh toán (Stripe, PayPal, Square, Intercom, Ramp). Gõ vào ô tìm kiếm để lọc. Muốn dùng dịch vụ nào, bấm **Dùng** ở dòng đó. Có ba kiểu, ghi rõ ở từng dòng:
+
+- **Đăng nhập bằng tài khoản** (đa số): Argus thêm kết nối và mở trang đăng nhập của dịch vụ trong tab mới. Bạn bấm **Cho phép** (trong vòng 5 phút) rồi đóng tab; dòng dịch vụ chuyển sang **Đã kết nối** kèm số công cụ.
+- **Không cần đăng nhập** (nhãn xanh): kết nối ngay.
+- **Cần token** (nhãn xanh dương, ví dụ GitHub): dịch vụ không cho đăng nhập một chạm, nên hộp thoại hiện ra kèm đường dẫn tới trang tạo token. Dán token vào, Argus lưu (mã hóa) và gửi kèm header của nó.
+
+Bấm vào dòng đã kết nối để xem công cụ và bật/tắt từng cái. **Đăng xuất** xóa token đã lưu; biểu tượng thùng rác **Gỡ** dịch vụ khỏi Argus.
+
+**Tìm thêm trong thư viện MCP chính thức.** Khi bạn gõ từ khóa (ví dụ "stripe", "vercel"), bên dưới danh mục hiện thêm **kết quả từ thư viện MCP chính thức** (registry.modelcontextprotocol.io). Bấm **Dùng** thì Argus tự thăm dò xem server đó cần đăng nhập kiểu nào (OAuth, token hay không cần) rồi làm tương ứng. **Cẩn thận:** thư viện này do cộng đồng đăng và Argus không kiểm duyệt từng mục; mục có nhãn **Cộng đồng** chưa được xác minh thương hiệu. Argus hỏi xác nhận trước khi thêm, và công cụ của chúng vẫn phải qua bước xin phép. Chỉ dùng nguồn bạn tin.
+
+Dịch vụ không có trong danh mục lẫn thư viện thì thêm ở mục **Dịch vụ do bạn thêm → Thêm dịch vụ khác** (nhập địa chỉ MCP từ xa).
+
+Token đăng nhập được **mã hóa** trong cơ sở dữ liệu (cùng khóa chủ với API key) và không nằm trong `config.json`; Argus tự làm mới khi hết hạn. Nếu bạn đổi địa chỉ hoặc cổng của Argus thì phải đăng nhập lại. Một số dịch vụ không cho ứng dụng tự đăng ký hoặc cần cấu hình riêng (ví dụ Figma, Slack, HubSpot, Box, Gamma, Calendly), nên không có trong danh mục: tôi đã thử và chúng không dùng được theo cách một chạm.
+
+**Gọi dịch vụ bằng dấu `@` trong Trò chuyện.** Gõ `@` ở ô soạn tin để chọn một dịch vụ hoặc MCP server (kèm logo và trạng thái), ví dụ "Tìm trang họp tuần trước trong @notion". Khi bạn gọi `@tên`, agent chỉ thấy công cụ của dịch vụ đó (đỡ tốn token, đỡ chọn nhầm) và được nhắc dùng đúng nó; gọi nhiều dịch vụ thì nêu từng `@tên`. Tên dịch vụ trong tin nhắn được tô màu. Nếu dịch vụ chưa kết nối, bạn thấy thông báo và agent hướng dẫn đăng nhập.
 
 Công tắc **"Hỏi tôi trước khi dùng công cụ này"** nên để bật. Công cụ chỉ để xem thông tin luôn chạy thẳng.
 

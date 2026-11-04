@@ -309,7 +309,16 @@ Chống truy cập địa chỉ nội bộ: `web_fetch`/`http_request` phân gi�
 
 Hai bộ chuyển đổi: `OpenAICompat` (OpenAI, Gemini, Ollama, LM Studio, vLLM, Groq, DeepSeek, OpenRouter, Mistral, xAI, Together, Fireworks, Qwen, Cerebras… mọi dịch vụ có `/chat/completions`) và `Anthropic`. Cả hai stream sự kiện chuẩn hóa: `delta`, `thinking`, `tool_calls`, `usage`. Khóa API lấy từ `api_key` (đã mã hóa) hoặc biến môi trường `api_key_env`. `list_models` liệt kê model, mặc định lọc bỏ model không dùng để chat.
 
-**Nhà cung cấp CLI** (`cli_provider.py`, `type="cli"`): dùng một CLI đã đăng nhập (hiện hỗ trợ `claude`, hoặc lệnh tùy chỉnh) làm mô hình, thay cho API key. Mỗi bước chạy một tiến trình `claude -p --output-format stream-json --tools "" --no-session-persistence --strict-mcp-config` trong thư mục trống `data/cli-run/` (để không đọc `CLAUDE.md` hay dự án nào), với biến `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` bị gỡ để CLI dùng tài khoản đăng nhập. Công cụ riêng của CLI bị tắt; công cụ của Argus được mô tả trong prompt và model gọi bằng khối `<tool_call>{"name": …, "arguments": {…}}</tool_call>`. Bộ lọc luồng chỉ cho phần văn bản đứng trước khối này hiện ra, `parse_calls` tách các lời gọi, rồi vòng lặp agent chạy công cụ như mọi nhà cung cấp khác (giữ nguyên phê duyệt, kế hoạch, nhật ký). Lịch sử được gửi lại dạng bản ghi văn bản qua stdin mỗi bước (không dùng phiên của CLI). `argus doctor` chỉ kiểm tra lệnh có tồn tại (không gọi mạng).
+**Nhà cung cấp CLI** (`cli_provider.py`, `type="cli"`): dùng một CLI đã đăng nhập làm mô hình, thay cho API key. Mỗi CLI là một *adapter* gồm hàm dựng lệnh, hàm đọc từng dòng JSON và danh sách biến môi trường cần gỡ để CLI dùng tài khoản đăng nhập thay vì khóa API:
+
+| CLI | Lệnh chạy | Cách nhận lời nhắc | Ghi chú |
+|---|---|---|---|
+| `claude` | `claude -p --output-format stream-json --tools "" --no-session-persistence --strict-mcp-config` | stdin | Tắt hẳn công cụ riêng bằng cờ; gỡ `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` |
+| `agy` (Antigravity) | `agy --output-format stream-json --disable-slash-commands [--model m] -p <lời nhắc>` | **tham số** (`-p` phải đứng cuối, vì nó lấy tham số kế tiếp làm lời nhắc) | Không có cờ tắt công cụ riêng (60+ công cụ) nên chỉ dựa vào giao thức; giới hạn 120.000 ký tự; `agy models` liệt kê model thật |
+| `codex` | `codex exec --json --skip-git-repo-check --sandbox read-only -o <file> [--model m] <lời nhắc>` | tham số | **Chưa kiểm chứng với bản thật**: đọc sự kiện `item.completed` (agent_message) và `turn.completed`, dự phòng đọc file `-o`; gỡ `CODEX_API_KEY`/`OPENAI_API_KEY` |
+| `custom` | lệnh tự khai báo | stdin | Đầu ra văn bản thuần |
+
+Mỗi bước chạy một tiến trình trong thư mục trống `data/cli-run/` (để CLI không đọc dự án nào). Công cụ của Argus được mô tả trong prompt và model gọi bằng khối `<tool_call>{"name": …, "arguments": {…}}</tool_call>`. Bộ lọc luồng chỉ cho phần văn bản đứng trước khối này hiện ra, `parse_calls` tách các lời gọi, rồi vòng lặp agent chạy công cụ như mọi nhà cung cấp khác (giữ nguyên phê duyệt, kế hoạch, nhật ký). Lịch sử được gửi lại dạng bản ghi văn bản mỗi bước (không dùng phiên của CLI). `argus doctor` chỉ kiểm tra lệnh có tồn tại (không gọi mạng). Đã chạy thật với `claude` và `agy`; `codex` mới được kiểm thử bằng CLI giả theo tài liệu.
 
 ### 6.2 Kỹ năng (`skills.py`, `clawhub.py`)
 
@@ -318,6 +327,18 @@ Một kỹ năng là thư mục có `SKILL.md` (đầu file là YAML frontmatter
 ### 6.3 MCP
 
 - **Client** (`mcp_client.py`): kết nối máy chủ MCP theo `stdio`, `http` (Streamable HTTP) hoặc `sse`; chạy trong thread riêng với vòng lặp asyncio; liệt kê công cụ và đăng ký thành công cụ `server__tool` với `risk="mcp"`; tự kết nối lại; trạng thái hiển thị ở trang Kết nối.
+- **OAuth** (`mcp_oauth.py`): MCP từ xa của Notion, Canva, Linear, Atlassian, Asana… yêu cầu OAuth 2.1. `OAuthClientProvider` của SDK lo giao thức (khám phá máy chủ cấp quyền, **đăng ký client động**, PKCE S256, đổi mã lấy token, làm mới token); Argus cung cấp ba mảnh:
+  - `Store`: lưu client và token vào bảng `kv` (khóa `mcp_oauth:<tên>`) dưới dạng JSON **mã hóa Fernet** bằng khóa chủ. Client đăng ký gắn với `redirect_uri`; đổi địa chỉ/cổng Argus thì xóa client và token cũ để đăng ký lại.
+  - `Flow`: `redirect_handler` ghi URL cấp quyền vào trạng thái của server (`status="needs_auth"`, `auth_url`), `callback_handler` chờ một `Future` (tối đa 300 giây) cho tới khi `GET /api/mcp/oauth/callback?code&state` gọi `complete()`. Ở chế độ không tương tác (lúc khởi động, kết nối lại) `redirect_handler` ném `NeedsAuth` nên không bao giờ chờ.
+  - Quy trình: server bật `oauth` mà chưa có token thì không thử kết nối (không đăng ký client vô ích) và ở trạng thái `needs_auth`. `POST /api/mcp/{name}/oauth/start` chạy lại kết nối ở chế độ tương tác với địa chỉ gọi lại lấy từ chính request, trả `auth_url` để giao diện mở trong tab mới. Sau khi người dùng cho phép, kết nối hoàn tất, các lần khởi động sau dùng token đã lưu (SDK tự làm mới). `POST /api/mcp/{name}/oauth/logout` xóa token.
+  - Kiểm chứng: test đi qua toàn bộ luồng với máy chủ MCP + máy chủ cấp quyền giả; đã chạy khám phá và đăng ký client thật với Notion, Linear, Canva, Atlassian và Asana (Figma từ chối đăng ký động nên không có mẫu). Phần người dùng bấm "Cho phép" và đổi mã trên dịch vụ thật chưa được thử.
+- **Gọi bằng `@`** (`agent.mentioned_servers`, `agent.apply_mentions`): nếu tin nhắn có `@tên` khớp một MCP server trong cấu hình (không khớp địa chỉ email), `run_turn` chỉ giữ công cụ của các server được gọi cùng công cụ lõi (tắt phần còn lại trong `ctx.enabled`, sau cả `only_tools`), thêm vào system prompt lời nhắc dùng công cụ có tiền tố `tên__`, và phát sự kiện `notice` nếu server chưa kết nối. Áp dụng cho mọi nguồn (web, Telegram, API, việc nền). Giao diện: bộ chọn `@` trong `Composer` và tô màu `@tên` trong tin nhắn.
+- **Danh mục, thư viện và thăm dò**:
+  - `mcp_catalog.py`: **42 dịch vụ đã kiểm chứng** theo nhóm (`GET /api/mcp/catalog`). Mỗi mục được thử bằng chính luồng của SDK trên địa chỉ thật: `oauth` (lấy được địa chỉ đăng nhập), `open` (kết nối và liệt kê được công cụ không cần đăng nhập) hoặc `token` (nhà cung cấp không cho tự đăng ký, ví dụ GitHub dùng PAT trong header `Authorization`). Dịch vụ thử không được (Slack, HubSpot, Box, Calendly, Gamma, Figma) bị loại; mô tả có hai ngôn ngữ.
+  - `mcp_registry.py`: tìm trong thư viện MCP chính thức (`GET /api/mcp/registry?q=&cursor=`), chỉ giữ mục có máy chủ từ xa (`streamable-http`/`sse`, không có biến trong URL), bỏ trùng, gắn nhãn `community` cho tên miền không chứng minh được thương hiệu. Nội dung do cộng đồng đăng, không kiểm duyệt.
+  - `mcp_probe.py`: `POST /api/mcp/probe` gửi `initialize` không kèm xác thực rồi đọc phản hồi để phân loại `oauth` / `oauth-manual` / `token` / `open` / `down` (đi theo `WWW-Authenticate`, metadata tài nguyên và máy chủ cấp quyền, kiểm tra có `registration_endpoint`). API chặn địa chỉ nội bộ (`_check_url`). Kết quả thăm dò chỉ là gợi ý; luồng đăng nhập thật của SDK mới là phép thử cuối (Figma công bố đăng ký động nhưng trả 403).
+  - Cờ `service` trong cấu hình server MCP đánh dấu server thêm từ tab dịch vụ (cả OAuth, token lẫn mở), để tab `MCP truyền thống` không hiển thị lẫn.
+- **Giao diện Kết nối**: tab `MCP truyền thống` (`McpTab`, server không dùng OAuth và không có cờ `service`) và tab `MCP dịch vụ` (`ServicesTab`: ô tìm kiếm, danh mục theo nhóm với logo (`ServiceLogo`: `simple-icons`, vài SVG riêng, chữ cái đầu cho dịch vụ chưa có logo), hộp thoại token, kết quả thư viện với cảnh báo). Nút Dùng lưu cấu hình rồi gọi `POST /api/mcp/{name}/oauth/start` (kiểu OAuth).
 - **Server** (`mcp_server.py`): chạy độc lập qua stdio, chỉ gọi HTTP `/v1/*` của agent đang chạy nên không phụ thuộc phần còn lại của mã. Cho phép Claude Code, Cursor… giao việc cho agent. Cần `ARGUS_TOKEN`.
 
 ### 6.4 Kế hoạch, việc nền và agent con
@@ -394,7 +415,7 @@ Gói `config.json`, `agent.db` (sao lưu an toàn), workspace và tùy chọn kh
 | `jobs` | Việc nền và agent con |
 | `memory_vectors` | Vector trí nhớ (tạo khi dùng lần đầu, `CREATE TABLE IF NOT EXISTS` mỗi lần vì DB có thể bị thay khi khôi phục) |
 | `channel_links` | Liên kết chat Telegram ↔ hội thoại |
-| `kv` | Cặp khóa-giá trị lặt vặt |
+| `kv` | Cặp khóa-giá trị lặt vặt; cũng giữ client và token OAuth của MCP (`mcp_oauth:<tên>`, mã hóa) |
 
 Schema nằm trong `core/db.py` (`SCHEMA`, `EXTRA_SCHEMA`); thêm cột mới cho bảng cũ qua danh sách `MIGRATIONS`.
 
@@ -464,7 +485,7 @@ Tiền tố `/api`. Dưới đây là tóm tắt theo nhóm (xem đầy đủ tr
 | Thống kê | `GET /dashboard` | `dashboard.py` |
 | Việc nền | `GET/POST /tasks`, `GET/DELETE /tasks/{id}`, `POST /tasks/{id}/cancel`, `GET /sessions/{sid}/plan` | `tasks.py` |
 | Trí nhớ | `GET /memory/status`, `GET/POST /memory/reindex`, `GET /memory/search`, `POST /memory/curate`, `POST /memory/curate/apply` | `memory.py` |
-| Tích hợp | `GET /mcp`, `POST /mcp/test`, `POST /mcp/{name}/reconnect`, `GET/POST /tokens`, `DELETE /tokens/{id}`, `GET /integration-info` | `integrations.py` |
+| Tích hợp | `GET /mcp`, `POST /mcp/test`, `GET /mcp/catalog`, `GET /mcp/registry`, `POST /mcp/probe`, `POST /mcp/{name}/reconnect`, `POST /mcp/{name}/oauth/start`, `POST /mcp/{name}/oauth/logout`, `GET /mcp/oauth/callback`, `GET/POST /tokens`, `DELETE /tokens/{id}`, `GET /integration-info` | `integrations.py` |
 | Kênh, heartbeat, xác thực | `GET /channels`, `PUT /channels/telegram`, `POST /channels/telegram/test|pair-code|remove-user`, `GET/PUT /heartbeat`, `POST /heartbeat/run`, `GET /auth/status`, `POST /auth/login|logout|password` | `channels.py` |
 | Nhật ký, thông báo | `GET /audit`, `GET /notifications`, `GET /notifications/count`, `POST /notifications/read`, `DELETE /notifications`, `GET /search` | `activity.py` |
 

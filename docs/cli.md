@@ -126,7 +126,7 @@ argus onboard [--non-interactive] [--language {vi,en}] [--name NAME]
 | `--non-interactive` | Không hỏi gì, chỉ dùng các tùy chọn bên dưới (để chạy trong script, CI, Docker) |
 | `--language {vi,en}` | Ngôn ngữ |
 | `--name NAME` | Tên của bạn |
-| `--provider PROVIDER` | Mẫu dịch vụ: `ollama`, `gemini`, `openai`, `anthropic`, `openrouter`, `deepseek`, `mistral`, `groq`, `xai`, `lmstudio`, `custom` |
+| `--provider PROVIDER` | Mẫu dịch vụ: `ollama`, `gemini`, `openai`, `anthropic`, `openrouter`, `deepseek`, `mistral`, `groq`, `xai`, `lmstudio`, `claude-code`, `antigravity`, `codex`, `custom` (ba mẫu cuối nhóm CLI dùng tài khoản đã đăng nhập, không cần API key; onboard chỉ kiểm tra lệnh có trong `PATH`) |
 | `--model MODEL` | Tên model |
 | `--base-url BASE_URL` | Địa chỉ API (cho `custom` hoặc ghi đè mẫu) |
 | `--api-key-env NAME` | Tên biến môi trường chứa khóa API |
@@ -144,6 +144,9 @@ argus onboard [--non-interactive] [--language {vi,en}] [--name NAME]
 export GEMINI_API_KEY=...
 argus onboard --non-interactive --language vi --name Huy \
   --provider gemini --api-key-env GEMINI_API_KEY --start
+
+# Cài với Antigravity (hoặc codex, claude-code) đã đăng nhập sẵn, không cần API key
+argus onboard --non-interactive --provider antigravity --start
 
 # Cài với Ollama chạy sẵn trên máy
 argus onboard --non-interactive --provider ollama --model qwen2.5:3b --start
