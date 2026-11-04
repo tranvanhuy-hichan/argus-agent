@@ -323,3 +323,59 @@ def test_plan_progress_is_nudged_and_auto_started(llm):
     assert 'plan_update(step=1, status="done")' in seen["tool_msg"]  # model duoc nhac cap nhat
     shown = next(e for e in events if e["type"] == "tool_result" and "bước 1 đang làm" not in e["result"] and e["result"] != "")
     assert "Kế hoạch: bước" not in "".join(e["result"] for e in events if e["type"] == "tool_result" and e["id"] == shown["id"])  # nguoi dung khong thay loi nhac
+
+
+# ---------------- goi MCP dich vu bang dau @
+def _mcp_world(monkeypatch, connected=("notion", "linear")):
+    from argus.services import mcp_client
+    from argus.services.tools import ToolDef
+
+    defs = {f"{s}__{t}": ToolDef(name=f"{s}__{t}", description=f"[MCP:{s}] {t}", parameters={"type": "object", "properties": {}}, fn=lambda ctx, **a: "ok", risk="mcp", read_only=True)
+            for s, t in (("notion", "search"), ("linear", "list_issues"))}
+    monkeypatch.setattr(mcp_client.manager, "tool_defs", lambda: defs)
+    monkeypatch.setattr(mcp_client.manager, "status", lambda: {s: {"status": "connected"} for s in connected})
+    full = cfgmod.load()
+    full.mcp_servers = {"notion": cfgmod.McpServerCfg(transport="http", url="https://mcp.notion.com/mcp", oauth=True), "linear": cfgmod.McpServerCfg(transport="http", url="https://mcp.linear.app/mcp", oauth=True)}
+    cfgmod.save(full)
+
+
+def _capture(llm):
+    seen = {}
+
+    def rule(messages, tool_names):
+        seen["system"], seen["tools"] = messages[0]["content"], set(tool_names)
+        return {"content": "ok"}
+    llm(rule)
+    return seen
+
+
+def test_at_mention_keeps_only_that_service_tools_and_hints_the_model(llm, monkeypatch):
+    _mcp_world(monkeypatch)
+    seen = _capture(llm)
+    run_chat("Trong @notion tìm trang họp tuần trước")
+    assert "notion__search" in seen["tools"] and "linear__list_issues" not in seen["tools"] and "read" in seen["tools"]  # cong cu cot loi van con
+    assert "@notion" in seen["system"] and "'notion__'" in seen["system"]
+
+
+def test_without_or_with_email_no_filtering(llm, monkeypatch):
+    _mcp_world(monkeypatch)
+    seen = _capture(llm)
+    run_chat("tìm trang họp")
+    assert {"notion__search", "linear__list_issues"} <= seen["tools"] and "@" not in seen["system"].split("Hiện tại")[-1]
+    run_chat("gửi mail cho an@notion.com và @khong-co-dich-vu-nay")
+    assert {"notion__search", "linear__list_issues"} <= seen["tools"]  # dia chi email va ten khong ton tai khong kich hoat
+
+
+def test_mention_of_disconnected_service_warns_user(llm, monkeypatch):
+    _mcp_world(monkeypatch, connected=("linear",))
+    seen = _capture(llm)
+    _, events = run_chat("@notion tìm trang họp")
+    assert any(e["type"] == "notice" and "notion" in e["message"] for e in events)
+    assert "chưa kết nối" in seen["system"] and "MCP dịch vụ" in seen["system"]
+
+
+def test_mention_filter_survives_only_tools(llm, monkeypatch):
+    _mcp_world(monkeypatch)
+    seen = _capture(llm)
+    run_chat("@linear liệt kê issue", only_tools=["linear__list_issues", "notion__search", "read"])
+    assert "linear__list_issues" in seen["tools"] and "notion__search" not in seen["tools"]

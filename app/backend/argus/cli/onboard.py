@@ -64,7 +64,23 @@ def _pick_model(models: list[str], default: str, interactive: bool) -> str:
 
 def add_provider(cfg: cfgmod.Config, preset: Preset, *, interactive: bool, model: str | None = None, base_url: str | None = None,
                  api_key_env: str | None = None, api_key: str | None = None, skip_test: bool = False) -> str | None:
-    p = cfgmod.ProviderCfg(type=preset.type, base_url=base_url or preset.base_url, model=model or preset.model, api_key_env=api_key_env or preset.env)
+    p = cfgmod.ProviderCfg(type=preset.type, base_url=base_url or preset.base_url, model=model or preset.model, api_key_env=api_key_env or preset.env, **({"cli": preset.cli} if preset.cli else {}))
+    if preset.type == "cli":  # CLI da dang nhap san: khong co API key, chi can kiem tra lenh co trong may
+        from ..services import cli_provider
+
+        exe = cli_provider.find(p)
+        if not exe:
+            warn(L(f"Không tìm thấy lệnh '{cli_provider.executable(p)[0]}'. Hãy cài CLI và đăng nhập một lần trong terminal.", f"Command '{cli_provider.executable(p)[0]}' not found. Install the CLI and log in once in a terminal."))
+            if not interactive or not ask_yes_no(L("Vẫn lưu provider này?", "Save this provider anyway?"), False):
+                return None
+            models = []
+        else:
+            ok(L(f"Tìm thấy CLI: {exe}", f"Found the CLI: {exe}"))
+            models = cli_provider.list_cli_models(p) if p.cli == "agy" else (cli_provider.CLAUDE_MODELS if p.cli == "claude" else [])
+        p.model = _pick_model(models, p.model, interactive)
+        name = _unique(cfg, preset.id)
+        cfg.providers[name] = p
+        return name
     if preset.id == "custom" and interactive:
         p.base_url = ask("Base URL", p.base_url)
     if api_key:

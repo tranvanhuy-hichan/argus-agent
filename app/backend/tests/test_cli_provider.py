@@ -3,6 +3,7 @@ import json
 import os
 import stat
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -122,3 +123,100 @@ def test_agent_runs_tools_through_cli_provider(fake):
     assert "tool" in kinds and "tool_result" in kinds
     assert next(e for e in events if e["type"] == "tool")["name"] == "list_dir"
     assert [e for e in events if e["type"] == "assistant"][-1]["content"] == "Kết quả: xong"
+
+
+# ---------------- Antigravity (agy) va Codex: CLI gia theo dung dinh dang da quan sat / theo tai lieu
+FAKE_AGY = '''import json, os, sys
+argv = sys.argv[1:]
+if argv and argv[0] == "models":
+    print("Fetching available models...")
+    print("gemini-3.8-flash-high\\tGemini 3.8 Flash (High)")
+    print("claude-sonnet-4-6\\tClaude Sonnet 4.6 (Thinking)")
+    sys.exit(0)
+prompt = argv[argv.index("-p") + 1] if "-p" in argv else ""
+open(os.environ["FAKE_LOG"], "a").write(json.dumps({"argv": argv, "stdin": sys.stdin.read(), "cwd": os.getcwd()}) + "\\n")
+def step(t, **kw):
+    print(json.dumps({"event": "step_update", "step_update": {"step_index": 1, "state": "ACTIVE", "step_type": "agent_response", "text_delta": t, **kw}}), flush=True)
+if os.environ.get("FAKE_MODE") == "fail":
+    print(json.dumps({"event": "result", "result": {"status": "FAILED", "error": "quota exceeded"}}))
+    sys.exit(0)
+if "[Tool result for" in prompt:
+    step("Kết quả: "); step("xong")
+else:
+    step("Để xem. <tool"); step('_call>{"name": "list_dir", "arguments": {"path": "."}}</tool_call>')
+print(json.dumps({"event": "result", "result": {"status": "SUCCESS", "response": "x", "usage": {"input_tokens": 100, "cache_read_tokens": 5, "output_tokens": 7}}}))
+'''
+FAKE_CODEX = '''import json, os, sys
+argv = sys.argv[1:]
+out = argv[argv.index("-o") + 1] if "-o" in argv else ""
+open(os.environ["FAKE_LOG"], "a").write(json.dumps({"argv": argv, "has_key": "OPENAI_API_KEY" in os.environ, "cwd": os.getcwd()}) + "\\n")
+def ev(**d): print(json.dumps(d), flush=True)
+mode = os.environ.get("FAKE_MODE", "")
+ev(type="thread.started", thread_id="t1"); ev(type="turn.started")
+if mode == "fail":
+    ev(type="turn.failed", error={"message": "usage limit reached"}); sys.exit(1)
+if mode == "file":  # khong co su kien agent_message: chi ghi cau tra loi cuoi ra file -o
+    open(out, "w").write("Đọc từ file."); ev(type="turn.completed", usage={"input_tokens": 3, "output_tokens": 1}); sys.exit(0)
+ev(type="item.completed", item={"id": "i1", "type": "reasoning", "text": "nghi"})
+ev(type="item.completed", item={"id": "i2", "type": "agent_message", "text": 'Để xem. <tool_call>{"name": "list_dir", "arguments": {"path": "."}}</tool_call>'})
+ev(type="turn.completed", usage={"input_tokens": 50, "cached_input_tokens": 10, "output_tokens": 9})
+'''
+
+
+def kind(tmp_env, monkeypatch, name, source, **cfg_kw):
+    exe = make_exe(tmp_env / name, source)
+    log = tmp_env / "calls.log"
+    monkeypatch.setenv("FAKE_LOG", str(log))
+    monkeypatch.delenv("FAKE_MODE", raising=False)
+    cfg = cfgmod.ProviderCfg(type="cli", cli=name if name in ("agy", "codex") else "claude", command=str(exe), **cfg_kw)
+    return cfg, lambda: [json.loads(x) for x in log.read_text().splitlines()]
+
+
+def test_agy_prompt_goes_last_after_all_flags_and_tool_call_is_parsed(tmp_env, monkeypatch):
+    cfg, calls = kind(tmp_env, monkeypatch, "agy", FAKE_AGY, model="gemini-3.8-flash-high")
+    ev = run(cfg, [{"role": "user", "content": "xem thu muc"}], TOOLS)
+    a = calls()[-1]["argv"]
+    assert a[-2] == "-p" and "[User]\nxem thu muc" in a[-1]  # -p lay tham so ngay sau no lam loi nhac, nen phai dung cuoi cung
+    assert a[a.index("--model") + 1] == "gemini-3.8-flash-high" and a[a.index("--output-format") + 1] == "stream-json"
+    assert a.index("--model") < a.index("-p") and calls()[-1]["stdin"] == ""
+    assert "".join(e["text"] for e in ev if e["type"] == "delta") == "Để xem. "
+    final = ev[-1]
+    assert final["tool_calls"][0]["name"] == "list_dir" and final["usage"] == {"prompt": 105, "completion": 7}
+
+
+def test_agy_failure_and_prompt_size_guard(tmp_env, monkeypatch):
+    cfg, _ = kind(tmp_env, monkeypatch, "agy", FAKE_AGY)
+    monkeypatch.setenv("FAKE_MODE", "fail")
+    with pytest.raises(providers.ProviderError, match="quota exceeded"):
+        run(cfg, [{"role": "user", "content": "hi"}])
+    monkeypatch.delenv("FAKE_MODE")
+    with pytest.raises(providers.ProviderError, match="vượt giới hạn tham số"):
+        run(cfg, [{"role": "user", "content": "x" * (cli_provider.MAX_ARG + 10)}])
+
+
+def test_agy_lists_real_models(tmp_env, monkeypatch):
+    cfg, _ = kind(tmp_env, monkeypatch, "agy", FAKE_AGY)
+    assert providers.list_models(cfg) == ["gemini-3.8-flash-high", "claude-sonnet-4-6"]  # bo dong "Fetching…", lay cot id
+    assert providers.list_models(cfgmod.ProviderCfg(type="cli", cli="claude")) == cli_provider.CLAUDE_MODELS
+
+
+def test_codex_exec_json_events_sandbox_and_env(tmp_env, monkeypatch):
+    cfg, calls = kind(tmp_env, monkeypatch, "codex", FAKE_CODEX, model="gpt-5-codex")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-khong-duoc-dung")
+    ev = run(cfg, [{"role": "user", "content": "xem"}], TOOLS)
+    c = calls()[-1]
+    a = c["argv"]
+    assert a[0] == "exec" and "--json" in a and a[a.index("--sandbox") + 1] == "read-only" and a[a.index("--model") + 1] == "gpt-5-codex"
+    assert "[User]\nxem" in a[-1] and not c["has_key"] and c["cwd"].endswith("cli-run")
+    assert "".join(e["text"] for e in ev if e["type"] == "delta") == "Để xem. "  # khoi tool_call bi an, suy luan (reasoning) khong lot vao cau tra loi
+    assert ev[-1]["tool_calls"][0]["args"] == {"path": "."} and ev[-1]["usage"] == {"prompt": 50, "completion": 9}
+
+
+def test_codex_reads_final_message_file_and_reports_failure(tmp_env, monkeypatch):
+    cfg, calls = kind(tmp_env, monkeypatch, "codex", FAKE_CODEX)
+    monkeypatch.setenv("FAKE_MODE", "file")
+    final = run(cfg, [{"role": "user", "content": "hi"}])[-1]
+    assert final["content"] == "Đọc từ file." and not Path(calls()[-1]["argv"][calls()[-1]["argv"].index("-o") + 1]).exists()
+    monkeypatch.setenv("FAKE_MODE", "fail")
+    with pytest.raises(providers.ProviderError, match="usage limit reached"):
+        run(cfg, [{"role": "user", "content": "hi"}])

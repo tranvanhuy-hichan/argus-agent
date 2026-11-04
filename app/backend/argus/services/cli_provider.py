@@ -1,4 +1,4 @@
-"""Nha cung cap 'CLI': dung mot CLI da dang nhap san (vd. Claude Code) lam bo nao thay cho API key.
+"""Nha cung cap 'CLI': dung mot CLI da dang nhap san (Claude Code, Antigravity `agy`, Codex...) lam bo nao thay cho API key.
 
 CLI chi dong vai mot model sinh van ban (cong cu rieng cua no bi tat). Cong cu cua Argus duoc mo ta trong prompt va model
 goi bang khoi <tool_call>{...}</tool_call>; Argus tu chay cong cu (giu nguyen phe duyet, ke hoach, tri nho) roi gui ket qua o luot sau.
@@ -20,7 +20,7 @@ from ..core.config import ProviderCfg
 TIMEOUT = 300
 OPEN, CLOSE = "<tool_call>", "</tool_call>"
 CLAUDE_MODELS = ["sonnet", "opus", "haiku"]
-STRIP_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")  # co thi CLI se dung khoa nay (tinh phi API) thay vi tai khoan dang nhap
+MAX_ARG = 120_000  # CLI nhan loi nhac qua tham so dong lenh; Linux gioi han ~128 KB moi tham so
 CLAUDE_SYSTEM = "You are a plain text completion engine. Follow the instructions in the user message exactly. You have no tools of your own."
 
 PROTOCOL = """You have NO tools of your own, but the host system can run the tools listed below for you.
@@ -37,6 +37,9 @@ class CliError(Exception):
     pass
 
 
+DEFAULT_EXE = {"claude": "claude", "agy": "agy", "codex": "codex"}
+
+
 def executable(cfg: ProviderCfg) -> list[str]:
     """Lenh can chay (khong gom tham so cua Argus)."""
     if cfg.cli == "custom":
@@ -44,7 +47,7 @@ def executable(cfg: ProviderCfg) -> list[str]:
         if not parts:
             raise CliError("chưa nhập lệnh cho CLI tùy chỉnh")
         return parts
-    return [cfg.command or "claude"]
+    return [cfg.command or DEFAULT_EXE[cfg.cli]]
 
 
 def find(cfg: ProviderCfg) -> str | None:
@@ -53,6 +56,109 @@ def find(cfg: ProviderCfg) -> str | None:
         return shutil.which(executable(cfg)[0])
     except CliError:
         return None
+
+
+class _Run:
+    """Trang thai mot lan chay CLI: van ban sinh ra, token, loi, file ket qua (neu CLI ghi ra file)."""
+
+    def __init__(self) -> None:
+        self.usage = {"prompt": 0, "completion": 0}
+        self.error = ""
+        self.streamed = False
+        self.out_file = ""
+
+
+def _claude_cmd(cfg, exe, prompt, run):
+    cmd = exe + ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--tools", "",
+                 "--no-session-persistence", "--disable-slash-commands", "--strict-mcp-config", "--system-prompt", CLAUDE_SYSTEM]
+    return cmd + (["--model", cfg.model] if cfg.model else []), prompt
+
+
+def _claude_feed(d, run):
+    t = d.get("type")
+    if t == "stream_event" and d["event"].get("type") == "content_block_delta" and d["event"]["delta"].get("type") == "text_delta":
+        run.streamed = True
+        return d["event"]["delta"]["text"]
+    if t == "assistant" and not run.streamed:  # CLI khong tra tung manh: lay ca khoi
+        return "".join(b.get("text", "") for b in d["message"].get("content", []) if b.get("type") == "text")
+    if t == "result":
+        u = d.get("usage") or {}
+        run.usage = {"prompt": u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0) + u.get("cache_read_input_tokens", 0), "completion": u.get("output_tokens", 0)}
+        if d.get("is_error"):
+            run.error = str(d.get("result") or "lỗi không rõ")
+    return ""
+
+
+def _agy_cmd(cfg, exe, prompt, run):
+    # agy coi tham so ngay sau -p la loi nhac: moi co khac phai dung TRUOC -p, -p dung cuoi cung. Loi nhac chi di qua tham so (khong doc stdin)
+    cmd = exe + ["--output-format", "stream-json", "--disable-slash-commands"] + (["--model", cfg.model] if cfg.model else []) + ["-p", prompt]
+    return cmd, None
+
+
+def _agy_feed(d, run):
+    ev = d.get("event")
+    if ev == "step_update":
+        su = d["step_update"]
+        if su.get("step_type") == "agent_response" and su.get("text_delta"):
+            run.streamed = True
+            return su["text_delta"]
+    elif ev == "result":
+        r = d.get("result") or {}
+        u = r.get("usage") or {}
+        run.usage = {"prompt": u.get("input_tokens", 0) + u.get("cache_read_tokens", 0), "completion": u.get("output_tokens", 0)}
+        if r.get("status") not in (None, "SUCCESS"):
+            run.error = f"{r.get('status')}: {r.get('error') or r.get('response') or 'lỗi không rõ'}"
+        elif not run.streamed:
+            return r.get("response", "")
+    return ""
+
+
+def _codex_cmd(cfg, exe, prompt, run):
+    # Chua kiem chung voi ban Codex that (may chua cai): flag theo tai lieu `codex exec`; ket qua cuoi con duoc doc tu file -o
+    run.out_file = str(Path(dbmod.DATA) / "cli-run" / f"codex-{uuid.uuid4().hex[:8]}.txt")
+    cmd = exe + ["exec", "--json", "--skip-git-repo-check", "--sandbox", "read-only", "-o", run.out_file] + (["--model", cfg.model] if cfg.model else []) + [prompt]
+    return cmd, None
+
+
+def _codex_feed(d, run):
+    t = d.get("type")
+    if t == "item.completed" and (d.get("item") or {}).get("type") == "agent_message":
+        run.streamed = True
+        return d["item"].get("text", "")
+    if t == "turn.completed":
+        u = d.get("usage") or {}
+        run.usage = {"prompt": u.get("input_tokens", 0), "completion": u.get("output_tokens", 0)}
+    elif t in ("turn.failed", "error"):
+        run.error = str((d.get("error") or {}).get("message") or d.get("message") or "lỗi không rõ")
+    return ""
+
+
+def _custom_cmd(cfg, exe, prompt, run):
+    return exe, prompt
+
+
+# cli -> (xay lenh, doc mot dong JSON, bien moi truong can go de CLI dung tai khoan dang nhap thay vi khoa API)
+ADAPTERS = {
+    "claude": (_claude_cmd, _claude_feed, ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")),
+    "agy": (_agy_cmd, _agy_feed, ()),
+    "codex": (_codex_cmd, _codex_feed, ("CODEX_API_KEY", "OPENAI_API_KEY")),
+    "custom": (_custom_cmd, None, ()),
+}
+
+
+def list_cli_models(cfg: ProviderCfg) -> list[str]:
+    """Model co the chon: Claude co 3 ten viet tat; `agy models` liet ke that; cac CLI khac de trong."""
+    if cfg.cli == "claude":
+        return CLAUDE_MODELS
+    if cfg.cli != "agy" or not find(cfg):
+        return []
+    workdir = Path(dbmod.DATA) / "cli-run"
+    workdir.mkdir(parents=True, exist_ok=True)
+    try:
+        r = subprocess.run(executable(cfg) + ["models"], capture_output=True, text=True, timeout=30, cwd=workdir)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return [ln.split("\t")[0].strip() for ln in r.stdout.splitlines() if "\t" in ln and ln.split("\t")[0].strip()]
 
 
 class _Filter:
@@ -123,29 +229,24 @@ class CliProvider:
     def __init__(self, cfg: ProviderCfg):
         self.cfg = cfg
 
-    def _cmd(self) -> list[str]:
-        exe = executable(self.cfg)
-        if self.cfg.cli == "custom":
-            return exe
-        cmd = exe + ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--tools", "",
-                     "--no-session-persistence", "--disable-slash-commands", "--strict-mcp-config", "--system-prompt", CLAUDE_SYSTEM]
-        if self.cfg.model:
-            cmd += ["--model", self.cfg.model]
-        return cmd
-
     def stream(self, messages: list[dict], tools: list[dict], effort: str | None = None) -> Iterator[dict]:
         from .providers import ProviderError
 
         try:
-            cmd = self._cmd()
+            exe = executable(self.cfg)
         except CliError as e:
             raise ProviderError(str(e)) from e
-        if not shutil.which(cmd[0]):
-            raise ProviderError(f"không tìm thấy lệnh '{cmd[0]}'. Hãy cài CLI và đăng nhập (ví dụ chạy `{cmd[0]}` một lần trong terminal).")
-        env = {k: v for k, v in os.environ.items() if k not in STRIP_ENV}
+        if not shutil.which(exe[0]):
+            raise ProviderError(f"không tìm thấy lệnh '{exe[0]}'. Hãy cài CLI và đăng nhập (ví dụ chạy `{exe[0]}` một lần trong terminal).")
+        make_cmd, feed, strip = ADAPTERS[self.cfg.cli]
+        env = {k: v for k, v in os.environ.items() if k not in strip}
         workdir = Path(dbmod.DATA) / "cli-run"  # thu muc trong, de CLI khong doc CLAUDE.md/du an nao
         workdir.mkdir(parents=True, exist_ok=True)
         prompt = build_prompt(messages, tools)
+        run = _Run()
+        cmd, stdin_text = make_cmd(self.cfg, exe, prompt, run)
+        if stdin_text is None and len(prompt) > MAX_ARG:
+            raise ProviderError(f"lời nhắc dài {len(prompt):,} ký tự, vượt giới hạn tham số dòng lệnh của CLI ({MAX_ARG:,}). Hãy mở hội thoại mới hoặc giảm \"Số tin nhắn gửi kèm\" trong Cài đặt.")
         try:
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=workdir, env=env, text=True, encoding="utf-8")
         except OSError as e:
@@ -154,29 +255,18 @@ class CliProvider:
         timer.start()
         err_lines: list[str] = []
         threading.Thread(target=lambda: err_lines.extend(proc.stderr), daemon=True).start()
-        threading.Thread(target=lambda: (proc.stdin.write(prompt), proc.stdin.close()), daemon=True).start()
-        flt, full, usage, result_err = _Filter(), "", {"prompt": 0, "completion": 0}, ""
-        streamed = False
+        threading.Thread(target=lambda: (proc.stdin.write(stdin_text or ""), proc.stdin.close()), daemon=True).start()
+        flt, full = _Filter(), ""
         try:
             for line in proc.stdout:
-                text = ""
-                if self.cfg.cli == "custom":
+                if feed is None:
                     text = line
                 else:
                     try:
                         d = json.loads(line)
                     except json.JSONDecodeError:
                         continue
-                    t = d.get("type")
-                    if t == "stream_event" and d["event"].get("type") == "content_block_delta" and d["event"]["delta"].get("type") == "text_delta":
-                        text, streamed = d["event"]["delta"]["text"], True
-                    elif t == "assistant" and not streamed:  # CLI khong tra tung manh: lay ca khoi
-                        text = "".join(b.get("text", "") for b in d["message"].get("content", []) if b.get("type") == "text")
-                    elif t == "result":
-                        u = d.get("usage") or {}
-                        usage = {"prompt": u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0) + u.get("cache_read_input_tokens", 0), "completion": u.get("output_tokens", 0)}
-                        if d.get("is_error"):
-                            result_err = str(d.get("result") or "lỗi không rõ")
+                    text = feed(d, run)
                 if text:
                     full += text
                     if (out := flt.feed(text)):
@@ -186,11 +276,17 @@ class CliProvider:
             if proc.poll() is None:
                 proc.kill()
             proc.wait()
-        if result_err:
-            raise ProviderError(f"CLI: {result_err[:300]}")
+            if not full.strip() and run.out_file and Path(run.out_file).exists():  # CLI chi ghi cau tra loi cuoi ra file
+                full = Path(run.out_file).read_text(errors="replace")
+                if full.strip():
+                    yield {"type": "delta", "text": flt.feed(full)}
+            if run.out_file:
+                Path(run.out_file).unlink(missing_ok=True)
+        if run.error:
+            raise ProviderError(f"CLI: {run.error[:300]}")
         if proc.returncode not in (0, None) and not full.strip():
             raise ProviderError(f"CLI thoát với mã {proc.returncode}: {''.join(err_lines)[:300].strip() or 'không có thông báo'}")
         if (tail := flt.flush()):
             yield {"type": "delta", "text": tail}
         plain, calls = parse_calls(full)
-        yield {"type": "final", "content": plain, "tool_calls": calls, "usage": usage}
+        yield {"type": "final", "content": plain, "tool_calls": calls, "usage": run.usage}

@@ -237,3 +237,35 @@ def test_doctor_reports_lost_master_key(argus):
     (argus.home / "data" / "master.key").unlink()
     report = json.loads(argus("doctor", "--offline", "--json").stdout)
     assert any(c["name"] == "Secrets" and c["status"] == "fail" for c in report)
+
+
+def _fake_cli_on_path(tmp_path, name):
+    """Lenh gia (sh) dat trong PATH: chi can ton tai de onboard/doctor coi nhu CLI da cai."""
+    d = tmp_path / "bin"
+    d.mkdir(exist_ok=True)
+    exe = d / name
+    exe.write_text("#!/bin/sh\nif [ \"$1\" = models ]; then printf 'fake-model-a\\tFake A\\nfake-model-b\\tFake B\\n'; fi\n")
+    exe.chmod(0o755)
+    return str(d)
+
+
+@pytest.mark.parametrize("preset,cli", [("antigravity", "agy"), ("codex", "codex"), ("claude-code", "claude")])
+def test_onboard_adds_logged_in_cli_provider_without_api_key(argus, tmp_path, preset, cli):
+    argus.env["PATH"] = _fake_cli_on_path(tmp_path, cli) + os.pathsep + argus.env["PATH"]
+    r = argus("onboard", "--non-interactive", "--provider", preset, "--no-start")
+    assert r.returncode == 0, r.stdout + r.stderr
+    cfg = json.loads((argus.home / "config.json").read_text())
+    p = cfg["providers"][preset]
+    assert p["type"] == "cli" and p["cli"] == cli and p["api_key"] == "" and p["api_key_env"] == ""
+    assert cfg["default_provider"] == preset
+    doc = argus("doctor", "--offline")
+    assert "CLI:" in doc.stdout and preset in doc.stdout
+
+
+def test_doctor_reports_missing_cli(argus):
+    argus("onboard", "--non-interactive", "--provider", "custom", "--base-url", "http://127.0.0.1:1/v1", "--model", "m", "--skip-test", "--no-start")
+    cfg = json.loads((argus.home / "config.json").read_text())
+    cfg["providers"]["gone"] = {"type": "cli", "cli": "codex", "command": "khong-co-lenh-codex-xyz", "model": ""}
+    (argus.home / "config.json").write_text(json.dumps(cfg))
+    out = argus("doctor", "--offline").stdout
+    assert "CLI command not found" in out

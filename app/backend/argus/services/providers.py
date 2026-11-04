@@ -194,9 +194,9 @@ NON_CHAT = re.compile(r"(tts|embed|imagen|veo|whisper|moderation|dall-e|transcri
 def list_models(cfg: ProviderCfg, only_chat: bool = True) -> list[str]:
     """Hoi chinh nha cung cap xem co nhung model nao (OpenAI-compatible: /models; Anthropic: /v1/models)."""
     if cfg.type == "cli":
-        from .cli_provider import CLAUDE_MODELS
+        from .cli_provider import list_cli_models
 
-        return CLAUDE_MODELS if cfg.cli == "claude" else []
+        return list_cli_models(cfg)
     key = _key(cfg)
     if cfg.type == "anthropic":
         url, headers = "https://api.anthropic.com/v1/models?limit=100", {"x-api-key": key, "anthropic-version": "2023-06-01"}

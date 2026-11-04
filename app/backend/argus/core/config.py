@@ -13,8 +13,8 @@ MASK = "***"
 
 class ProviderCfg(BaseModel):
     type: Literal["openai", "anthropic", "cli"] = "openai"  # cli: dung CLI da dang nhap san (khong can API key)
-    cli: Literal["claude", "custom"] = "claude"  # type=cli: CLI nao
-    command: str = ""  # type=cli: duong dan toi `claude`, hoac (cli=custom) ca dong lenh nhan prompt qua stdin va in tra loi ra stdout
+    cli: Literal["claude", "agy", "codex", "custom"] = "claude"  # type=cli: CLI nao
+    command: str = ""  # type=cli: duong dan toi `claude`/`agy`/`codex`, hoac (cli=custom) ca dong lenh nhan prompt qua stdin va in tra loi ra stdout
     base_url: str = ""
     model: str = ""
     api_key: str = ""
@@ -35,6 +35,7 @@ class AgentCfg(BaseModel):
     exec_sandbox: Literal["none", "docker"] = "none"
     sandbox_image: str = "python:3.12-slim"
     sandbox_network: bool = False
+    suggest_habits: bool = True  # nhận ra việc lặp lại và gợi ý tạo skill/automation
 
 
 class SkillEntry(BaseModel):
@@ -51,6 +52,9 @@ class McpServerCfg(BaseModel):
     cwd: str = ""
     url: str = ""
     headers: dict[str, str] = {}
+    service: bool = False  # them tu tab 'MCP dich vu' (danh muc / thu vien): hien o tab do thay vi tab truyen thong
+    oauth: bool = False  # server tu xa dang nhap bang OAuth (Notion, Canva, Linear...): token luu ma hoa, khong nam trong config
+    oauth_scope: str = ""
     enabled: bool = True
     confirm: bool = True  # hoi truoc khi goi tool (tru tool danh dau read-only)
 

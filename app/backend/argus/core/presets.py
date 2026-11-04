@@ -9,6 +9,7 @@ class Preset(NamedTuple):
     base_url: str
     model: str
     env: str  # ten bien moi truong chua API key ("" = khong can key)
+    cli: str = ""  # type=cli: claude | agy | codex
 
 
 PRESETS: list[Preset] = [
@@ -21,6 +22,9 @@ PRESETS: list[Preset] = [
     Preset("groq", "Groq", "openai", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", "GROQ_API_KEY"),
     Preset("xai", "xAI (Grok)", "openai", "https://api.x.ai/v1", "grok-4", "XAI_API_KEY"),
     Preset("lmstudio", "LM Studio (local)", "openai", "http://localhost:1234/v1", "local-model", ""),
+    Preset("claude-code", "Claude Code (logged-in CLI, no API key)", "cli", "", "sonnet", "", "claude"),
+    Preset("antigravity", "Antigravity (logged-in CLI, no API key)", "cli", "", "", "", "agy"),
+    Preset("codex", "Codex (logged-in CLI, no API key)", "cli", "", "", "", "codex"),
     Preset("custom", "Custom (OpenAI-compatible)", "openai", "http://", "", ""),
 ]
 OLLAMA = Preset("ollama", "Ollama (local)", "openai", "http://localhost:11434/v1", "qwen2.5:3b", "")

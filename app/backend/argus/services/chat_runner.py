@@ -39,6 +39,11 @@ def stream_chat(sid: str | None, text: str, provider: str | None, *, approver_ov
             agent.run_turn(sid, text, provider, approver_override or approver, q.put, cancel, only_tools, source, attachments, permission, effort)
         except Exception as e:  # loi bat ngo khong duoc lam treo luong SSE
             q.put({"type": "error", "message": f"{type(e).__name__}: {e}"})
+        try:
+            from . import habits
+            habits.observe(sid, text, source)
+        except Exception:  # noqa: BLE001 - gợi ý thói quen không được làm hỏng chat
+            pass
         q.put({"type": "done"})
 
     threading.Thread(target=worker, daemon=True).start()

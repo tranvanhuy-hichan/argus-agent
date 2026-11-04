@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS jobs(
   progress TEXT, result TEXT, error TEXT, cancel_requested INTEGER DEFAULT 0, notify INTEGER DEFAULT 1,
   created REAL, started REAL, finished REAL);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, created);
+CREATE TABLE IF NOT EXISTS habit_requests(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL, session_id TEXT, text TEXT NOT NULL, tokens TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_habit_ts ON habit_requests(ts);
+CREATE TABLE IF NOT EXISTS habit_suggestions(
+  id TEXT PRIMARY KEY, status TEXT NOT NULL, tokens TEXT NOT NULL, examples TEXT NOT NULL, count INTEGER NOT NULL,
+  draft TEXT, created REAL NOT NULL, updated REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS channel_links(
   channel TEXT NOT NULL, external_id TEXT NOT NULL, session_id TEXT NOT NULL, PRIMARY KEY(channel, external_id));
 """

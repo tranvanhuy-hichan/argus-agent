@@ -1,5 +1,6 @@
 """Vong lap agent: dung prompt, goi LLM (stream, tu thu lai), chay tool, ghi lich su va nhat ky."""
 import base64
+import re
 import mimetypes
 import time
 from collections.abc import Callable, Iterator
@@ -103,6 +104,28 @@ def shrink_stale(messages: list[dict]) -> list[dict]:
     return out
 
 
+MENTION = re.compile(r"(?<![\w@./-])@([a-z0-9][a-z0-9_-]{0,30})(?![\w@-])")  # @notion, khong khop dia chi email (a@b.com)
+
+
+def mentioned_servers(text: str, cfg) -> list[str]:
+    """Ten MCP server duoc goi bang dau @ trong tin nhan (chi nhung ten dang co trong cau hinh)."""
+    return list(dict.fromkeys(n for n in MENTION.findall(text or "") if n in cfg.mcp_servers))
+
+
+def apply_mentions(ctx: tools.ToolContext, names: list[str]) -> tuple[str, list[str]]:
+    """Nguoi dung goi dich vu bang @: chi giu cong cu cua cac dich vu do (do ton token, do chon nham) va nhac agent dung chung.
+    Tra ve (doan nhac cho system prompt, cac dich vu chua ket noi)."""
+    live = mcp_client.manager.status()
+    prefix = {n: re.sub(r"[^a-zA-Z0-9_-]", "_", n) + "__" for n in names}
+    ctx.enabled = {**ctx.enabled, **{t: False for t in ctx.extra if not any(t.startswith(p) for p in prefix.values())}}
+    down = [n for n in names if live.get(n, {}).get("status") != "connected"]
+    note = ("Người dùng chỉ định dịch vụ bằng dấu @: " + ", ".join(f"@{n}" for n in names) + ". Hãy làm yêu cầu bằng các công cụ có tên bắt đầu bằng "
+            + ", ".join(f"'{prefix[n]}'" for n in names) + "; không dùng công cụ của dịch vụ khác.")
+    if down:
+        note += " Dịch vụ chưa kết nối: " + ", ".join(down) + ". Nếu không có công cụ tương ứng, hãy bảo người dùng vào Kết nối, tab MCP dịch vụ, rồi bấm Đăng nhập."
+    return note, down
+
+
 def _window(history: list[dict], limit: int) -> list[dict]:
     rest = history[-limit:]
     while rest and (rest[0]["role"] == "tool" or rest[0].get("tool_calls")):
@@ -159,6 +182,11 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     ctx.extra = mcp_client.manager.tool_defs()
     if only_tools is not None:  # gioi han tool cho rieng luot nay (dung cho API ben ngoai)
         ctx.enabled = {n: n in only_tools for n in [*tools.TOOLS, *ctx.extra]}
+    mention_note = ""
+    if names_at := mentioned_servers(user_text, cfg):
+        mention_note, down = apply_mentions(ctx, names_at)
+        if down:
+            emit(ui_event("notice", "Dịch vụ {names} chưa kết nối: vào Kết nối, tab MCP dịch vụ để đăng nhập", names=", ".join(down)))
     if permission not in PERMISSIONS:
         permission = "default"
     perm_note = apply_permission(ctx, permission)
@@ -179,7 +207,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     if attachments and cfg.providers[first].vision:
         current["images"] = _images(workdir, attachments)
     has_planning = "plan_set" in tools.TOOLS and ctx.enabled.get("plan_set", True)
-    system = build_system_prompt(cfg, skills, workdir, sess.get("summary", ""), sid, has_planning) + (f"\n\n{perm_note}" if perm_note else "") + (f"\n\n{system_extra}" if system_extra else "")
+    system = build_system_prompt(cfg, skills, workdir, sess.get("summary", ""), sid, has_planning) + (f"\n\n{perm_note}" if perm_note else "") + (f"\n\n{mention_note}" if mention_note else "") + (f"\n\n{system_extra}" if system_extra else "")
     messages = [{"role": "system", "content": system}] \
         + [_augment(m) for m in _window(history, cfg.agent.max_history)] + [current]
 

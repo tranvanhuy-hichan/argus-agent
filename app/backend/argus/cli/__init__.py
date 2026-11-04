@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--non-interactive", action="store_true", help=L("không hỏi, dùng các cờ bên dưới", "do not prompt, use the flags below"))
     s.add_argument("--language", choices=["vi", "en"])
     s.add_argument("--name", default="")
-    s.add_argument("--provider", help=L("id provider mẫu: ollama, gemini, openai, anthropic, openrouter, deepseek, mistral, groq, xai, lmstudio, custom", "preset id: ollama, gemini, openai, anthropic, openrouter, deepseek, mistral, groq, xai, lmstudio, custom"))
+    s.add_argument("--provider", help=L("id provider mẫu: ollama, gemini, openai, anthropic, openrouter, deepseek, mistral, groq, xai, lmstudio, claude-code, antigravity, codex, custom", "preset id: ollama, gemini, openai, anthropic, openrouter, deepseek, mistral, groq, xai, lmstudio, claude-code, antigravity, codex, custom"))
     s.add_argument("--model")
     s.add_argument("--base-url")
     s.add_argument("--api-key-env", help=L("tên biến môi trường chứa API key", "name of the environment variable holding the API key"))
