@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, ExternalLink, KeyRound, LogOut, Plus, Search, ShieldAlert, Trash2 } from 'lucide-react'
+import { ChevronRight, ExternalLink, KeyRound, LogOut, Plus, ShieldAlert, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Form'
@@ -88,7 +88,7 @@ function TokenDialog({ ask, onClose, onSave }: { ask: TokenAsk | null; onClose: 
   )
 }
 
-export function ServicesTab() {
+export function ServicesTab({ q }: { q: string }) {
   const lang = useLang()
   const mcp = useMcp()
   const cfg = useConfig()
@@ -98,7 +98,6 @@ export function ServicesTab() {
   const catalog = useQuery({ queryKey: ['mcp-catalog'], queryFn: () => api.get<Catalog>('/api/mcp/catalog'), staleTime: Infinity })
   const [custom, setCustom] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
-  const [q, setQ] = useState('')
   const [dq, setDq] = useState('')
   const [ask, setAsk] = useState<TokenAsk | null>(null)
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['mcp'] }) }
@@ -186,11 +185,6 @@ export function ServicesTab() {
 
   return (
     <div className="space-y-6">
-      <div className="relative max-w-xl">
-        <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Tìm dịch vụ (ví dụ vercel, github, stripe…)')} aria-label={t('Tìm dịch vụ')} className="pl-9" />
-      </div>
-
       {catalog.data.groups.map((g) => {
         const items = shown.filter((s) => s.group === g.id)
         if (!items.length) return null

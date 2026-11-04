@@ -3,7 +3,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { BadgeCheck, Download, Search } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Input, Select } from '@/components/ui/Form'
+import { Select } from '@/components/ui/Form'
 import { EmptyState, ErrorNote, Loading } from '@/components/ui/misc'
 import { api } from '@/lib/api'
 import type { HubSkill, Skill } from '@/lib/types'
@@ -16,8 +16,7 @@ const SORTS = [['downloads', tk('Tải nhiều nhất')], ['trending', tk('Xu h�
 
 export const isInstalled = (installed: Skill[], s: HubSkill) => installed.some((i) => i.origin?.slug === s.slug && i.origin.owner === s.owner)
 
-export function Discover({ installed }: { installed: Skill[] }) {
-  const [input, setInput] = useState('')
+export function Discover({ installed, input }: { installed: Skill[]; input: string }) {
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('downloads')
   const [picked, setPicked] = useState<HubSkill | null>(null)
@@ -43,10 +42,6 @@ export function Discover({ installed }: { installed: Skill[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative min-w-60 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted" />
-          <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('Tìm skill trên ClawHub (vd: weather, github, notion…)')} className="pl-9" aria-label={t('Tìm skill')} />
-        </div>
         {!searching && <Select value={sort} onChange={(e) => setSort(e.target.value)} className="w-48" aria-label={t('Sắp xếp')}>{SORTS.map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}</Select>}
       </div>
       <p className="mb-3 text-xs text-muted">{t('Nguồn: clawhub.ai · chỉ hiển thị skill chưa bị gắn cờ đáng ngờ. Hãy đọc kỹ SKILL.md trước khi cài, vì skill có thể yêu cầu agent chạy lệnh.')}</p>

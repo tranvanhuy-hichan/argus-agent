@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { ChevronDown, CircleCheck, CircleX, KeyRound, Plus, Star, Trash2, Zap } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { Card } from '@/components/ui/Card'
 import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
 import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { Field, Input } from '@/components/ui/Form'
 import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
@@ -178,10 +178,11 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
 
 function Tile({ brand, label, desc, onClick }: { brand: Brand | null; label: string; desc: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex items-start gap-3 rounded-xl border border-line bg-panel p-4 text-left transition hover:border-accent/60">
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-panel2">{brand ? <BrandIcon brand={brand} /> : <Plus className="size-5 text-muted" />}</span>
-      <span className="min-w-0"><span className="block font-medium">{label}</span><span className="mt-0.5 block text-xs text-muted">{desc}</span></span>
-    </button>
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-panel2">{brand ? <BrandIcon brand={brand} className="size-5" /> : <Plus className="size-4 text-muted" />}</span>
+      <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{label}</span><span className="block truncate text-xs text-muted" title={desc}>{desc}</span></span>
+      <Button size="sm" onClick={onClick} aria-label={`${t('Thêm')} ${label}`}><Plus className="size-3.5" />{t('Thêm')}</Button>
+    </div>
   )
 }
 
@@ -238,13 +239,13 @@ export function ProvidersPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-semibold">{t('Thêm mô hình AI')}</h2>
+        <h2 className="mb-3 text-sm font-semibold">{t('Thêm mô hình AI')}</h2>
         {(['local', 'cloud', 'cli'] as const).map((g) => (
           <div key={g} className="mb-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted/80">{g === 'local' ? t('Chạy trên máy bạn') : g === 'cloud' ? t('Dịch vụ đám mây') : t('Dùng CLI đã đăng nhập (không cần API key)')}</p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted/80">{g === 'local' ? t('Chạy trên máy bạn') : g === 'cloud' ? t('Dịch vụ đám mây') : t('Dùng CLI đã đăng nhập (không cần API key)')}</p>
+            <Card className="divide-y divide-line">
               {SERVICES.filter((x) => x.group === g).map((x) => <Tile key={x.preset} brand={x.brand} label={t(x.label)} desc={t(x.desc)} onClick={() => add(x.preset)} />)}
-            </div>
+            </Card>
           </div>
         ))}
         <details>
@@ -255,7 +256,7 @@ export function ProvidersPage() {
 
       {others.length > 0 && (
         <Card className="p-5">
-          <h2 className="text-sm font-semibold">{t('Mô hình dự phòng')}</h2>
+          <h2 className="mb-2 text-sm font-semibold">{t('Mô hình dự phòng')}</h2>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {others.map((n) => (
               <label key={n} className="flex items-center gap-2 text-sm">

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Form'
-import { EmptyState, ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
+import { EmptyState, ErrorNote, Loading } from '@/components/ui/misc'
 import { api } from '@/lib/api'
 import type { AuditItem } from '@/lib/types'
 import { cn, fmtDateTime } from '@/lib/utils'
@@ -29,8 +29,7 @@ export function AuditPage() {
   const reset = (fn: () => void) => { fn(); setPage(0) }
 
   return (
-    <Page>
-      <PageHeader title={t('Nhật ký hoạt động')} />
+    <div>
       <div className="mb-4 flex flex-wrap gap-3">
         <Select value={decision} onChange={(e) => reset(() => setDecision(e.target.value))} className="w-44" aria-label={t('Quyết định')}><option value="">{t('Mọi quyết định')}</option><option value="approved">{t('Cho phép')}</option><option value="denied">{t('Từ chối')}</option><option value="auto">{t('Tự động')}</option><option value="full_access">{t('Toàn quyền (không hỏi)')}</option></Select>
         <Select value={source} onChange={(e) => reset(() => setSource(e.target.value))} className="w-44" aria-label={t('Nguồn')}><option value="">{t('Mọi nguồn')}</option><option value="chat">{t('Trò chuyện')}</option><option value="api">API</option><option value="telegram">Telegram</option><option value="cron">{t('Tự động hóa')}</option><option value="heartbeat">Heartbeat</option></Select>
@@ -68,6 +67,6 @@ export function AuditPage() {
           </div>
         </>
       )}
-    </Page>
+    </div>
   )
 }

@@ -12,7 +12,7 @@ import { errMsg } from '@/lib/utils'
 import { t } from '@/lib/i18n.ts'
 
 function Row({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="flex items-center justify-between gap-4 sm:col-span-2"><p className="text-sm font-medium">{title}</p>{children}</div>
+  return <div className="-mx-5 flex items-center justify-between gap-4 border-b border-line/60 px-5 pb-4 last:border-b-0 last:pb-0 col-span-full"><p className="text-sm font-medium">{title}</p>{children}</div>
 }
 
 function MemoryStatusLine() {
@@ -24,7 +24,7 @@ function MemoryStatusLine() {
   if (!d) return null
   const e = d.embedding
   return (
-    <div className="space-y-2 rounded-lg border border-line bg-panel2 p-3 text-xs sm:col-span-2">
+    <div className="space-y-2 rounded-lg border border-line bg-panel2 p-3 text-xs col-span-full">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-muted">{t('Đang dùng:')}</span><span className="font-mono">{e.model_id ?? t('tắt')}</span>
         {e.backend && (e.reachable ? <Badge tone="ok">{t('kết nối được')}</Badge> : <Badge tone="bad">{t('không kết nối được')}</Badge>)}
@@ -59,7 +59,7 @@ export function FeaturesTab({ value, onChange, providers, tools }: { value: Extr
 
       <Card>
         <CardHeader title={t('Trí nhớ theo nghĩa')} />
-        <div className="grid gap-4 p-5 sm:grid-cols-2">
+        <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
           <Field label={t('Embedding')}>
             <Select value={memory.embeddings} onChange={(e) => set('memory', { embeddings: e.target.value as ExtraCfg['memory']['embeddings'] })}>
               <option value="auto">{t('Tự chọn')}</option><option value="hash">hash ({t('không cần model')})</option><option value="ollama">Ollama</option><option value="openai">{t('API tương thích OpenAI (Gemini, OpenAI…)')}</option><option value="off">{t('Tắt')}</option>
@@ -74,7 +74,7 @@ export function FeaturesTab({ value, onChange, providers, tools }: { value: Extr
 
       <Card>
         <CardHeader title={t('Ảnh và hình ảnh')} />
-        <div className="grid gap-4 p-5 sm:grid-cols-3">
+        <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
           <Field label={t('Provider tạo ảnh')}><Select value={media.image_provider ?? ''} onChange={(e) => set('media', { image_provider: e.target.value || null })}>{provOpts(t('Chưa chọn'))}</Select></Field>
           <Field label={t('Model tạo ảnh')}><Input value={media.image_model} className="font-mono" onChange={(e) => set('media', { image_model: e.target.value })} /></Field>
           <Field label={t('Provider để xem ảnh')}><Select value={media.vision_provider ?? ''} onChange={(e) => set('media', { vision_provider: e.target.value || null })}>{provOpts(t('Tự chọn'))}</Select></Field>
@@ -91,7 +91,7 @@ export function FeaturesTab({ value, onChange, providers, tools }: { value: Extr
 
       <Card>
         <CardHeader title={t('Agent con và việc dài')} />
-        <div className="grid gap-4 p-5 sm:grid-cols-3">
+        <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
           <Field label={t('Độ sâu tối đa')}><Input type="number" min={0} max={4} value={agents.max_depth} onChange={(e) => set('agents', { max_depth: Number(e.target.value) })} /></Field>
           <Field label={t('Chạy song song')}><Input type="number" min={1} max={8} value={agents.max_parallel} onChange={(e) => set('agents', { max_parallel: Number(e.target.value) })} /></Field>
           <Field label={t('Bước tối đa cho việc nền')}><Input type="number" min={5} max={200} value={agents.task_max_steps} onChange={(e) => set('agents', { task_max_steps: Number(e.target.value) })} /></Field>

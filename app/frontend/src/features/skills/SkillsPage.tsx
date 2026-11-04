@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Compass, PackagePlus, Plus, Puzzle, Search, Settings2 } from 'lucide-react'
+import { Compass, PackagePlus, Plus, Puzzle, Settings2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Form'
 import { EmptyState, ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { Switch } from '@/components/ui/Switch'
+import { SearchBox } from '@/components/ui/SearchBox'
 import { Tabs } from '@/components/ui/Tabs'
 import { useToast } from '@/components/ui/Toast'
 import { useConfig, useSaveConfig, useSkills, useSkillUpdates } from '@/lib/queries'
@@ -44,6 +44,7 @@ export function SkillsPage() {
   const tab = params.get('tab') === 'discover' ? 'discover' : 'installed'
   const setTab = (t: 'installed' | 'discover') => setParams(t === 'discover' ? { tab: t } : {}, { replace: true })
   const [filter, setFilter] = useState('')
+  const [hubInput, setHubInput] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -58,28 +59,27 @@ export function SkillsPage() {
 
   return (
     <Page>
-      <PageHeader
-        title={t('Kỹ năng')}
-        action={<Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" />{t('Tạo skill')}</Button>}
-      />
+      <PageHeader title={t('Kỹ năng')} />
       <Tabs
         value={tab}
         onChange={setTab}
         tabs={[{ id: 'installed', label: t('Đã cài'), count: skills.data?.length }, { id: 'discover', label: t('Khám phá ClawHub') }]}
+        right={<div className="flex flex-wrap items-center gap-2">
+          {tab === 'discover'
+            ? <SearchBox value={hubInput} onChange={setHubInput} placeholder={t('Tìm skill trên ClawHub (vd: weather, github, notion…)')} label={t('Tìm skill')} />
+            : <SearchBox value={filter} onChange={setFilter} placeholder={t('Lọc skill đã cài…')} label={t('Lọc skill')} />}
+          <Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" />{t('Tạo skill')}</Button>
+        </div>}
       />
       <div className="mt-5">
         {tab === 'discover' ? (
-          <Discover installed={skills.data ?? []} />
+          <Discover installed={skills.data ?? []} input={hubInput} />
         ) : skills.isLoading ? (
           <Loading />
         ) : skills.error ? (
           <ErrorNote error={skills.error} />
         ) : (
           <>
-            <div className="relative mb-4 max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted" />
-              <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Lọc skill đã cài…')} className="pl-9" aria-label={t('Lọc skill')} />
-            </div>
             {list.length === 0 ? (
               <EmptyState icon={PackagePlus} title={t('Chưa có skill nào')} action={<Button onClick={() => setTab('discover')}><Compass className="size-4" />{t('Khám phá ClawHub')}</Button>} />
             ) : (

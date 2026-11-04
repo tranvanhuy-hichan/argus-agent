@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, KeyRound, Plus, ShieldAlert, Trash2 } from 'lucide-react'
+import { Check, Copy, KeyRound, ShieldAlert, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -33,12 +33,13 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return <section className="space-y-2"><h3 className="text-sm font-semibold">{title}</h3>{children}</section>
 }
 
-export function ApiTab() {
+export function ApiTab({ addSignal = 0 }: { addSignal?: number }) {
   const tokens = useTokens()
   const info = useQuery({ queryKey: ['integration-info'], queryFn: () => api.get<{ python: string; mcp_server_script: string }>('/api/integration-info') })
   const qc = useQueryClient()
   const toast = useToast()
   const [creating, setCreating] = useState(false)
+  useEffect(() => { if (addSignal > 0) setCreating(true) }, [addSignal])
   const [name, setName] = useState('')
   const [allowExec, setAllowExec] = useState(false)
   const [fresh, setFresh] = useState<string | null>(null)
@@ -63,7 +64,7 @@ export function ApiTab() {
     <div className="space-y-4">
 
       <Card>
-        <CardHeader title={t('API token')} action={<Button variant="primary" size="sm" onClick={() => setCreating(true)}><Plus className="size-4" />{t('Tạo token')}</Button>} />
+        <CardHeader title={t('API token')} />
         {tokens.data?.length === 0 ? <EmptyState icon={KeyRound} title={t('Chưa có token nào')} /> : tokens.data?.map((tk) => (
           <div key={tk.id} className="flex items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
             <div className="min-w-0 flex-1">

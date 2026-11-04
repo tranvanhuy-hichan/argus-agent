@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Cable, ChevronRight, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -21,13 +21,14 @@ const STATUS: Record<McpServerInfo['status'], { label: string; tone: 'ok' | 'inf
 }
 
 /** MCP truyen thong: server chay tren may ban (stdio) hoac server HTTP/SSE tu khai bao. Dich vu dang nhap bang tai khoan nam o tab "MCP dich vu". */
-export function McpTab() {
+export function McpTab({ addSignal = 0 }: { addSignal?: number }) {
   const mcp = useMcp()
   const cfg = useConfig()
   const save = useSaveConfig()
   const qc = useQueryClient()
   const toast = useToast()
   const [editing, setEditing] = useState<{ name: string | null; cfg: McpServerCfg } | null>(null)
+  useEffect(() => { if (addSignal > 0) setEditing({ name: null, cfg: blankServer }) }, [addSignal])
   const [open, setOpen] = useState<string | null>(null)
 
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['mcp'] }) }
@@ -48,10 +49,6 @@ export function McpTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button variant="primary" onClick={() => setEditing({ name: null, cfg: blankServer })}><Plus className="size-4" />{t('Thêm MCP server')}</Button>
-      </div>
-
       {list.length === 0 ? (
         <Card><EmptyState icon={Cable} title={t('Chưa có MCP server nào')} action={<Button variant="primary" onClick={() => setEditing({ name: null, cfg: blankServer })}><Plus className="size-4" />{t('Thêm MCP server')}</Button>} /></Card>
       ) : list.map((s) => {

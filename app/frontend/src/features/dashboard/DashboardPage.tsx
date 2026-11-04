@@ -4,7 +4,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Too
 import { Activity, Clock, Coins, MessageSquare, Puzzle, Timer, Wrench, type LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardHeader } from '@/components/ui/Card'
-import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
+import { ErrorNote, Loading } from '@/components/ui/misc'
 import { Tabs } from '@/components/ui/Tabs'
 import { useDashboard } from '@/lib/queries'
 import { fmtDateTime, fmtNum, timeAgo } from '@/lib/utils'
@@ -28,17 +28,17 @@ const dayLabel = (d: string) => d.slice(5).replace('-', '/')
 export function DashboardPage() {
   const [days, setDays] = useState('7')
   const q = useDashboard(Number(days))
-  if (q.error) return <Page><ErrorNote error={q.error} /></Page>
+  if (q.error) return <ErrorNote error={q.error} />
   if (!q.data) return <Loading />
   const d = q.data
   const tot = d.totals
   const empty = tot.llm_calls === 0
 
   return (
-    <Page>
-      <PageHeader title={t('Bảng điều khiển')} action={
+    <div>
+      <div className="mb-4 flex justify-end">
         <div className="w-64"><Tabs value={days} onChange={setDays} tabs={[{ id: '7', label: t('{n} ngày', { n: 7 }) }, { id: '30', label: t('{n} ngày', { n: 30 }) }, { id: '90', label: t('{n} ngày', { n: 90 }) }]} /></div>
-      } />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={MessageSquare} label={t('Tin nhắn')} value={fmtNum(tot.messages)} sub={t('{n} hội thoại', { n: tot.sessions })} />
@@ -133,6 +133,6 @@ export function DashboardPage() {
             <li key={s.id}><Link to={`/chat?session=${s.id}`} className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm hover:bg-panel2"><span className="truncate">{s.title}</span><span className="shrink-0 text-xs text-muted">{timeAgo(s.updated)}</span></Link></li>))}</ul>
         </Card>
       </div>
-    </Page>
+    </div>
   )
 }
