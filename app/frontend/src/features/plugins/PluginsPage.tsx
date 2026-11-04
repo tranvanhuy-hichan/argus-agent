@@ -9,7 +9,7 @@ export function PluginsPage() {
   const [q, setQ] = useState('')
   return (
     <Page>
-      <PageHeader title={t('Plugin')} action={<SearchBox value={q} onChange={setQ} placeholder={t('Tìm plugin (ví dụ vercel, github, stripe…)')} label={t('Tìm plugin')} />} />
+      <PageHeader title={t('Tiện ích')} action={<SearchBox value={q} onChange={setQ} placeholder={t('Tìm tiện ích (ví dụ vercel, github, stripe…)')} label={t('Tìm tiện ích')} />} />
       <ServicesTab q={q} />
     </Page>
   )

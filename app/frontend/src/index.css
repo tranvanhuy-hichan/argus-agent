@@ -54,7 +54,7 @@
   --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 }
 
-html, body, #root { height: 100%; }
+html, body, #root { height: 100%; overflow: hidden; }
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }

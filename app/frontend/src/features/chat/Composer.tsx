@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowUp, AtSign, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, FileSearch, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
 import { t, useLang } from '@/lib/i18n.ts'
@@ -32,6 +32,9 @@ interface Props {
   onProvider: (id: string) => void
   effort: Effort
   onEffort: (e: Effort) => void
+  docs: boolean
+  onDocs: (v: boolean) => void
+  docsReady: boolean
 }
 
 export function Composer(p: Props) {
@@ -91,7 +94,7 @@ export function Composer(p: Props) {
     <div className="shrink-0 bg-bg px-5 pb-4 pt-2">
       <div className="relative mx-auto max-w-4xl">
         {atQuery !== null && (atMatches.length > 0 || p.mentions.length === 0) && (
-          <div className="absolute bottom-full z-20 mb-2 w-full overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="listbox" aria-label={t('Plugin')}>
+          <div className="absolute bottom-full z-20 mb-2 w-full overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="listbox" aria-label={t('Tiện ích')}>
             {atMatches.length > 0 ? atMatches.map((m, i) => (
               <button key={m.name} role="option" aria-selected={i === hi} onMouseEnter={() => setHi(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => pickMention(m.name)} className={cn('flex w-full items-center gap-3 px-3 py-2 text-left text-sm', i === hi && 'bg-panel2')}>
                 <span className="grid size-6 shrink-0 place-items-center rounded-md bg-panel2"><BrandIcon brand={m.brand} className="size-4" /></span>
@@ -99,7 +102,7 @@ export function Composer(p: Props) {
                 <span className={cn('truncate text-xs', m.status === 'connected' ? 'text-muted' : 'text-warn')}>{m.status === 'connected' ? t('{n} tool', { n: m.tools }) : m.status === 'needs_auth' ? t('Cần đăng nhập') : t('Chưa kết nối')}</span>
               </button>
             )) : (
-              <p className="px-3 py-2.5 text-sm text-muted">{t('Chưa có plugin nào.')} <Link to="/plugins" className="text-accent hover:underline">{t('Thêm ở mục Plugin')}</Link></p>
+              <p className="px-3 py-2.5 text-sm text-muted">{t('Chưa có tiện ích nào.')} <Link to="/plugins" className="text-accent hover:underline">{t('Thêm ở mục Tiện ích')}</Link></p>
             )}
           </div>
         )}
@@ -138,6 +141,11 @@ export function Composer(p: Props) {
                 </div>
               )}
             </div>
+
+            <button onClick={() => p.onDocs(!p.docs)} aria-pressed={p.docs} disabled={!p.docsReady} title={p.docsReady ? t('Trả lời dựa trên tài liệu bạn đã thêm, có ghi nguồn') : t('Chưa có tài liệu nào. Thêm ở mục Tài liệu.')}
+              className={cn('flex h-8 items-center gap-1.5 rounded-full px-3 text-sm transition disabled:opacity-40', p.docs ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>
+              <FileSearch className="size-4" />{t('Hỏi từ tài liệu')}
+            </button>
 
             <div className="ml-auto flex items-center gap-0.5">
               <SettingsMenu providers={p.providers} provider={p.provider} onProvider={p.onProvider} effort={p.effort} onEffort={p.onEffort} effortOff={effortOff} permission={p.permission} onPermission={p.onPermission} />

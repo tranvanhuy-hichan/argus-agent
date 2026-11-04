@@ -8,12 +8,12 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { Field, Input, Select } from '@/components/ui/Form'
 import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { Switch } from '@/components/ui/Switch'
-import { Blocks, ShieldCheck, SlidersHorizontal, Wrench } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useConfig, useSaveConfig } from '@/lib/queries'
 import type { AppConfig, ExtraCfg, SecretsStatus, ToolInfo } from '@/lib/types'
-import { cn, errMsg } from '@/lib/utils'
+import { errMsg } from '@/lib/utils'
 import { t, tk } from '@/lib/i18n.ts'
+import { Tabs } from '@/components/ui/Tabs'
 import { FeaturesTab } from './FeaturesTab'
 
 const RISK: Record<ToolInfo['risk'], { label: string; tone: 'ok' | 'info' | 'warn' | 'bad' }> = {
@@ -81,22 +81,27 @@ export function SettingsPage() {
   const dirty = JSON.stringify(agent) !== JSON.stringify(cfg.data.config.agent) || hub !== cfg.data.config.clawhub_url || JSON.stringify(extra) !== JSON.stringify((({ browser, memory, media, computer, agents }) => ({ browser, memory, media, computer, agents }))(cfg.data.config))
   const num = (k: 'max_steps' | 'max_history') => (e: React.ChangeEvent<HTMLInputElement>) => setAgent({ ...agent, [k]: Number(e.target.value) })
 
+  const TAB_ITEMS = [
+    { id: 'agent' as const, label: t('Cơ bản') },
+    { id: 'features' as const, label: t('Tính năng & Trí nhớ') },
+    { id: 'tools' as const, label: t('Công cụ') },
+    { id: 'security' as const, label: t('An toàn & Bảo mật') },
+  ]
+
   return (
     <Page>
       <PageHeader title={t('Cài đặt')} action={
         <Button variant="primary" disabled={!dirty} loading={save.isPending}
           onClick={() => save.mutate({ ...cfg.data.config, ...extra, agent, clawhub_url: hub }, { onSuccess: () => toast(t('Đã lưu cài đặt')), onError: (e) => toast(errMsg(e), 'bad') })}>{t('Lưu thay đổi')}</Button>
       } />
-      <div className="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <nav aria-label={t('Cài đặt')} className="flex gap-1 overflow-x-auto lg:sticky lg:top-0 lg:flex-col lg:self-start lg:overflow-visible">
-          {([['agent', t('Cơ bản'), SlidersHorizontal], ['features', t('Tính năng'), Blocks], ['tools', t('Công cụ'), Wrench], ['security', t('An toàn'), ShieldCheck]] as const).map(([id, label, Icon]) => (
-            <button key={id} onClick={() => setParams(id === 'agent' ? {} : { tab: id }, { replace: true })} aria-current={tab === id ? 'page' : undefined}
-              className={cn('flex h-9 shrink-0 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition', tab === id ? 'bg-accent/12 text-accent' : 'text-muted hover:bg-panel hover:text-fg')}>
-              <Icon className="size-[18px] shrink-0" />{label}
-            </button>
-          ))}
-        </nav>
-      <div className="min-w-0 space-y-4">
+
+      <Tabs
+        value={tab}
+        onChange={(id) => setParams(id === 'agent' ? {} : { tab: id }, { replace: true })}
+        tabs={TAB_ITEMS}
+      />
+
+      <div className="mt-5 w-full space-y-4">
         {tab === 'agent' && (
           <>
         <Card>
@@ -129,7 +134,7 @@ export function SettingsPage() {
         </Card>
           </>
         )}
-        {tab === 'features' && <FeaturesTab value={extra} onChange={setExtra} providers={Object.keys(cfg.data.config.providers)} tools={cfg.data.tools.map((x) => x.name)} />}
+        {tab === 'features' && <FeaturesTab value={extra} onChange={setExtra} providers={Object.keys(cfg.data.config.providers)} providerInfo={cfg.data.config.providers} tools={cfg.data.tools.map((x) => x.name)} isDirty={dirty} />}
         {tab === 'tools' && (
           <>
         <Card>
@@ -163,7 +168,6 @@ export function SettingsPage() {
         <SecretsCard s={cfg.data.secrets} />
           </>
         )}
-      </div>
       </div>
     </Page>
   )

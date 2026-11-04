@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AgentMark } from '../../components/ui/AgentMark'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Activity, Download, Folder, FolderTree, GitCompare, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
+import { Activity, Download, FileSearch, Folder, FolderTree, GitCompare, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
 import { Loading } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
 import { useConfig, useMcp, useSessions, useSkills } from '@/lib/queries'
 import { CODE_MODE } from '@/lib/features'
 import { mcpBrand } from '@/features/integrations/brands'
 import { t, tk } from '@/lib/i18n.ts'
-import { errMsg } from '@/lib/utils'
+import { cn, errMsg } from '@/lib/utils'
 import { Composer } from './Composer'
 import type { Effort, Permission } from './permissions'
 import { MessageView } from './MessageView'
@@ -18,6 +20,7 @@ import { SessionList } from './SessionList'
 import { useChat, type Item } from './useChat'
 import { WorkspacePanel, type PanelTab } from './WorkspacePanel'
 
+const DOC_SUGGESTIONS = [tk('Tóm tắt các tài liệu này trong 5 ý chính'), tk('Những mốc thời gian hoặc hạn chót nào được nhắc đến?'), tk('Có những con số hoặc chi phí quan trọng nào?'), tk('Có điều khoản hay yêu cầu nào tôi cần đặc biệt lưu ý?')]
 const SUGGESTIONS = [tk('Bạn làm được những gì?'), tk('Viết script Python đọc file CSV tôi đính kèm và vẽ biểu đồ, lưu ra file .png'), tk('Tìm trên web tin mới nhất về Python 3.14 và tóm tắt'), tk('Liệt kê các skill bạn đang có')]
 
 const store = {
@@ -62,14 +65,21 @@ export function ChatPage() {
   const [panelOpen, setPanelOpen] = useState(() => store.get('panel-open', '0') === '1')
   const [panelWidth, setPanelWidth] = useState(() => Number(store.get('panel-width', '460')))
   const [sessionsOpen, setSessionsOpen] = useState(() => store.get('sessions-open', '1') === '1')
+  const [sidebarHovered, setSidebarHovered] = useState(false)
+  const sidebarLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [tab, setTab] = useState<PanelTab>('files')
   const [openPath, setOpenPath] = useState<string | null>(null)
   const project = sessions.data?.find((s) => s.id === chat.sessionId)?.project ?? ''
+  const [useDocs, setUseDocs] = useState(false) // "Hỏi từ tài liệu"
+  const kb = useQuery({ queryKey: ['kb'], queryFn: () => api.get<{ stats: { docs: number } }>('/api/knowledge'), refetchInterval: 15_000 })
+  const docsReady = (kb.data?.stats.docs ?? 0) > 0
+  const isDocs = useDocs && docsReady
   const projectSeen = useRef<string | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
 
   const initial = (location.state as { prompt?: string } | null)?.prompt
+  const wantDocs = (location.state as { docs?: boolean } | null)?.docs
   const sentInitial = useRef(false)
   useEffect(() => {
     if (initial && !sentInitial.current && cfg.data) {
@@ -78,6 +88,10 @@ export function ChatPage() {
       void chat.send(initial, null)
     }
   }, [initial, cfg.data, chat, nav])
+
+  useEffect(() => {
+    if (wantDocs) { setUseDocs(true); nav('.', { replace: true, state: null }) }
+  }, [wantDocs, nav])
 
   const wanted = params.get('session')
   useEffect(() => {
@@ -105,7 +119,7 @@ export function ChatPage() {
     else { setTab(id); setPanelOpen(true) }
   }
   const openFile = useCallback((p: string) => { setPanelOpen(true); setTab('files'); setOpenPath(p) }, [])
-  const onNew = () => { chat.reset(); setAttachments([]); setOpenPath(null); setPermission('default') }
+  const onNew = () => { chat.reset(); setAttachments([]); setOpenPath(null); setPermission('default'); setUseDocs(false) }
   const onOpen = (id: string) => {
     if (sessions.data?.find((s) => s.id === id)?.project) { nav(`/code/${id}`); return }
     setOpenPath(null); setAttachments([]); setPermission('default'); void chat.open(id) }
@@ -139,7 +153,7 @@ export function ChatPage() {
   const submit = () => {
     if (!text.trim() || chat.busy || uploading) return
     stick.current = true
-    void chat.send(text, active, attachments, { permission, effort })
+    void chat.send(text, active, attachments, { permission, effort, docs: isDocs })
     setText('')
     setAttachments([])
   }
@@ -161,7 +175,34 @@ export function ChatPage() {
   return (
     <SessionContext.Provider value={chat.sessionId}>
     <div className="flex h-full">
-      {sessionsOpen && <SessionList sessions={sessions.data ?? []} activeId={chat.sessionId} onOpen={onOpen} onNew={onNew} onDeleted={(id) => { if (id === chat.sessionId) onNew() }} />}
+      {/* Sidebar: hiển thị cố định nếu sessionsOpen, hoặc overlay slide-in khi hover */}
+      {sessionsOpen
+        ? <SessionList sessions={sessions.data ?? []} activeId={chat.sessionId} onOpen={onOpen} onNew={onNew} onDeleted={(id) => { if (id === chat.sessionId) onNew() }} showDocs={isDocs} />
+        : (
+          <div
+            className="relative hidden lg:block"
+            onMouseEnter={() => { if (sidebarLeaveTimer.current) clearTimeout(sidebarLeaveTimer.current); setSidebarHovered(true) }}
+            onMouseLeave={() => { sidebarLeaveTimer.current = setTimeout(() => setSidebarHovered(false), 180) }}
+          >
+            {/* Vùng trigger mỏng */}
+            <div className="h-full w-2" />
+            {/* Overlay slide-in — luôn render, dùng transform để animate */}
+            <div className={cn(
+              'absolute left-0 top-0 z-30 h-full transform transition-transform duration-200 ease-in-out drop-shadow-2xl',
+              sidebarHovered ? 'translate-x-0' : '-translate-x-full',
+            )}>
+              <SessionList
+                sessions={sessions.data ?? []}
+                activeId={chat.sessionId}
+                onOpen={(id) => { onOpen(id); setSidebarHovered(false) }}
+                onNew={() => { onNew(); setSidebarHovered(false) }}
+                onDeleted={(id) => { if (id === chat.sessionId) onNew() }}
+                showDocs={isDocs}
+              />
+            </div>
+          </div>
+        )
+      }
 
       <section className="relative flex min-w-0 flex-1 flex-col"
         onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true) } }}
@@ -199,10 +240,11 @@ export function ChatPage() {
           <div className="mx-auto max-w-4xl space-y-4 px-5 py-6">
             {chat.items.length === 0 ? (
               <div className="flex flex-col items-center pt-[10vh] text-center">
-                <AgentMark className="mb-4" />
-                <h2 className="text-xl font-semibold">{t('Mình có thể giúp gì cho bạn?')}</h2>
+                {isDocs ? <FileSearch className="mb-4 size-12 text-accent" /> : <AgentMark className="mb-4" />}
+                <h2 className="text-xl font-semibold">{isDocs ? t('Hỏi đáp trên tài liệu của bạn') : t('Mình có thể giúp gì cho bạn?')}</h2>
+                {isDocs && <p className="mt-1 text-sm text-muted">{t('Argus chỉ trả lời dựa trên tài liệu bạn đã thêm và ghi rõ nguồn.')}</p>}
                 <div className="mt-6 grid w-full max-w-xl gap-2 sm:grid-cols-2">
-                  {SUGGESTIONS.map((s) => <button key={s} onClick={() => { stick.current = true; void chat.send(t(s), active) }} className="rounded-xl border border-line bg-panel px-3.5 py-3 text-left text-sm text-muted transition hover:border-accent/60 hover:text-fg">{t(s)}</button>)}
+                  {(isDocs ? DOC_SUGGESTIONS : SUGGESTIONS).map((s) => <button key={s} onClick={() => { stick.current = true; void chat.send(t(s), active) }} className="rounded-xl border border-line bg-panel px-3.5 py-3 text-left text-sm text-muted transition hover:border-accent/60 hover:text-fg">{t(s)}</button>)}
                 </div>
               </div>
             ) : (
@@ -219,7 +261,7 @@ export function ChatPage() {
         <PlanCard items={chat.plan} />
         <Composer mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
-          permission={permission} onPermission={setPermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
+          docs={isDocs} onDocs={setUseDocs} docsReady={docsReady} permission={permission} onPermission={setPermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
           providers={providers.map((id) => ({ id, model: cfg.data.config.providers[id].model, type: cfg.data.config.providers[id].type }))} />
 
         {dragging && <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center border-2 border-dashed border-accent bg-bg/80"><p className="flex items-center gap-2 text-sm font-medium"><Upload className="size-5 text-accent" />{t('Thả file để đính kèm')}</p></div>}

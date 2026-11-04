@@ -1,6 +1,6 @@
 import { Fragment, useState, type ReactNode } from 'react'
-import { Check, Copy } from 'lucide-react'
-import { t } from '@/lib/i18n.ts'
+import { Check, Copy, FileText } from 'lucide-react'
+import { t, useLang } from '@/lib/i18n.ts'
 
 function Code({ code, lang }: { code: string; lang: string }) {
   const [copied, setCopied] = useState(false)
@@ -22,9 +22,27 @@ function Code({ code, lang }: { code: string; lang: string }) {
   )
 }
 
+/** Thẻ nguồn của kho tài liệu: [[src:id|tên file|vị trí]] hiện thành chip nhỏ, bấm để mở file gốc. */
+function SourceChip({ id, name, loc }: { id: string; name: string; loc: string }) {
+  const lang = useLang()
+  const shown = lang === 'en' ? loc.replace(/^trang /, 'page ').replace(/d\u00f2ng /, 'rows ').replace(/^m\u1ee5c /, 'section ').replace(/^\u0111o\u1ea1n /, 'paragraphs ') : loc
+  const ext = /\.[A-Za-z0-9]{2,5}$/.exec(name)?.[0] ?? ''
+  const base = name.slice(0, name.length - ext.length)
+  const short = base.length > 24 ? `${base.slice(0, 22)}…${ext}` : name
+  return (
+    <a href={`/api/knowledge/${id}/file`} target="_blank" rel="noreferrer noopener" title={`${name} · ${loc}`}
+      className="mx-0.5 inline-flex max-w-full translate-y-[-1px] items-center gap-1 rounded-md border border-line bg-panel2 px-1.5 py-px align-middle text-[11px] leading-5 text-muted no-underline transition hover:border-accent/60 hover:text-fg">
+      <FileText className="size-3 shrink-0" /><span className="truncate">{short}</span><span className="shrink-0 text-accent">{shown}</span>
+    </a>
+  )
+}
+
 function inline(text: string): ReactNode[] {
-  const re = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\))/g
+  const re = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\[\[src:[^\]\n]+\]\]|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|(?<![*\w])\*[^*\s][^*\n]*?\*(?![*\w]))/g
   return text.split(re).map((part, i) => {
+    const src = /^\[\[src:([^|\]]+)\|([^|\]]+)\|([^\]]+)\]\]$/.exec(part)
+    if (src) return <SourceChip key={i} id={src[1].trim()} name={src[2].trim()} loc={src[3].trim()} />
+    if (/^\*[^*\s][^*\n]*\*$/.test(part)) return <em key={i}>{part.slice(1, -1)}</em>
     if (part.startsWith('`') && part.endsWith('`') && part.length > 2) return <code key={i} className="rounded bg-panel2 px-1 py-0.5 font-mono text-[12.5px]">{part.slice(1, -1)}</code>
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) return <strong key={i}>{part.slice(2, -2)}</strong>
     const link = /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/.exec(part)

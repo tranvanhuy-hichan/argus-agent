@@ -27,7 +27,7 @@ export interface Catalog { groups: { id: string; label: { vi: string; en: string
 export interface RegistryItem { id: string; name: string; description: string; website: string; url: string; transport: 'http' | 'sse'; publisher: string; community: boolean; needs_header: string[] }
 export interface McpTool { name: string; full_name: string; description: string; read_only: boolean }
 export interface McpServerInfo { name: string; config: McpServerCfg; status: 'connecting' | 'connected' | 'error' | 'disabled' | 'needs_auth'; error: string; tools: McpTool[]; oauth?: boolean; logged_in?: boolean; auth_url?: string }
-export interface ApiToken { id: string; name: string; prefix: string; allow_exec: boolean; created: number; last_used: number | null }
+export interface ApiToken { id: string; name: string; prefix: string; allow_exec: boolean; allow_docs?: boolean; created: number; last_used: number | null }
 export interface SkillEntry { enabled: boolean; api_key: string; env: Record<string, string> }
 export interface AppConfig {
   default_provider: string
@@ -51,6 +51,7 @@ export interface MemoryStatus {
   vectors: { total: number; by_model: Record<string, number>; by_kind: Record<string, number> }
   notes: number; messages: number; fts: boolean
   reindex: { running: boolean; done: number; total: number; error: string; finished: number }
+  ollama_models?: string[]
 }
 export interface Curation { old: string; new: string; removed: string[]; added: string[]; ok: boolean; reason: string }
 export type ExtraCfg = Pick<AppConfig, 'browser' | 'memory' | 'media' | 'computer' | 'agents'>
@@ -115,3 +116,6 @@ export interface GitFile { path: string; status: 'new' | 'modified' | 'deleted' 
 export interface GitStatus { repo: boolean; branch: string; files: GitFile[] }
 export interface BrowseResult { path: string; parent: string | null; git: boolean; dirs: { name: string; path: string; git: boolean }[] }
 export interface RecentProject { path: string; name: string; ts: number; git?: boolean; branch?: string }
+
+export interface KbDoc { id: string; name: string; ext: string; size: number; pages: number; chunks: number; status: 'indexing' | 'ready' | 'error'; note: string | null; source: string; added: number }
+export interface KbPassage { doc_id: string; name: string; loc: string; text: string; score: number; how: string[] }

@@ -90,7 +90,7 @@ export function useChat() {
     return r.id
   }, [qc])
 
-  const send = useCallback(async (text: string, provider: string | null, attachments: string[] = [], opts: { permission?: string; effort?: string } = {}) => {
+  const send = useCallback(async (text: string, provider: string | null, attachments: string[] = [], opts: { permission?: string; effort?: string; docs?: boolean } = {}) => {
     if (busy || !text.trim()) return
     setBusy(true)
     setStatus(t('Đang gửi…'))

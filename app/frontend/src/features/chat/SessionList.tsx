@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Clock, MessageSquarePlus, Pencil, Search, Send, Trash2, X, HeartPulse } from 'lucide-react'
+import { Check, Clock, Download, File as FileIcon, FileSearch, FileSpreadsheet, FileText, HeartPulse, MessageSquarePlus, Pencil, Presentation, Search, Send, Trash2, X } from 'lucide-react'
 import { api } from '@/lib/api'
-import type { SessionInfo } from '@/lib/types'
+import type { KbDoc, SessionInfo } from '@/lib/types'
 import { t } from '@/lib/i18n.ts'
 import { cn, timeAgo } from '@/lib/utils'
 
 interface Hit { session_id: string; role: string; snip: string; title: string }
+interface KbList { docs: KbDoc[]; stats: { docs: number; chunks: number; indexing: number } }
 
 const sourceIcon = (s: string) => (s === 'cron' ? <Clock className="size-3" /> : s === 'telegram' ? <Send className="size-3" /> : s === 'heartbeat' ? <HeartPulse className="size-3" /> : null)
+const docIcon = (ext: string) => (ext === '.xlsx' || ext === '.xlsm' || ext === '.csv' || ext === '.tsv' ? FileSpreadsheet : ext === '.pptx' ? Presentation : ext === '.pdf' || ext === '.docx' || ext === '.txt' || ext === '.md' ? FileText : FileIcon)
+const docSize = (n: number) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
 
-export function SessionList({ sessions, activeId, onOpen, onNew, onDeleted }: { sessions: SessionInfo[]; activeId: string | null; onOpen: (id: string) => void; onNew: () => void; onDeleted: (id: string) => void }) {
+export function SessionList({ sessions, activeId, onOpen, onNew, onDeleted, showDocs }: { sessions: SessionInfo[]; activeId: string | null; onOpen: (id: string) => void; onNew: () => void; onDeleted: (id: string) => void; showDocs?: boolean }) {
   const qc = useQueryClient()
   const [q, setQ] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -18,12 +21,50 @@ export function SessionList({ sessions, activeId, onOpen, onNew, onDeleted }: { 
   const [title, setTitle] = useState('')
   useEffect(() => { const h = setTimeout(() => setDebounced(q.trim()), 300); return () => clearTimeout(h) }, [q])
 
-  const hits = useQuery({ queryKey: ['search', debounced], queryFn: () => api.get<Hit[]>(`/api/search?q=${encodeURIComponent(debounced)}`), enabled: debounced.length >= 2 })
+  const hits = useQuery({ queryKey: ['search', debounced], queryFn: () => api.get<Hit[]>(`/api/search?q=${encodeURIComponent(debounced)}`), enabled: debounced.length >= 2 && !showDocs })
+  const kbList = useQuery({ queryKey: ['kb'], queryFn: () => api.get<KbList>('/api/knowledge'), refetchInterval: 10_000, enabled: showDocs })
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['sessions'] }) }
   const del = useMutation({ mutationFn: (id: string) => api.del(`/api/sessions/${id}`), onSuccess: refresh })
   const rename = useMutation({ mutationFn: (v: { id: string; title: string }) => api.patch(`/api/sessions/${v.id}`, { title: v.title }), onSuccess: () => { setEditing(null); refresh() } })
+  const delDoc = useMutation({ mutationFn: (id: string) => api.del(`/api/knowledge/${id}`), onSuccess: () => void qc.invalidateQueries({ queryKey: ['kb'] }) })
 
   const filtered = sessions.filter((s) => !debounced || s.title.toLowerCase().includes(debounced.toLowerCase()))
+  const docs = kbList.data?.docs ?? []
+
+  if (showDocs) {
+    return (
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-panel lg:flex">
+        <div className="space-y-2 p-3">
+          <div className="flex items-center gap-2 px-1 py-0.5">
+            <FileSearch className="size-4 shrink-0 text-accent" />
+            <span className="text-sm font-medium">{t('Tài liệu')}</span>
+            {kbList.data?.stats && <span className="ml-auto text-[11px] text-muted">{kbList.data.stats.docs} {t('tài liệu')}</span>}
+          </div>
+        </div>
+        <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+          {docs.length === 0
+            ? <p className="px-3 py-6 text-center text-xs text-muted">{t('Chưa có tài liệu nào')}</p>
+            : docs.map((d) => {
+              const Icon = docIcon(d.ext)
+              return (
+                <div key={d.id} className="group flex items-start gap-2 rounded-lg px-2.5 py-2 transition hover:bg-panel2">
+                  <Icon className="mt-0.5 size-4 shrink-0 text-muted" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium" title={d.name}>{d.name}</p>
+                    <p className="text-[11px] text-muted">{docSize(d.size)} · {timeAgo(d.added)}</p>
+                    {d.status === 'indexing' && <p className="text-[11px] text-info">{t('Đang xử lý…')}</p>}
+                    {d.status === 'error' && <p className="text-[11px] text-bad">{t('Lỗi')}</p>}
+                  </div>
+                  <a href={`/api/knowledge/${d.id}/file`} download aria-label={t('Tải về')} className="rounded p-1 text-muted opacity-0 transition hover:text-fg focus:opacity-100 group-hover:opacity-100"><Download className="size-3.5" /></a>
+                  <button onClick={() => { if (confirm(t('Xóa "{name}" khỏi kho tài liệu?', { name: d.name }))) delDoc.mutate(d.id) }} aria-label={t('Xóa')} className="rounded p-1 text-muted opacity-0 transition hover:text-bad focus:opacity-100 group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
+                </div>
+              )
+            })
+          }
+        </div>
+      </aside>
+    )
+  }
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-panel lg:flex">

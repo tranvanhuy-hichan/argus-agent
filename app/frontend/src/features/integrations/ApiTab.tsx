@@ -42,11 +42,12 @@ export function ApiTab({ addSignal = 0 }: { addSignal?: number }) {
   useEffect(() => { if (addSignal > 0) setCreating(true) }, [addSignal])
   const [name, setName] = useState('')
   const [allowExec, setAllowExec] = useState(false)
+  const [allowDocs, setAllowDocs] = useState(false)
   const [fresh, setFresh] = useState<string | null>(null)
 
   const create = useMutation({
-    mutationFn: () => api.post<{ token: string }>('/api/tokens', { name, allow_exec: allowExec }),
-    onSuccess: (r) => { setFresh(r.token); setCreating(false); setName(''); setAllowExec(false); void qc.invalidateQueries({ queryKey: ['tokens'] }) },
+    mutationFn: () => api.post<{ token: string }>('/api/tokens', { name, allow_exec: allowExec, allow_docs: allowDocs }),
+    onSuccess: (r) => { setFresh(r.token); setCreating(false); setName(''); setAllowExec(false); setAllowDocs(false); void qc.invalidateQueries({ queryKey: ['tokens'] }) },
     onError: (e) => toast(errMsg(e), 'bad'),
   })
   const revoke = useMutation({ mutationFn: (id: string) => api.del(`/api/tokens/${id}`), onSuccess: () => { toast(t('Đã thu hồi token')); void qc.invalidateQueries({ queryKey: ['tokens'] }) } })
@@ -68,7 +69,7 @@ export function ApiTab({ addSignal = 0 }: { addSignal?: number }) {
         {tokens.data?.length === 0 ? <EmptyState icon={KeyRound} title={t('Chưa có token nào')} /> : tokens.data?.map((tk) => (
           <div key={tk.id} className="flex items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{tk.name}</span><code className="font-mono text-xs text-muted">{tk.prefix}…</code>{tk.allow_exec ? <Badge tone="warn"><ShieldAlert className="size-3" />{t('Được chạy lệnh')}</Badge> : <Badge tone="ok">{t('Chỉ đọc/hỏi đáp')}</Badge>}</div>
+              <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{tk.name}</span><code className="font-mono text-xs text-muted">{tk.prefix}…</code>{tk.allow_exec ? <Badge tone="warn"><ShieldAlert className="size-3" />{t('Được chạy lệnh')}</Badge> : <Badge tone="ok">{t('Chỉ đọc/hỏi đáp')}</Badge>}{tk.allow_docs && <Badge tone="info">{t('Được thêm/xóa tài liệu')}</Badge>}</div>
               <p className="text-xs text-muted">{t('Tạo {ago} · dùng lần cuối {last}', { ago: timeAgo(tk.created), last: tk.last_used ? timeAgo(tk.last_used) : t('chưa bao giờ') })}</p>
             </div>
             <Button size="sm" variant="ghost" aria-label={t('Thu hồi {name}', { name: tk.name })} onClick={() => { if (confirm(t('Thu hồi token "{name}"? Ứng dụng đang dùng nó sẽ bị từ chối.', { name: tk.name }))) revoke.mutate(tk.id) }}><Trash2 className="size-4" /></Button>
@@ -83,6 +84,11 @@ export function ApiTab({ addSignal = 0 }: { addSignal?: number }) {
           <Section title={t('2. MCP server (stdio): dùng agent như một tool trong Claude Code, Cursor…')}>
             <CopyBlock label="Claude Code" text={claude} />
             <CopyBlock label={t('Cấu hình MCP chung (JSON)')} text={generic} />
+          </Section>
+          <Section title={t('3. Tài liệu: thêm file và hỏi đáp qua API hoặc MCP')}>
+            <CopyBlock label={t('Thêm tài liệu (token cần quyền tài liệu)')} text={`curl -s -X POST "${base}/v1/documents?name=hop-dong.pdf" \\\n  -H "Authorization: Bearer ${tok}" \\\n  --data-binary @hop-dong.pdf`} />
+            <CopyBlock label={t('Hỏi trên tài liệu (trả lời kèm nguồn)')} text={`curl -s ${base}/v1/documents/ask \\\n  -H "Authorization: Bearer ${tok}" -H "Content-Type: application/json" \\\n  -d '{"question": "${t('Thời hạn thanh toán là bao lâu?')}"}'`} />
+            <p className="text-sm text-muted"><T k="Còn có {list} (xem danh sách), {search} (chỉ tìm đoạn, không gọi model) và {del}. Công cụ MCP tương ứng: {tools}." v={{ list: <code className="font-mono text-fg">GET /v1/documents</code>, search: <code className="font-mono text-fg">POST /v1/documents/search</code>, del: <code className="font-mono text-fg">DELETE /v1/documents/&#123;id&#125;</code>, tools: <code className="font-mono text-fg">kb_upload, kb_list, kb_search, kb_ask, kb_delete</code> }} /></p>
           </Section>
           <Section title={t('Chính sách chạy lệnh (exec_policy)')}>
             <p className="text-sm text-muted">{t('App bên ngoài không có người bấm “Cho phép”, nên quyền chạy lệnh do mỗi yêu cầu khai báo và bị giới hạn bởi quyền của token:')}</p>
@@ -106,6 +112,10 @@ export function ApiTab({ addSignal = 0 }: { addSignal?: number }) {
           <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm">
             <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={allowExec} onChange={(e) => setAllowExec(e.target.checked)} />
             <span><span className="font-medium">{t('Cho phép chạy lệnh')}</span><span className="block text-xs text-muted">{t('Cho phép yêu cầu dùng exec_policy allow/allowlist. Nếu tắt, token chỉ dùng được ở chế độ deny.')}</span></span>
+          </label>
+          <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm">
+            <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={allowDocs} onChange={(e) => setAllowDocs(e.target.checked)} />
+            <span><span className="font-medium">{t('Cho phép thêm và xóa tài liệu')}</span><span className="block text-xs text-muted">{t('Nếu tắt, token vẫn tìm kiếm và hỏi đáp trên tài liệu được, nhưng không thêm hay xóa được.')}</span></span>
           </label>
         </div>
       </Modal>
