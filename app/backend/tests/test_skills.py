@@ -80,3 +80,17 @@ def test_remove_only_inside_skills_dir(tmp_path):
     sk.remove(cfg, "x")
     assert "x" not in sk.discover(cfg)
     assert json.dumps(1)  # tranh canh bao import khong dung
+
+
+def test_bundled_skills_seed_once(tmp_path):
+    from argus.core.workspace import seed_skills, template_dir
+    src, dst = template_dir() / "skills", tmp_path / "skills"
+    seed_skills(src, dst)
+    names = {d.name for d in src.iterdir() if d.is_dir()}
+    assert len(names) >= 20 and {d.name for d in dst.iterdir() if d.is_dir()} == names
+    for n in names:  # moi skill co frontmatter hop le va mo ta
+        front, body = sk.split_frontmatter((dst / n / "SKILL.md").read_text())
+        assert front["name"] == n and len(front["description"]) > 30 and body.strip()
+    sk.shutil.rmtree(dst / "viet-email")
+    seed_skills(src, dst)
+    assert not (dst / "viet-email").exists()  # da xoa thi khong quay lai

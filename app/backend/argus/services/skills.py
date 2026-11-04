@@ -161,7 +161,7 @@ def env_for(skills: dict[str, Skill], cfg: Config) -> dict[str, str]:
     return env
 
 
-def prompt_block(skills: dict[str, Skill], limit: int = 6000) -> str:
+def prompt_block(skills: dict[str, Skill], limit: int = 9000) -> str:
     items = [s for s in skills.values() if s.active and not s.front.get("disable-model-invocation")]
     if not items:
         return ""
