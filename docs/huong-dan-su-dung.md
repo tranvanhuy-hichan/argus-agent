@@ -284,6 +284,10 @@ Trong **Chỉnh sửa → Tùy chọn nâng cao** có: địa chỉ máy chủ (
 
 **Chọn mô hình nào?** Mô hình nhỏ chạy trên máy (như qwen2.5:3b) miễn phí và riêng tư nhưng yếu, hay quên và gọi công cụ kém. Việc nhiều bước, giao việc cho agent con, hoặc điều khiển trình duyệt nên dùng mô hình đám mây mạnh hơn.
 
+### Xem hạn mức (giới hạn 5 giờ và theo tuần)
+
+Mỗi mô hình ở trang **Mô hình AI** hiện dòng **Argus đã dùng** (token và số lượt trong 5 giờ và 7 ngày qua). Với **Claude Code** (CLI đã đăng nhập bằng gói thuê bao), Argus còn đọc hạn mức thật bằng lệnh `claude -p /usage` và vẽ hai thanh: **Phiên 5 giờ** và **Tuần**, kèm phần trăm đã dùng, phần trăm còn lại và giờ làm mới. Cùng thông tin này xuất hiện trong nút **Tuỳ chọn** ở khung chat (mục **Hạn mức**) cho model đang chọn. Số liệu được lưu đệm 60 giây; nút làm mới cạnh dòng "Argus đã dùng" lấy lại ngay. Antigravity và Codex chưa có lệnh xem hạn mức nên chỉ hiện phần Argus đã dùng. Hạn mức của gói thuê bao là chung cho mọi nơi bạn dùng (Claude Code, trình duyệt…), không chỉ riêng Argus.
+
 ## 9. Kết nối: công cụ ngoài, Telegram, API
 
 Trang **Kết nối** có ba tab (MCP server, Kênh chat, API & Token). Các dịch vụ bên ngoài nằm ở mục **Tiện ích** riêng trên thanh bên.

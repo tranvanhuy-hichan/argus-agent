@@ -555,6 +555,20 @@ const dict: Record<string, string> = {
   "Model embedding được cấu hình cùng các mô hình AI khác.": "The embedding model is configured together with your other AI models.",
   "Model xử lý": "Processing model",
   "Mở Mô hình AI, tab Embedding": "Open AI models, Embedding tab",
+  "Đang lấy hạn mức…": "Loading limits…",
+  "Hạn mức": "Limits",
+  "Làm mới hạn mức": "Refresh limits",
+  "lượt": "calls",
+  "Phiên 5 giờ": "5-hour session",
+  "Tuần": "Week",
+  "Chưa xem được hạn mức của nhà cung cấp": "Provider limits are not available",
+  "Còn {r}%": "{r}% left",
+  "Đã dùng": "Used",
+  "Làm mới {when}": "Resets {when}",
+  "{n} lượt, {p}% tổng token của Argus": "{n} calls, {p}% of all tokens used by Argus",
+  "{u}% đã dùng": "{u}% used",
+  "5 giờ": "5 hours",
+  "7 ngày": "7 days",
 }
 
 export default dict

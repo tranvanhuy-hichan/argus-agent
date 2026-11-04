@@ -379,3 +379,91 @@ def test_mention_filter_survives_only_tools(llm, monkeypatch):
     seen = _capture(llm)
     run_chat("@linear liệt kê issue", only_tools=["linear__list_issues", "notion__search", "read"])
     assert "linear__list_issues" in seen["tools"] and "notion__search" not in seen["tools"]
+
+
+# ---------- dung luong token cua phien va ngu canh con lai
+def test_context_window_by_model_name_and_override():
+    from argus.core import config as cfgmod
+    from argus.services import usage as u
+    P = lambda model, base="https://api.example.com/v1", cw=0: cfgmod.ProviderCfg(type="openai", base_url=base, model=model, context_window=cw)  # noqa: E731
+    assert u.context_window(P("gemini-2.5-flash")) == 1_048_576
+    assert u.context_window(P("claude-sonnet-5-5", cw=0)) == 200_000 and u.context_window(P("sonnet[1m]")) == 1_000_000
+    assert u.context_window(P("gpt-4o-mini")) == 128_000 and u.context_window(P("model-la")) is None
+    assert u.context_window(P("qwen2.5:3b", base="http://localhost:11434/v1")) is None  # local: phụ thuộc num_ctx nên không đoán
+    assert u.context_window(P("qwen2.5:3b", base="http://localhost:11434/v1", cw=8192)) == 8192
+
+
+def test_session_usage_totals_cost_and_remaining_context(tmp_env):
+    from argus.core import config as cfgmod
+    from argus.services import sessions, usage as u
+    cfg = cfgmod.load()
+    cfg.providers["g"] = cfgmod.ProviderCfg(type="openai", base_url="https://x/v1", model="gemini-2.5-flash", price_in=1.0, price_out=2.0)
+    sid = sessions.create("x")
+    assert u.session_usage(sid, cfg.providers)["context_left"] is None  # chưa có lượt nào
+    u.record_llm("g", "gemini-2.5-flash", 1000, 200, 500, True, sid)
+    u.record_llm("g", "gemini-2.5-flash", 5000, 800, 700, True, sid)
+    u.record_llm("g", "gemini-2.5-flash", 0, 0, 100, False, sid)  # lượt lỗi không tính vào ngữ cảnh hiện tại
+    r = u.session_usage(sid, cfg.providers)
+    assert (r["calls"], r["errors"], r["prompt_tokens"], r["completion_tokens"]) == (3, 1, 6000, 1000)
+    assert r["context_used"] == 5800 and r["context_window"] == 1_048_576 and r["context_left"] == 1_048_576 - 5800
+    assert r["cost"] == round((6000 * 1.0 + 1000 * 2.0) / 1e6, 4) and r["provider"] == "g"
+
+
+def test_session_usage_endpoint(tmp_env):
+    from fastapi.testclient import TestClient
+
+    from argus.main import app
+    from argus.services import sessions
+    c = TestClient(app)
+    assert c.get("/api/sessions/khong-co/usage").status_code == 404
+    sid = sessions.create("x")
+    assert c.get(f"/api/sessions/{sid}/usage").json()["calls"] == 0
+
+
+# ---------- han muc 5 gio / theo tuan
+CLAUDE_USAGE = """You are currently using your subscription to power your Claude Code usage
+
+Current session: 14% used · resets Nov 4, 10:29pm (Asia/Bangkok)
+Current week (all models): 25% used · resets Nov 10, 9:59pm (Asia/Bangkok)
+Current week (Opus): 3% used
+
+What's contributing to your usage?
+"""
+
+
+def test_parse_claude_usage_lines():
+    from argus.services import limits
+    w = limits.parse_claude_usage(CLAUDE_USAGE)
+    assert [(x["kind"], x["used"]) for x in w] == [("session", 14), ("week", 25), ("week", 3)]
+    assert w[0]["resets"] == "Nov 4, 10:29pm (Asia/Bangkok)" and w[2]["model"] == "Opus" and w[2]["resets"] == "" and w[1]["model"] == "all models"
+    assert limits.parse_claude_usage("không có gì") == []
+
+
+def test_limits_endpoint_uses_claude_usage_and_argus_windows(tmp_env, monkeypatch):
+    import subprocess
+    import types
+
+    from fastapi.testclient import TestClient
+
+    from argus.core import config as cfgmod
+    from argus.main import app
+    from argus.services import limits, sessions, usage
+    cfg = cfgmod.load()
+    cfg.providers["cc"] = cfgmod.ProviderCfg(type="cli", cli="claude", model="sonnet")
+    cfg.providers["g"] = cfgmod.ProviderCfg(type="openai", base_url="https://x/v1", model="gemini-2.5-flash")
+    cfgmod.save(cfg)
+    calls = []
+    monkeypatch.setattr(limits.cli_provider, "find", lambda c: "/usr/bin/claude")
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: calls.append(cmd) or types.SimpleNamespace(stdout=CLAUDE_USAGE, stderr="", returncode=0))
+    sid = sessions.create("x")
+    usage.record_llm("g", "gemini-2.5-flash", 1000, 500, 100, True, sid)
+    c = TestClient(app)
+    r = c.get("/api/providers/cc/limits").json()
+    assert r["official"] and r["limits"]["windows"][0]["used"] == 14 and calls[0][-2:] == ["-p", "/usage"]
+    c.get("/api/providers/cc/limits")
+    assert len(calls) == 1  # bộ nhớ đệm
+    c.get("/api/providers/cc/limits", params={"refresh": True})
+    assert len(calls) == 2
+    g = c.get("/api/providers/g/limits").json()
+    assert g["official"] is False and g["limits"] is None and g["argus"]["h5"] == {"calls": 1, "tokens": 1500, "share": 1.0}
+    assert c.get("/api/providers/khong-co/limits").status_code == 404

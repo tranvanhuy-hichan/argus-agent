@@ -269,3 +269,11 @@ def test_doctor_reports_missing_cli(argus):
     (argus.home / "config.json").write_text(json.dumps(cfg))
     out = argus("doctor", "--offline").stdout
     assert "CLI command not found" in out
+
+
+def test_service_unit_keeps_the_installers_path_so_cli_providers_are_found(monkeypatch):
+    from argus.cli import service
+    monkeypatch.setenv("PATH", "/home/u/.nvm/versions/node/v24/bin:/usr/bin")
+    unit = service.systemd_unit("127.0.0.1", 8787)
+    assert 'Environment="PATH=/home/u/.nvm/versions/node/v24/bin:/usr/bin"' in unit
+    assert "/home/u/.nvm/versions/node/v24/bin" in service.launchd_plist("127.0.0.1", 8787)

@@ -119,3 +119,12 @@ export interface RecentProject { path: string; name: string; ts: number; git?: b
 
 export interface KbDoc { id: string; name: string; ext: string; size: number; pages: number; chunks: number; status: 'indexing' | 'ready' | 'error'; note: string | null; source: string; added: number }
 export interface KbPassage { doc_id: string; name: string; loc: string; text: string; score: number; how: string[] }
+
+export interface LimitWindow { kind: 'session' | 'week'; model: string; used: number; resets: string }
+export interface ProviderLimits {
+  provider: string
+  official: boolean
+  limits: { windows?: LimitWindow[]; error?: string; note?: string } | null
+  argus: { h5: { calls: number; tokens: number; share: number }; d1: { calls: number; tokens: number; share: number }; d7: { calls: number; tokens: number; share: number } }
+  fetched: number
+}

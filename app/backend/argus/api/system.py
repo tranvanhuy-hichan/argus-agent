@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from ..core import config as cfgmod
 from ..core import secrets
 from ..core.paths import CONFIG_PATH
-from ..services import mcp_client, providers, tools
+from ..services import limits, mcp_client, providers, tools
 from ..services.telegram_channel import channel as telegram
 
 router = APIRouter()
@@ -49,6 +49,15 @@ def put_config(body: dict):
 
 class TestBody(BaseModel):
     provider: cfgmod.ProviderCfg | None = None
+
+
+@router.get("/providers/{name}/limits")
+def provider_limits(name: str, refresh: bool = False):
+    """Hạn mức phiên 5 giờ và theo tuần (nếu nhà cung cấp cho xem) cùng lượng Argus đã dùng."""
+    cfg = cfgmod.load()
+    if name not in cfg.providers:
+        raise HTTPException(404, f"không có provider '{name}'")
+    return limits.get(name, cfg.providers[name], refresh)
 
 
 @router.post("/providers/{name}/test")

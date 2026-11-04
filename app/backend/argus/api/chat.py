@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..core import config as cfgmod
-from ..services import chat_runner, sessions, workfiles
+from ..services import chat_runner, sessions, usage, workfiles
 
 router = APIRouter()
 
@@ -32,6 +32,14 @@ def get_session(sid: str):
     if not s:
         raise HTTPException(404, "không có phiên này")
     return {**s, "messages": sessions.messages(sid)}
+
+
+@router.get("/sessions/{sid}/usage")
+def session_usage(sid: str):
+    """Token đã dùng trong phiên và ngữ cảnh còn lại của model đang dùng."""
+    if not sessions.get(sid):
+        raise HTTPException(404, "không có phiên này")
+    return usage.session_usage(sid, cfgmod.load().providers)
 
 
 class Truncate(BaseModel):

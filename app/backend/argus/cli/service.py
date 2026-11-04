@@ -24,6 +24,8 @@ def systemd_unit(host: str, port: int) -> str:
     env_lines = [f'Environment="PYTHONPATH={daemon.BACKEND_DIR}"']  # systemd: boc ca phep gan, khong chi gia tri
     if os.environ.get("ARGUS_HOME"):
         env_lines.append(f'Environment="ARGUS_HOME={os.environ["ARGUS_HOME"]}"')
+    if os.environ.get("PATH"):  # service không đọc cấu hình shell nên mất PATH của nvm, ~/.local/bin... và không tìm thấy các CLI (claude, agy, codex)
+        env_lines.append(f'Environment="PATH={os.environ["PATH"]}"')
     return "\n".join(["[Unit]", "Description=Argus Agent", "After=network-online.target", "Wants=network-online.target", "",
                       "[Service]", "Type=simple", f"WorkingDirectory={ROOT}", *env_lines, f"ExecStart={exec_start}",
                       "Restart=on-failure", "RestartSec=3", "", "[Install]", "WantedBy=default.target", ""])
@@ -38,7 +40,7 @@ def launchd_plist(host: str, port: int) -> str:
   <key>ProgramArguments</key><array>{args}
   </array>
   <key>WorkingDirectory</key><string>{ROOT}</string>
-  <key>EnvironmentVariables</key><dict><key>PYTHONPATH</key><string>{daemon.BACKEND_DIR}</string></dict>
+  <key>EnvironmentVariables</key><dict><key>PYTHONPATH</key><string>{daemon.BACKEND_DIR}</string><key>PATH</key><string>{os.environ.get('PATH', '')}</string></dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>{LOG_FILE}</string>

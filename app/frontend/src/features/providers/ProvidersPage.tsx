@@ -10,6 +10,7 @@ import { Field, Input } from '@/components/ui/Form'
 import { ErrorNote, Loading, Page, PageHeader } from '@/components/ui/misc'
 import { Tabs } from '@/components/ui/Tabs'
 import { EmbeddingPanel } from './EmbeddingPanel'
+import { LimitsBars } from './LimitsBars'
 import { useToast } from '@/components/ui/Toast'
 import { api } from '@/lib/api'
 import { useConfig, useSaveConfig } from '@/lib/queries'
@@ -123,6 +124,7 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
           </span>
         )}
       </div>
+      <div className="border-t border-line px-4 py-3"><LimitsBars name={name} /></div>
       {open && (
         <div className="space-y-4 border-t border-line p-4">
           {isCli ? (

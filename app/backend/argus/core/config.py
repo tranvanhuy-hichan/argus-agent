@@ -21,6 +21,7 @@ class ProviderCfg(BaseModel):
     api_key_env: str = ""
     temperature: float = Field(0.7, ge=0, le=2)
     vision: bool = False  # model nhan duoc anh (gui anh dinh kem dang data URL)
+    context_window: int = Field(0, ge=0)  # so token toi da model nhan trong mot luot; 0 = tu nhan theo ten model
     price_in: float = Field(0.0, ge=0)  # USD / 1 trieu token vao, de uoc tinh chi phi
     price_out: float = Field(0.0, ge=0)
 
