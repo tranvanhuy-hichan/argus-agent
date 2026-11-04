@@ -135,3 +135,13 @@ def test_api_probe_rejects_internal_addresses(client):
     assert client.post("/api/mcp/probe", json={"url": "http://127.0.0.1:9/mcp"}).status_code == 400
     assert client.post("/api/mcp/probe", json={"url": "http://192.168.1.10/mcp"}).status_code == 400
     assert client.post("/api/mcp/probe", json={"url": "ftp://example.com/x"}).status_code == 400
+
+
+def test_new_plugins_are_in_catalog_with_valid_shape():
+    by_id = {s["id"]: s for s in mcp_catalog.SERVICES}
+    assert len(by_id) == len(mcp_catalog.SERVICES)  # id không trùng
+    groups = {g["id"] for g in mcp_catalog.GROUPS}
+    for sid in ("buildkite", "betterstack", "grafana", "globalping", "aws-knowledge", "alltrails", "amplitude", "cloudinary", "clay", "close", "shopify", "godaddy"):
+        s = by_id[sid]
+        assert s["url"].startswith("https://") and s["group"] in groups and s["auth"] in ("oauth", "open", "token") and s["desc"]["vi"] and s["desc"]["en"]
+    assert by_id["godaddy"]["auth"] == "open" and by_id["buildkite"]["auth"] == "oauth"

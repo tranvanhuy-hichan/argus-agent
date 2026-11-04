@@ -147,7 +147,7 @@ def apply_mentions(ctx: tools.ToolContext, names: list[str]) -> tuple[str, list[
     note = ("Người dùng chỉ định dịch vụ bằng dấu @: " + ", ".join(f"@{n}" for n in names) + ". Hãy làm yêu cầu bằng các công cụ có tên bắt đầu bằng "
             + ", ".join(f"'{prefix[n]}'" for n in names) + "; không dùng công cụ của dịch vụ khác.")
     if down:
-        note += " Dịch vụ chưa kết nối: " + ", ".join(down) + ". Nếu không có công cụ tương ứng, hãy bảo người dùng vào Kết nối, tab MCP dịch vụ, rồi bấm Đăng nhập."
+        note += " Dịch vụ chưa kết nối: " + ", ".join(down) + ". Nếu không có công cụ tương ứng, hãy bảo người dùng vào mục Plugin, tìm dịch vụ đó rồi bấm Đăng nhập."
     return note, down
 
 
@@ -213,7 +213,7 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     if names_at := mentioned_servers(user_text, cfg):
         mention_note, down = apply_mentions(ctx, names_at)
         if down:
-            emit(ui_event("notice", "Dịch vụ {names} chưa kết nối: vào Kết nối, tab MCP dịch vụ để đăng nhập", names=", ".join(down)))
+            emit(ui_event("notice", "Dịch vụ {names} chưa kết nối: vào mục Plugin để đăng nhập", names=", ".join(down)))
     if permission not in PERMISSIONS:
         permission = "default"
     perm_note = apply_permission(ctx, permission)

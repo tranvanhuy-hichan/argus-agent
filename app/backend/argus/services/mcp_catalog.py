@@ -71,6 +71,19 @@ SERVICES = [
     _s("square", "Square", "https://mcp.squareup.com/sse", "biz", "oauth", "Quản lý bán hàng, khách hàng và kho trên Square.", "Manage sales, customers and inventory on Square.", "3E4348", transport="sse"),
     _s("intercom", "Intercom", "https://mcp.intercom.com/mcp", "biz", "oauth", "Xem hội thoại và liên hệ khách hàng trong Intercom.", "View conversations and contacts in Intercom.", "6AFDEF"),
     _s("ramp", "Ramp", "https://mcp.ramp.com/mcp", "biz", "oauth", "Xem chi tiêu, thẻ và hóa đơn trên Ramp.", "View spend, cards and bills on Ramp.", "F4D03F"),
+    # --- Them tu danh sach plugin chinh thuc (da thu: oauth = kham pha + dang ky client dong thanh cong, open = ket noi va liet ke duoc cong cu)
+    _s("buildkite", "Buildkite", "https://mcp.buildkite.com/mcp", "dev", "oauth", "Xem pipeline, build và kết quả test trên Buildkite.", "CI/CD pipelines, builds and test results from Buildkite.", "14CC80"),
+    _s("betterstack", "Better Stack", "https://mcp.betterstack.com", "dev", "oauth", "Xem log, uptime, sự cố và trang trạng thái trên Better Stack.", "Logs, uptime monitors, incidents and status pages on Better Stack.", "0EA5E9"),
+    _s("grafana", "Grafana", "https://mcp.grafana.com/mcp", "dev", "oauth", "Truy vấn metric, log, dashboard và cảnh báo trên Grafana.", "Query metrics, logs, dashboards and alerts on Grafana.", "F46800"),
+    _s("globalping", "Globalping", "https://mcp.globalping.dev/mcp", "dev", "oauth", "Ping, traceroute, DNS và kiểm tra HTTP từ nhiều nơi trên thế giới.", "Ping, traceroute, DNS and HTTP tests from global probes.", "17BEBB"),
+    _s("aws-knowledge", "AWS Knowledge", "https://knowledge-mcp.global.api.aws", "search", "open", "Tài liệu AWS chính thức, tham chiếu API và thực hành tốt, không cần đăng nhập.", "Official AWS docs, API references and best practices. No sign-in needed.", "FF9900"),
+    _s("alltrails", "AllTrails", "https://www.alltrails.com/mcp", "search", "open", "Tìm đường mòn đi bộ, thời tiết và chi tiết tuyến, không cần đăng nhập.", "Find hiking trails, weather and route details. No sign-in needed.", "428A13"),
+    _s("amplitude", "Amplitude", "https://mcp.amplitude.com/mcp", "data", "oauth", "Xem biểu đồ, dashboard, thí nghiệm và feature flag trên Amplitude.", "Charts, dashboards, experiments and flags on Amplitude.", "1E61F0"),
+    _s("cloudinary", "Cloudinary", "https://asset-management.mcp.cloudinary.com/mcp", "design", "oauth", "Tải lên, tìm kiếm và biến đổi ảnh, video trên Cloudinary.", "Upload, search and transform media assets on Cloudinary.", "3448C5"),
+    _s("clay", "Clay", "https://api.clay.com/v3/mcp", "biz", "oauth", "Nghiên cứu khách hàng tiềm năng và làm giàu dữ liệu bán hàng với Clay.", "Sales research and enrichment workflows with Clay.", "F2C94C"),
+    _s("close", "Close", "https://mcp.close.com/mcp", "biz", "oauth", "CRM bán hàng: lead, cơ hội, cuộc gọi và email trong Close.", "Sales CRM: leads, opportunities, calls and emails in Close.", "2B7DF7"),
+    _s("shopify", "Shopify", "https://mcp.shopify.com/mcp", "biz", "open", "Công cụ cho cửa hàng Shopify: danh mục mẫu, gợi ý tên miền và sản phẩm số.", "Shopify store tools: mock catalogs, domain ideas and digital products.", "7AB55C"),
+    _s("godaddy", "GoDaddy Domains", "https://api.godaddy.com/v1/domains/mcp", "biz", "open", "Gợi ý tên miền và kiểm tra tên miền còn trống, không cần đăng nhập.", "Domain suggestions and availability checks. No sign-in needed.", "1BDBDB"),
 ]
 
 
