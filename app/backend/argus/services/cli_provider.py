@@ -9,6 +9,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 import threading
 import uuid
 from collections.abc import Iterator
@@ -71,7 +72,8 @@ class _Run:
 
 def _claude_cmd(cfg, exe, prompt, run):
     cmd = exe + ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--tools", "",
-                 "--no-session-persistence", "--disable-slash-commands", "--strict-mcp-config", "--system-prompt", CLAUDE_SYSTEM]
+                 "--no-session-persistence", "--disable-slash-commands", "--strict-mcp-config", "--system-prompt", CLAUDE_SYSTEM,
+                 "--setting-sources", "user"]
     return cmd + (["--model", cfg.model] if cfg.model else []), prompt
 
 
@@ -242,7 +244,7 @@ class CliProvider:
             raise ProviderError(f"không tìm thấy lệnh '{exe[0]}'. Hãy cài CLI và đăng nhập (ví dụ chạy `{exe[0]}` một lần trong terminal).")
         make_cmd, feed, strip = ADAPTERS[self.cfg.cli]
         env = {k: v for k, v in os.environ.items() if k not in strip}
-        workdir = Path(dbmod.DATA) / "cli-run"  # thu muc trong, de CLI khong doc CLAUDE.md/du an nao
+        workdir = Path(tempfile.gettempdir()) / "argus-cli-run"  # thu muc trong tach biet khoi moi git repo, de CLI khong doc CLAUDE.md/du an nao
         workdir.mkdir(parents=True, exist_ok=True)
         prompt = build_prompt(messages, tools)
         run = _Run()
