@@ -61,11 +61,10 @@ export function ApiTab() {
 
   return (
     <div className="space-y-4">
-      <p className="max-w-3xl text-sm text-muted">{t('Cho phép ứng dụng khác (script, app của bạn, Claude Code, Cursor…) giao việc cho agent này. Mặc định server chỉ nhận kết nối từ chính máy này.')}</p>
 
       <Card>
-        <CardHeader title={t('API token')} hint={t('Token chỉ hiện đầy đủ một lần lúc tạo, hệ thống chỉ lưu bản băm.')} action={<Button variant="primary" size="sm" onClick={() => setCreating(true)}><Plus className="size-4" />{t('Tạo token')}</Button>} />
-        {tokens.data?.length === 0 ? <EmptyState icon={KeyRound} title={t('Chưa có token nào')} hint={t('Tạo một token để gọi POST /v1/run hoặc đăng ký MCP server.')} /> : tokens.data?.map((tk) => (
+        <CardHeader title={t('API token')} action={<Button variant="primary" size="sm" onClick={() => setCreating(true)}><Plus className="size-4" />{t('Tạo token')}</Button>} />
+        {tokens.data?.length === 0 ? <EmptyState icon={KeyRound} title={t('Chưa có token nào')} /> : tokens.data?.map((tk) => (
           <div key={tk.id} className="flex items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{tk.name}</span><code className="font-mono text-xs text-muted">{tk.prefix}…</code>{tk.allow_exec ? <Badge tone="warn"><ShieldAlert className="size-3" />{t('Được chạy lệnh')}</Badge> : <Badge tone="ok">{t('Chỉ đọc/hỏi đáp')}</Badge>}</div>
@@ -77,13 +76,12 @@ export function ApiTab() {
       </Card>
 
       <Card>
-        <CardHeader title={t('Cách dùng')} hint={fresh ? t('Các ví dụ dưới đây đã điền sẵn token vừa tạo.') : t('Thay {ph} bằng token thật.', { ph: t('agt_TOKEN_CỦA_BẠN') })} />
+        <CardHeader title={t('Cách dùng')} />
         <div className="space-y-6 p-5">
           <Section title={t('1. REST API: POST /v1/run')}><CopyBlock label="curl" text={curl} /><CopyBlock label="Python" text={py} /></Section>
           <Section title={t('2. MCP server (stdio): dùng agent như một tool trong Claude Code, Cursor…')}>
             <CopyBlock label="Claude Code" text={claude} />
             <CopyBlock label={t('Cấu hình MCP chung (JSON)')} text={generic} />
-            <p className="text-xs text-muted"><T k="Cung cấp hai tool: {run} (giao việc, chờ kết quả) và {list}." v={{ run: <code className="font-mono">agent_run</code>, list: <code className="font-mono">agent_list_skills</code> }} /></p>
           </Section>
           <Section title={t('Chính sách chạy lệnh (exec_policy)')}>
             <p className="text-sm text-muted">{t('App bên ngoài không có người bấm “Cho phép”, nên quyền chạy lệnh do mỗi yêu cầu khai báo và bị giới hạn bởi quyền của token:')}</p>

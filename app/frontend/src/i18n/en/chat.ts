@@ -44,7 +44,7 @@ const dict: Record<string, string> = {
   'Đang tải lên…': 'Uploading…',
   'Đính kèm file': 'Attach file',
   'Đính kèm file (hoặc kéo thả vào khung chat)': 'Attach file (or drag and drop into the chat)',
-  'Nhắn tin cho agent…  (Enter để gửi, Shift+Enter xuống dòng, / để chọn skill)': 'Message the agent…  (Enter to send, Shift+Enter for new line, / to pick a skill)',
+  'Nhắn tin cho agent…  (Enter để gửi, Shift+Enter xuống dòng, / để chọn skill, @ để gọi dịch vụ)': 'Message the agent…  (Enter to send, Shift+Enter for new line, / to pick a skill, @ to call a service)',
   'Tin nhắn': 'Message',
   'Dừng': 'Stop',
   'Gửi': 'Send',

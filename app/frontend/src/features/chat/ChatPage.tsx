@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AgentMark } from '../../components/ui/AgentMark'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Activity, Bot, Download, Folder, FolderTree, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
+import { Activity, Download, Folder, FolderTree, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
 import { Loading } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
-import { useConfig, useSessions, useSkills } from '@/lib/queries'
+import { useConfig, useMcp, useSessions, useSkills } from '@/lib/queries'
+import { mcpBrand } from '@/features/integrations/brands'
 import { t, tk } from '@/lib/i18n.ts'
 import { errMsg } from '@/lib/utils'
 import { Composer } from './Composer'
@@ -42,6 +44,7 @@ export function ChatPage() {
   const cfg = useConfig()
   const sessions = useSessions()
   const skills = useSkills()
+  const mcp = useMcp()
   const toast = useToast()
   const nav = useNavigate()
   const location = useLocation()
@@ -182,9 +185,8 @@ export function ChatPage() {
           <div className="mx-auto max-w-4xl space-y-4 px-5 py-6">
             {chat.items.length === 0 ? (
               <div className="flex flex-col items-center pt-[10vh] text-center">
-                <div className="mb-4 grid size-14 place-items-center rounded-2xl bg-accent text-accent-fg"><Bot className="size-7" /></div>
+                <AgentMark className="mb-4" />
                 <h2 className="text-xl font-semibold">{t('Mình có thể giúp gì cho bạn?')}</h2>
-                <p className="mt-1 text-sm text-muted">{t('Agent đọc/ghi file, chạy lệnh, tìm web, gọi API, dùng skill và tool MCP. Mọi file tạo ra nằm ở panel bên phải.')}</p>
                 <div className="mt-6 grid w-full max-w-xl gap-2 sm:grid-cols-2">
                   {SUGGESTIONS.map((s) => <button key={s} onClick={() => { stick.current = true; void chat.send(t(s), active) }} className="rounded-xl border border-line bg-panel px-3.5 py-3 text-left text-sm text-muted transition hover:border-accent/60 hover:text-fg">{t(s)}</button>)}
                 </div>
@@ -201,7 +203,7 @@ export function ChatPage() {
         </div>
 
         <PlanCard items={chat.plan} />
-        <Composer value={text} onChange={setText} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
+        <Composer mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
           permission={permission} onPermission={setPermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
           providers={providers.map((id) => ({ id, model: cfg.data.config.providers[id].model, type: cfg.data.config.providers[id].type }))} />

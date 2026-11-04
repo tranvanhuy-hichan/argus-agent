@@ -1,9 +1,11 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
+import { AgentMark } from '../../components/ui/AgentMark'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
-  Activity, ArrowRight, ArrowUp, Bell, Bot, CheckCircle2, ChevronDown, Circle, Clock, Coins, FolderCog, Gauge, HeartPulse, MessageSquare, MessageSquarePlus, Plug, Puzzle, Send, Sparkles, Wrench, type LucideIcon,
+  Activity, ArrowRight, ArrowUp, Bell, CheckCircle2, ChevronDown, Circle, Clock, Coins, FolderCog, Gauge, HeartPulse, MessageSquare, MessageSquarePlus, Plug, Puzzle, Send, Sparkles, Wrench, type LucideIcon,
 } from 'lucide-react'
+import { HabitSuggestions } from './HabitSuggestions'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Loading, Page } from '@/components/ui/misc'
@@ -127,7 +129,7 @@ export function HomePage() {
         <div className="grid gap-8 p-6 lg:grid-cols-5 lg:p-8">
           <div className="flex flex-col justify-center lg:col-span-3">
             <div className="flex items-center gap-4">
-              <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-accent text-accent-fg shadow-lg shadow-accent/20"><Bot className="size-7" /></div>
+              <AgentMark />
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight">{greet}</h1>
                 <p className="mt-0.5 text-muted">{t('Hôm nay bạn muốn agent giúp gì?')}</p>
@@ -173,6 +175,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      <HabitSuggestions />
 
       {/* Thao tac nhanh */}
       <section className="mb-6" aria-label={t('Thao tác nhanh')}>

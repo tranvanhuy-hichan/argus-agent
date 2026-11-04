@@ -1,5 +1,5 @@
 export interface ProviderCfg {
-  cli?: 'claude' | 'custom'
+  cli?: 'claude' | 'agy' | 'codex' | 'custom'
   command?: string
   vision?: boolean
   price_in?: number
@@ -15,17 +15,25 @@ export interface McpServerCfg {
   transport: 'stdio' | 'http' | 'sse'
   command: string; args: string[]; env: Record<string, string>; cwd: string
   url: string; headers: Record<string, string>
+  oauth?: boolean; oauth_scope?: string; service?: boolean
   enabled: boolean; confirm: boolean
 }
+export interface CatalogService {
+  id: string; name: string; url: string; group: string; auth: 'oauth' | 'open' | 'token'; transport: 'http' | 'sse'; color: string
+  desc: { vi: string; en: string }
+  token?: { header: string; prefix: string; help_url: string; hint: { vi: string; en: string } }
+}
+export interface Catalog { groups: { id: string; label: { vi: string; en: string } }[]; services: CatalogService[] }
+export interface RegistryItem { id: string; name: string; description: string; website: string; url: string; transport: 'http' | 'sse'; publisher: string; community: boolean; needs_header: string[] }
 export interface McpTool { name: string; full_name: string; description: string; read_only: boolean }
-export interface McpServerInfo { name: string; config: McpServerCfg; status: 'connecting' | 'connected' | 'error' | 'disabled'; error: string; tools: McpTool[] }
+export interface McpServerInfo { name: string; config: McpServerCfg; status: 'connecting' | 'connected' | 'error' | 'disabled' | 'needs_auth'; error: string; tools: McpTool[]; oauth?: boolean; logged_in?: boolean; auth_url?: string }
 export interface ApiToken { id: string; name: string; prefix: string; allow_exec: boolean; created: number; last_used: number | null }
 export interface SkillEntry { enabled: boolean; api_key: string; env: Record<string, string> }
 export interface AppConfig {
   default_provider: string
   fallback: string[]
   providers: Record<string, ProviderCfg>
-  agent: { workspace: string; max_steps: number; max_history: number; confirm_exec: boolean; tools_enabled: Record<string, boolean>; compact_chars: number; exec_sandbox: 'none' | 'docker'; sandbox_image: string; sandbox_network: boolean }
+  agent: { workspace: string; max_steps: number; max_history: number; confirm_exec: boolean; tools_enabled: Record<string, boolean>; compact_chars: number; exec_sandbox: 'none' | 'docker'; sandbox_image: string; sandbox_network: boolean; suggest_habits: boolean }
   heartbeat: { enabled: boolean; interval_minutes: number; provider: string | null }
   auth: { has_password: boolean }
   skills: Record<string, SkillEntry>
@@ -99,3 +107,6 @@ export interface Dashboard {
   providers: { default: string; count: number }
   recent_sessions: SessionInfo[]
 }
+
+export interface HabitDraft { kind: 'skill' | 'automation'; name: string; title: string; description: string; body: string; prompt: string; schedule: string }
+export interface HabitSuggestion { id: string; status: string; count: number; examples: string[]; draft: HabitDraft | null; created: number }

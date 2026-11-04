@@ -45,7 +45,6 @@ function NewTask({ onDone }: { onDone: () => void }) {
     <Card className="mb-8 overflow-hidden">
       <div className="p-5 pb-4">
         <label htmlFor="task-goal" className="text-base font-semibold">{t('Bạn muốn agent làm gì?')}</label>
-        <p className="mb-3 mt-0.5 text-sm text-muted">{t('Mô tả như khi nhờ một người trợ lý. Agent tự làm từng bước ở chế độ nền, xong sẽ báo bạn.')}</p>
         <textarea id="task-goal" rows={3} value={goal} onChange={(e) => setGoal(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && goal.trim()) start.mutate() }}
           placeholder={t('Ví dụ: tìm 5 bài báo mới nhất về AI và viết tóm tắt vào file')}
@@ -80,7 +79,6 @@ function NewTask({ onDone }: { onDone: () => void }) {
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-muted">{t('Việc nền không có ai ngồi duyệt, nên mọi thao tác cần xin phép sẽ bị từ chối nếu bạn không chọn Toàn quyền.')}</p>
           </div>
           {roles.length > 0 && (
             <div className="max-w-sm">
@@ -175,7 +173,7 @@ export function TasksPage() {
   return (
     <Page>
       <div>
-        <PageHeader title={t('Giao việc cho agent')} subtitle={t('Những việc dài agent tự làm ở chế độ nền: nghiên cứu, viết báo cáo, xử lý file… Bạn có thể làm việc khác trong lúc chờ.')} />
+        <PageHeader title={t('Giao việc cho agent')} />
         <NewTask onDone={refresh} />
         {q.isLoading ? <Loading /> : q.error ? <ErrorNote error={q.error} /> : (
           <>

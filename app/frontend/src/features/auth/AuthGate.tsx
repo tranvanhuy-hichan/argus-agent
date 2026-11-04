@@ -23,7 +23,6 @@ function LoginPage({ onSuccess }: { onSuccess: () => void }) {
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="grid size-12 place-items-center rounded-xl bg-accent text-accent-fg"><Bot className="size-6" /></div>
           <h1 className="text-lg font-semibold">{t('Đăng nhập Argus Agent')}</h1>
-          <p className="text-sm text-muted">{t('Nhập mật khẩu đã đặt trong Cài đặt.')}</p>
         </div>
         <label className="block"><span className="sr-only">{t('Mật khẩu')}</span>
           <Input type="password" autoFocus autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('Mật khẩu')} /></label>

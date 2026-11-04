@@ -52,7 +52,7 @@ export function Discover({ installed }: { installed: Skill[] }) {
       <p className="mb-3 text-xs text-muted">{t('Nguồn: clawhub.ai · chỉ hiển thị skill chưa bị gắn cờ đáng ngờ. Hãy đọc kỹ SKILL.md trước khi cài, vì skill có thể yêu cầu agent chạy lệnh.')}</p>
 
       {state.isLoading ? <Loading /> : state.error ? <ErrorNote error={state.error} /> : !items?.length ? (
-        <EmptyState icon={Search} title={t('Không tìm thấy skill nào')} hint={t('Thử từ khóa khác.')} />
+        <EmptyState icon={Search} title={t('Không tìm thấy skill nào')} />
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border border-line bg-panel">

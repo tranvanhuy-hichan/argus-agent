@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Bot, Brain, Cable, Check, ChevronRight, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
+import { AgentMark } from '../../components/ui/AgentMark'
+import { Brain, Cable, Check, ChevronRight, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { t, tk } from '@/lib/i18n.ts'
@@ -61,6 +62,11 @@ function ToolCard({ item, onOpenFile }: { item: ToolItem; onOpenFile: (p: string
   )
 }
 
+/** To mau cac @dich-vu trong tin nhan cua nguoi dung. */
+function WithMentions({ text }: { text: string }) {
+  return <>{text.split(/((?<![\w@./-])@[a-z0-9][\w-]*)/).map((part, i) => (part.startsWith('@') ? <span key={i} className="font-medium text-accent">{part}</span> : part))}</>
+}
+
 function Thinking({ text, streaming }: { text: string; streaming: boolean }) {
   const [open, setOpen] = useState(false)
   const show = open || streaming
@@ -120,7 +126,7 @@ export function MessageView({ item, onDecide, onOpenFile, isLastUser, isLastAssi
             </div>
           ) : (
             <>
-              <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent/15 px-4 py-2.5">{item.text}</div>
+              <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent/15 px-4 py-2.5"><WithMentions text={item.text} /></div>
               {item.attachments && item.attachments.length > 0 && (
                 <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
                   {item.attachments.map((a) => <button key={a} onClick={() => onOpenFile(a)} className="flex items-center gap-1 rounded-md border border-line bg-panel px-2 py-0.5 text-[11px] text-muted hover:text-fg"><Paperclip className="size-3" />{a.split('/').pop()}</button>)}
@@ -134,7 +140,7 @@ export function MessageView({ item, onDecide, onOpenFile, isLastUser, isLastAssi
     case 'assistant':
       return (
         <div className="fade-in group flex gap-3">
-          <div className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-accent text-accent-fg"><Bot className="size-4" /></div>
+          <AgentMark size="sm" />
           <div className="min-w-0 flex-1 pt-0.5">
             <div className={cn(item.streaming && 'caret')}><Markdown text={stripImageMarks(item.text)} /></div>
             {!item.streaming && <Images text={item.text} onOpen={onOpenFile} />}

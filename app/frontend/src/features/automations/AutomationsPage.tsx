@@ -50,7 +50,7 @@ function JobModal({ draft, onClose }: { draft: Draft | null; onClose: () => void
       footer={<><Button onClick={onClose}>{t('Hủy')}</Button><Button variant="primary" loading={save.isPending} disabled={!d.name.trim() || !d.prompt.trim() || !d.schedule.trim()} onClick={() => save.mutate()}>{t('Lưu')}</Button></>}>
       <div className="space-y-5">
         <Field label={t('Đặt tên cho việc này')}><Input value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder={t('Tóm tắt tin buổi sáng')} /></Field>
-        <Field label={t('Mỗi lần chạy, agent cần làm gì?')} hint={t('Viết như khi nhờ một người trợ lý. Việc chạy ngầm nên agent không chạy được lệnh trên máy bạn.')}>
+        <Field label={t('Mỗi lần chạy, agent cần làm gì?')}>
           <Textarea rows={4} value={d.prompt} onChange={(e) => setD({ ...d, prompt: e.target.value })} />
         </Field>
         <div>
@@ -66,7 +66,7 @@ function JobModal({ draft, onClose }: { draft: Draft | null; onClose: () => void
         </div>
         <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm">
           <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={d.notify} onChange={(e) => setD({ ...d, notify: e.target.checked })} />
-          <span><span className="font-medium">{t('Báo kết quả cho tôi')}</span><span className="block text-xs text-muted">{t('Gửi vào Hộp thư và Telegram (nếu đã kết nối) mỗi khi chạy xong.')}</span></span>
+          <span><span className="font-medium">{t('Báo kết quả cho tôi')}</span></span>
         </label>
         <details>
           <summary className="cursor-pointer select-none text-sm text-muted hover:text-fg">{t('Tùy chọn nâng cao')}</summary>
@@ -126,7 +126,7 @@ export function AutomationsPage() {
   return (
     <Page>
       <div>
-        <PageHeader title={t('Việc tự động theo lịch')} subtitle={t('Agent tự làm việc vào giờ bạn chọn, rồi báo kết quả cho bạn. Bạn không cần mở máy hay bấm gì.')}
+        <PageHeader title={t('Việc tự động theo lịch')}
           action={<Button variant="primary" onClick={() => setDraft(blank)}><Plus className="size-4" />{t('Tạo việc mới')}</Button>} />
         <HeartbeatCard />
         {jobs.isLoading ? <Loading /> : jobs.error ? <ErrorNote error={jobs.error} /> : (
@@ -134,7 +134,6 @@ export function AutomationsPage() {
             {list.length > 0 && <div className="mb-8 grid items-start gap-3 xl:grid-cols-2">{list.map((j) => <JobCard key={j.id} j={j} refresh={refresh} onEdit={() => setDraft({ id: j.id, name: j.name, schedule: j.schedule, prompt: j.prompt, provider: j.provider, enabled: j.enabled, notify: j.notify })} />)}</div>}
             <section>
               <h2 className="text-sm font-semibold">{list.length ? t('Gợi ý thêm') : t('Bắt đầu nhanh với một mẫu')}</h2>
-              <p className="mb-3 mt-0.5 text-xs text-muted">{t('Bấm vào một mẫu, chỉnh lại nếu muốn rồi lưu.')}</p>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {TEMPLATES.map((x) => (
                   <button key={x.name} onClick={() => setDraft({ ...blank, name: t(x.name), prompt: t(x.prompt), schedule: x.schedule })}

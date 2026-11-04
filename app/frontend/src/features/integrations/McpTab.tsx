@@ -12,13 +12,15 @@ import { useConfig, useMcp, useSaveConfig } from '@/lib/queries'
 import type { McpServerCfg, McpServerInfo } from '@/lib/types'
 import { cn, errMsg } from '@/lib/utils'
 import { blankServer, McpServerModal } from './McpServerModal'
+import { ToolList } from './ToolList'
 import { t, tk } from '@/lib/i18n.ts'
-import { T } from '@/lib/T.tsx'
 
-const STATUS: Record<McpServerInfo['status'], { label: string; tone: 'ok' | 'info' | 'bad' | 'neutral' }> = {
+const STATUS: Record<McpServerInfo['status'], { label: string; tone: 'ok' | 'info' | 'bad' | 'neutral' | 'warn' }> = {
+  needs_auth: { label: tk('Cần đăng nhập'), tone: 'warn' },
   connected: { label: tk('Đã kết nối'), tone: 'ok' }, connecting: { label: tk('Đang kết nối…'), tone: 'info' }, error: { label: tk('Lỗi'), tone: 'bad' }, disabled: { label: tk('Đã tắt'), tone: 'neutral' },
 }
 
+/** MCP truyen thong: server chay tren may ban (stdio) hoac server HTTP/SSE tu khai bao. Dich vu dang nhap bang tai khoan nam o tab "MCP dich vu". */
 export function McpTab() {
   const mcp = useMcp()
   const cfg = useConfig()
@@ -42,17 +44,17 @@ export function McpTab() {
   if (mcp.error) return <ErrorNote error={mcp.error} />
   const servers = cfg.data.config.mcp_servers
   const toolsEnabled = cfg.data.config.agent.tools_enabled
+  const list = (mcp.data ?? []).filter((s) => !s.config.oauth && !s.config.service)
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-muted"><T k="Kết nối các MCP server (của bạn hoặc bên thứ ba). Tool của chúng sẽ xuất hiện cho agent với tên dạng {name}." v={{ name: <code className="rounded bg-panel2 px-1 font-mono text-xs">{t('tênserver__têntool')}</code> }} /></p>
         <Button variant="primary" onClick={() => setEditing({ name: null, cfg: blankServer })}><Plus className="size-4" />{t('Thêm MCP server')}</Button>
       </div>
 
-      {mcp.data?.length === 0 ? (
-        <Card><EmptyState icon={Cable} title={t('Chưa có MCP server nào')} hint={t('Ví dụ thử nhanh: stdio với lệnh là Python trong .venv và tham số là examples/demo_mcp_server.py.')} action={<Button variant="primary" onClick={() => setEditing({ name: null, cfg: blankServer })}><Plus className="size-4" />{t('Thêm MCP server')}</Button>} /></Card>
-      ) : mcp.data?.map((s) => {
+      {list.length === 0 ? (
+        <Card><EmptyState icon={Cable} title={t('Chưa có MCP server nào')} action={<Button variant="primary" onClick={() => setEditing({ name: null, cfg: blankServer })}><Plus className="size-4" />{t('Thêm MCP server')}</Button>} /></Card>
+      ) : list.map((s) => {
         const st = STATUS[s.status]
         const expanded = open === s.name
         return (
@@ -75,19 +77,7 @@ export function McpTab() {
               <Switch checked={s.config.enabled} onChange={(v) => persist({ ...servers, [s.name]: { ...servers[s.name], enabled: v } })} label={t('Bật {name}', { name: s.name })} />
             </div>
             {s.error && <p className="mx-4 mb-4 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 font-mono text-xs text-bad">{s.error}</p>}
-            {expanded && s.tools.length > 0 && (
-              <div className="border-t border-line">
-                {s.tools.map((tl) => (
-                  <div key={tl.full_name} className="flex items-center gap-4 border-b border-line px-5 py-2.5 last:border-b-0">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2"><span className="font-mono text-[13px]">{tl.full_name}</span>{tl.read_only && <Badge tone="ok">read-only</Badge>}</div>
-                      <p className="line-clamp-2 text-xs text-muted">{tl.description}</p>
-                    </div>
-                    <Switch checked={toolsEnabled[tl.full_name] !== false} onChange={(v) => persist(servers, { ...toolsEnabled, [tl.full_name]: v })} label={t('Bật tool {name}', { name: tl.full_name })} />
-                  </div>
-                ))}
-              </div>
-            )}
+            {expanded && <ToolList tools={s.tools} enabled={toolsEnabled} onToggle={(n, on) => persist(servers, { ...toolsEnabled, [n]: on })} />}
           </Card>
         )
       })}

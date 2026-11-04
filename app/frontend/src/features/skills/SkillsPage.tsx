@@ -60,7 +60,6 @@ export function SkillsPage() {
     <Page>
       <PageHeader
         title={t('Kỹ năng')}
-        subtitle={t('Gói hướng dẫn chuyên biệt cho agent. Tương thích định dạng skill của ClawHub.')}
         action={<Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" />{t('Tạo skill')}</Button>}
       />
       <Tabs
@@ -82,7 +81,7 @@ export function SkillsPage() {
               <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('Lọc skill đã cài…')} className="pl-9" aria-label={t('Lọc skill')} />
             </div>
             {list.length === 0 ? (
-              <EmptyState icon={PackagePlus} title={t('Chưa có skill nào')} hint={t('Mở tab Khám phá để cài skill từ ClawHub, hoặc tạo skill của riêng bạn.')} action={<Button onClick={() => setTab('discover')}><Compass className="size-4" />{t('Khám phá ClawHub')}</Button>} />
+              <EmptyState icon={PackagePlus} title={t('Chưa có skill nào')} action={<Button onClick={() => setTab('discover')}><Compass className="size-4" />{t('Khám phá ClawHub')}</Button>} />
             ) : (
               <div className="overflow-hidden rounded-xl border border-line bg-panel">
                 {list.map((s) => (

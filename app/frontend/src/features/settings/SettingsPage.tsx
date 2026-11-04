@@ -29,7 +29,7 @@ function SecretsCard({ s }: { s?: SecretsStatus }) {
   const where = { env: t('biến môi trường ARGUS_MASTER_KEY'), keychain: t('keychain của hệ điều hành'), file: 'data/master.key', none: t('chưa có') }[s.source]
   return (
     <Card>
-      <CardHeader title={t('Mã hóa khóa bí mật')} hint={t('API key, token Telegram và biến môi trường của MCP được mã hóa trong config.json.')} />
+      <CardHeader title={t('Mã hóa khóa bí mật')} />
       <div className="space-y-3 p-5 text-sm">
         <div className="flex items-center justify-between"><span className="text-muted">{t('Khóa đã mã hóa')}</span><Badge tone="ok">{s.encrypted}</Badge></div>
         <div className="flex items-center justify-between"><span className="text-muted">{t('Khóa còn chữ thường')}</span><Badge tone={s.plaintext ? 'warn' : 'neutral'}>{s.plaintext}</Badge></div>
@@ -83,7 +83,7 @@ export function SettingsPage() {
 
   return (
     <Page>
-      <PageHeader title={t('Cài đặt')} subtitle={t('Hành vi của agent, tool, bảo mật và các tùy chọn nâng cao.')} action={
+      <PageHeader title={t('Cài đặt')} action={
         <Button variant="primary" disabled={!dirty} loading={save.isPending}
           onClick={() => save.mutate({ ...cfg.data.config, ...extra, agent, clawhub_url: hub }, { onSuccess: () => toast(t('Đã lưu cài đặt')), onError: (e) => toast(errMsg(e), 'bad') })}>{t('Lưu thay đổi')}</Button>
       } />
@@ -98,18 +98,21 @@ export function SettingsPage() {
             <div className="flex items-start justify-between gap-4 sm:col-span-2">
               <div>
                 <p className="text-sm font-medium">{t('Xác nhận trước khi chạy lệnh shell')}</p>
-                <p className="text-xs text-muted">{t('Khuyến nghị bật, đặc biệt khi cài skill từ internet.')}</p>
               </div>
               <Switch checked={agent.confirm_exec} onChange={(v) => setAgent({ ...agent, confirm_exec: v })} label={t('Xác nhận lệnh shell')} />
+            </div>
+            <div className="flex items-start justify-between gap-4 sm:col-span-2">
+              <p className="text-sm font-medium">{t('Gợi ý tạo kỹ năng từ việc lặp lại')}</p>
+              <Switch checked={agent.suggest_habits} onChange={(v) => setAgent({ ...agent, suggest_habits: v })} label={t('Gợi ý kỹ năng')} />
             </div>
           </div>
           <details className="group border-t border-line">
             <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-muted hover:text-fg">{t('Tùy chọn nâng cao')}<span className="ml-2 text-xs font-normal">{t('Mặc định đã ổn, chỉ chỉnh khi bạn biết mình đang làm gì.')}</span></summary>
             <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
-              <Field label={t('Số bước tối đa mỗi lượt')} hint={t('Mỗi lần gọi tool tính là một bước.')}><Input type="number" min={1} max={50} value={agent.max_steps} onChange={num('max_steps')} /></Field>
-              <Field label={t('Số tin nhắn gửi kèm')} hint={t('Model nhỏ nên để thấp (10–30) vì context ngắn.')}><Input type="number" min={4} max={500} value={agent.max_history} onChange={num('max_history')} /></Field>
+              <Field label={t('Số bước tối đa mỗi lượt')}><Input type="number" min={1} max={50} value={agent.max_steps} onChange={num('max_steps')} /></Field>
+              <Field label={t('Số tin nhắn gửi kèm')}><Input type="number" min={4} max={500} value={agent.max_history} onChange={num('max_history')} /></Field>
               <div className="sm:col-span-2"><Field label={t('Thư mục workspace')}><Input value={agent.workspace} onChange={(e) => setAgent({ ...agent, workspace: e.target.value })} /></Field></div>
-              <div className="sm:col-span-2"><Field label={t('Tóm tắt hội thoại khi vượt quá (ký tự)')} hint={t('Khi lịch sử hội thoại dài hơn mức này, phần cũ được tóm tắt để model nhỏ không quên đầu cuộc trò chuyện.')}><Input type="number" min={4000} step={1000} value={agent.compact_chars} onChange={(e) => setAgent({ ...agent, compact_chars: Number(e.target.value) })} /></Field></div>
+              <div className="sm:col-span-2"><Field label={t('Tóm tắt hội thoại khi vượt quá (ký tự)')}><Input type="number" min={4000} step={1000} value={agent.compact_chars} onChange={(e) => setAgent({ ...agent, compact_chars: Number(e.target.value) })} /></Field></div>
             </div>
           </details>
         </Card>
@@ -119,7 +122,7 @@ export function SettingsPage() {
         {tab === 'tools' && (
           <>
         <Card>
-          <CardHeader title={t('Công cụ')} hint={t('Tắt tool nào thì agent không nhìn thấy và không gọi được tool đó. Ít tool giúp model nhỏ chọn đúng hơn.')} />
+          <CardHeader title={t('Công cụ')} />
           {cfg.data.tools.map((tool) => (
             <div key={tool.name} className="flex items-center gap-4 border-b border-line px-5 py-3 last:border-b-0">
               <div className="min-w-0 flex-1">
@@ -135,12 +138,12 @@ export function SettingsPage() {
         {tab === 'security' && (
           <>
         <Card>
-          <CardHeader title={t('Sandbox chạy lệnh (Docker)')} hint={t('Chạy lệnh shell của agent trong container cách ly thay vì trực tiếp trên máy bạn. Khuyến nghị khi dùng skill từ internet.')} />
+          <CardHeader title={t('Sandbox chạy lệnh (Docker)')} />
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             <Field label={t('Chế độ')}><Select value={agent.exec_sandbox} onChange={(e) => setAgent({ ...agent, exec_sandbox: e.target.value as 'none' | 'docker' })}><option value="none">{t('Tắt (chạy trực tiếp trên máy)')}</option><option value="docker">Docker</option></Select></Field>
-            <Field label={t('Image')} hint={t('Phải có bash. Mặc định python:3.12-slim.')}><Input value={agent.sandbox_image} disabled={agent.exec_sandbox !== 'docker'} onChange={(e) => setAgent({ ...agent, sandbox_image: e.target.value })} className="font-mono" /></Field>
+            <Field label={t('Image')}><Input value={agent.sandbox_image} disabled={agent.exec_sandbox !== 'docker'} onChange={(e) => setAgent({ ...agent, sandbox_image: e.target.value })} className="font-mono" /></Field>
             <div className="flex items-start justify-between gap-4 sm:col-span-2">
-              <div><p className="text-sm font-medium">{t('Cho phép container dùng mạng')}</p><p className="text-xs text-muted">{t('Mặc định tắt: lệnh trong sandbox không ra được internet. Chỉ thư mục làm việc của phiên được gắn vào container.')}</p></div>
+              <div><p className="text-sm font-medium">{t('Cho phép container dùng mạng')}</p></div>
               <Switch checked={agent.sandbox_network} onChange={(v) => setAgent({ ...agent, sandbox_network: v })} label={t('Mạng trong sandbox')} disabled={agent.exec_sandbox !== 'docker'} />
             </div>
           </div>
@@ -152,7 +155,7 @@ export function SettingsPage() {
         {tab === 'advanced' && (
           <>
         <Card>
-          <CardHeader title="ClawHub" hint={t('Địa chỉ registry để tải skill.')} />
+          <CardHeader title="ClawHub" />
           <div className="p-5"><Field label="URL"><Input value={hub} onChange={(e) => setHub(e.target.value)} /></Field></div>
         </Card>
           </>

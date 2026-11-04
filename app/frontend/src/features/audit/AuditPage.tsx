@@ -30,14 +30,14 @@ export function AuditPage() {
 
   return (
     <Page>
-      <PageHeader title={t('Nhật ký hoạt động')} subtitle={t('Mọi lần agent gọi tool, chạy lệnh hay MCP, kèm quyết định cho phép hoặc từ chối.')} />
+      <PageHeader title={t('Nhật ký hoạt động')} />
       <div className="mb-4 flex flex-wrap gap-3">
         <Select value={decision} onChange={(e) => reset(() => setDecision(e.target.value))} className="w-44" aria-label={t('Quyết định')}><option value="">{t('Mọi quyết định')}</option><option value="approved">{t('Cho phép')}</option><option value="denied">{t('Từ chối')}</option><option value="auto">{t('Tự động')}</option><option value="full_access">{t('Toàn quyền (không hỏi)')}</option></Select>
         <Select value={source} onChange={(e) => reset(() => setSource(e.target.value))} className="w-44" aria-label={t('Nguồn')}><option value="">{t('Mọi nguồn')}</option><option value="chat">{t('Trò chuyện')}</option><option value="api">API</option><option value="telegram">Telegram</option><option value="cron">{t('Tự động hóa')}</option><option value="heartbeat">Heartbeat</option></Select>
         <Select value={tool} onChange={(e) => reset(() => setTool(e.target.value))} className="w-44" aria-label={t('Công cụ')}><option value="">{t('Mọi tool')}</option>{['exec', 'write', 'edit', 'read', 'web_fetch', 'web_search', 'http_request', 'memory_search', 'notify'].map((n) => <option key={n}>{n}</option>)}</Select>
       </div>
       {q.isLoading ? <Loading /> : q.error ? <ErrorNote error={q.error} /> : q.data?.items.length === 0 ? (
-        <Card><EmptyState icon={ScrollText} title={t('Chưa có hoạt động nào')} hint={t('Khi agent dùng tool, mọi thứ sẽ được ghi lại ở đây.')} /></Card>
+        <Card><EmptyState icon={ScrollText} title={t('Chưa có hoạt động nào')} /></Card>
       ) : (
         <>
           <Card className="overflow-hidden">

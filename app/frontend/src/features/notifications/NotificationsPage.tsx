@@ -20,10 +20,10 @@ export function NotificationsPage() {
 
   return (
     <Page>
-      <PageHeader title={t('Hộp thư')} subtitle={t('Thông báo từ heartbeat, automations và do chính agent gửi. Nếu đã kết nối Telegram, chúng cũng được gửi qua đó.')}
+      <PageHeader title={t('Hộp thư')}
         action={<div className="flex gap-2"><Button onClick={() => readAll.mutate()} disabled={!q.data?.unread}><CheckCheck className="size-4" />{t('Đánh dấu đã đọc')}</Button><Button variant="danger" onClick={() => { if (confirm(t('Xóa toàn bộ thông báo?'))) clear.mutate() }} disabled={!q.data?.items.length}><Trash2 className="size-4" />{t('Xóa hết')}</Button></div>} />
       {q.isLoading ? <Loading /> : q.error ? <ErrorNote error={q.error} /> : q.data?.items.length === 0 ? (
-        <Card><EmptyState icon={Bell} title={t('Chưa có thông báo')} hint={t('Bật Heartbeat hoặc tạo Automation để agent chủ động báo cho bạn.')} /></Card>
+        <Card><EmptyState icon={Bell} title={t('Chưa có thông báo')} /></Card>
       ) : (
         <div className="space-y-2">
           {q.data?.items.map((n) => (

@@ -29,8 +29,8 @@ export function CreateSkillModal({ open, onClose }: { open: boolean; onClose: ()
       footer={<><Button onClick={onClose}>{t('Hủy')}</Button><Button variant="primary" loading={create.isPending} disabled={!name || !description || !body} onClick={() => create.mutate()}>{t('Tạo')}</Button></>}>
       <div className="space-y-4">
         <Field label={t('Tên (a-z, 0-9, - và _)')}><Input value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder={t('vi-du-skill')} /></Field>
-        <Field label={t('Mô tả')} hint={t('Luôn nằm trong prompt, viết ngắn gọn và nêu rõ khi nào nên dùng.')}><Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('Dùng khi người dùng muốn…')} /></Field>
-        <Field label={t('Hướng dẫn (Markdown)')} hint={t('Chỉ được nạp khi agent gọi skills_read. Dùng {baseDir} để trỏ tới thư mục của skill.', { baseDir: '{baseDir}' })}><Textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)} /></Field>
+        <Field label={t('Mô tả')}><Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('Dùng khi người dùng muốn…')} /></Field>
+        <Field label={t('Hướng dẫn (Markdown)')}><Textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)} /></Field>
       </div>
     </Modal>
   )

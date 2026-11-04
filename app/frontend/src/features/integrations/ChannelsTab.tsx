@@ -41,7 +41,6 @@ export function ChannelsTab() {
 
   return (
     <div className="space-y-4">
-      <p className="max-w-3xl text-sm text-muted">{t('Nhắn tin cho agent từ điện thoại. Agent chạy trên máy của bạn và nhận tin bằng long polling, nên không cần mở cổng ra internet.')}</p>
       <Card>
         <CardHeader
           title={<span className="flex items-center gap-2"><Send className="size-4" />Telegram {tg.running ? <Badge tone="ok">{t('Đang chạy {bot}', { bot: tg.bot ?? '' })}</Badge> : tg.enabled ? <Badge tone="bad">{t('Lỗi')}</Badge> : <Badge>{t('Đã tắt')}</Badge>}</span>}
@@ -64,7 +63,7 @@ export function ChannelsTab() {
       </Card>
 
       <Card>
-        <CardHeader title={t('Ghép đôi và quyền truy cập')} hint={t('Chỉ những tài khoản Telegram đã ghép đôi mới giao việc được cho agent.')} action={<Button size="sm" onClick={() => genCode.mutate()} loading={genCode.isPending} disabled={!tg.running}>{t('Tạo mã ghép đôi')}</Button>} />
+        <CardHeader title={t('Ghép đôi và quyền truy cập')} action={<Button size="sm" onClick={() => genCode.mutate()} loading={genCode.isPending} disabled={!tg.running}>{t('Tạo mã ghép đôi')}</Button>} />
         <div className="space-y-4 p-5">
           {pair && (
             <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/40 bg-accent/5 p-3">
@@ -81,7 +80,6 @@ export function ChannelsTab() {
               ))}
             </ul>
           )}
-          <p className="text-xs text-muted"><T k="Lệnh trong Telegram: {new} hội thoại mới, {stop} hủy yêu cầu đang chờ phê duyệt, {id} xem ID của bạn. Khi agent muốn chạy lệnh, bot gửi nút {buttons}; file agent tạo ra được gửi lại kèm theo." v={{ new: <code className="font-mono">/new</code>, stop: <code className="font-mono">/stop</code>, id: <code className="font-mono">/id</code>, buttons: <b>{t('Cho phép')} / {t('Từ chối')}</b> }} /></p>
         </div>
       </Card>
     </div>

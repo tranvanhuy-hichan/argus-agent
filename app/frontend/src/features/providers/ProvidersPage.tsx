@@ -17,8 +17,10 @@ import { t, tk } from '@/lib/i18n.ts'
 const openai = (base_url: string, model: string, api_key_env = ''): ProviderCfg => ({ type: 'openai', base_url, model, api_key: '', api_key_env, temperature: 0.7 })
 // Model mac dinh chi la goi y; bam "Tai danh sach" de lay model that tu nha cung cap.
 const CUSTOM = tk('Tùy chỉnh (OpenAI-compatible)')
-const cli = (kind: 'claude' | 'custom', model = ''): ProviderCfg => ({ type: 'cli', cli: kind, command: '', base_url: '', model, api_key: '', api_key_env: '', temperature: 0.7 })
+const cli = (kind: 'claude' | 'agy' | 'codex' | 'custom', model = ''): ProviderCfg => ({ type: 'cli', cli: kind, command: '', base_url: '', model, api_key: '', api_key_env: '', temperature: 0.7 })
 const CLAUDE_CLI = 'Claude Code (CLI)'
+const AGY_CLI = 'Antigravity (CLI)'
+const CODEX_CLI = 'Codex (CLI)'
 const OTHER_CLI = tk('CLI khác')
 const PRESETS: Record<string, ProviderCfg> = {
   'Ollama (local)': openai('http://localhost:11434/v1', 'qwen2.5:3b'),
@@ -38,6 +40,8 @@ const PRESETS: Record<string, ProviderCfg> = {
   'Alibaba Qwen (DashScope)': openai('https://dashscope-intl.aliyuncs.com/compatible-mode/v1', 'qwen-plus', 'DASHSCOPE_API_KEY'),
   [CUSTOM]: openai('http://', ''),
   [CLAUDE_CLI]: cli('claude', 'sonnet'),
+  [AGY_CLI]: cli('agy'),
+  [CODEX_CLI]: cli('codex'),
   [OTHER_CLI]: cli('custom'),
 }
 
@@ -54,6 +58,8 @@ const SERVICES: { preset: string; label: string; desc: string; group: 'local' | 
   { preset: 'OpenRouter', label: 'OpenRouter', desc: tk('Một khóa dùng được hàng trăm model của nhiều hãng.'), group: 'cloud', brand: 'openrouter' },
   { preset: 'Groq', label: 'Groq', desc: tk('Trả lời cực nhanh.'), group: 'cloud', brand: 'groq' },
   { preset: CLAUDE_CLI, label: 'Claude Code', desc: tk('Dùng tài khoản Claude đã đăng nhập sẵn trong CLI, không cần API key.'), group: 'cli', brand: 'claude' },
+  { preset: AGY_CLI, label: 'Antigravity', desc: tk('Dùng tài khoản Google đã đăng nhập trong Antigravity CLI (lệnh agy), không cần API key.'), group: 'cli', brand: 'antigravity' },
+  { preset: CODEX_CLI, label: 'Codex', desc: tk('Dùng tài khoản ChatGPT/OpenAI đã đăng nhập trong Codex CLI, không cần API key.'), group: 'cli', brand: 'codex' },
   { preset: OTHER_CLI, label: tk('CLI khác'), desc: tk('Bất kỳ CLI nào nhận câu hỏi qua stdin và in câu trả lời ra stdout.'), group: 'cli', brand: null },
   { preset: CUSTOM, label: tk('Dịch vụ khác'), desc: tk('Bất kỳ dịch vụ nào tương thích OpenAI (nhập địa chỉ và khóa).'), group: 'cloud', brand: null },
 ]
@@ -63,7 +69,7 @@ const OTHER_PRESETS = Object.keys(PRESETS).filter((k) => !SERVICES.some((s) => s
 
 const isLocal = (p: ProviderCfg) => /localhost|127\.0\.0\.1/.test(p.base_url)
 const brandOf = (p: ProviderCfg): Brand | null => {
-  if (p.type === 'cli') return p.cli === 'claude' ? 'claude' : null
+  if (p.type === 'cli') return p.cli === 'claude' ? 'claude' : p.cli === 'agy' ? 'antigravity' : p.cli === 'codex' ? 'codex' : null
   const hit = Object.entries(PRESETS).find(([, c]) => c.base_url === p.base_url && c.type === p.type)?.[0]
   return hit ? (EXTRA_BRANDS[hit] ?? null) : null
 }
@@ -119,17 +125,16 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
           {isCli ? (
             <div className="space-y-4">
               <div className="grid gap-4 lg:grid-cols-2">
-                <Field label={t('Model')} hint={t('Để trống để dùng model mặc định của CLI.')}>
-                  <Input value={p.model} onChange={(e) => set('model', e.target.value)} list={`models-${name}`} placeholder="sonnet" />
-                  {p.cli === 'claude' && <datalist id={`models-${name}`}>{['sonnet', 'opus', 'haiku'].map((m) => <option key={m} value={m} />)}</datalist>}
+                <Field label={t('Model')} hint={p.cli === 'agy' ? <button type="button" onClick={() => { setModelsMsg(''); loadModels.mutate() }} className="text-accent hover:underline disabled:opacity-50" disabled={loadModels.isPending}>{loadModels.isPending ? t('Đang tải…') : t('Xem các model có sẵn')}{modelsMsg && <span className="ml-2 text-muted">· {modelsMsg}</span>}</button> : undefined}>
+                  <Input value={p.model} onChange={(e) => set('model', e.target.value)} list={`models-${name}`} placeholder={p.cli === 'claude' ? 'sonnet' : ''} />
+                  <datalist id={`models-${name}`}>{(p.cli === 'claude' ? ['sonnet', 'opus', 'haiku'] : fetched).map((m) => <option key={m} value={m} />)}</datalist>
                 </Field>
-                <Field label={p.cli === 'custom' ? t('Lệnh chạy CLI') : t('Đường dẫn lệnh claude (tùy chọn)')} hint={p.cli === 'custom' ? t('Nhận câu hỏi qua stdin, in câu trả lời ra stdout. Ví dụ: my-cli --quiet') : t('Để trống nếu `claude` đã nằm trong PATH.')}>
-                  <Input value={p.command ?? ''} onChange={(e) => set('command', e.target.value)} className="font-mono" placeholder={p.cli === 'custom' ? 'my-cli --quiet' : 'claude'} />
+                <Field label={p.cli === 'custom' ? t('Lệnh chạy CLI') : t('Đường dẫn lệnh {cli} (tùy chọn)', { cli: p.cli ?? '' })} hint={p.cli === 'custom' ? t('Nhận câu hỏi qua stdin, in câu trả lời ra stdout. Ví dụ: my-cli --quiet') : undefined}>
+                  <Input value={p.command ?? ''} onChange={(e) => set('command', e.target.value)} className="font-mono" placeholder={p.cli === 'custom' ? 'my-cli --quiet' : p.cli} />
                 </Field>
               </div>
               <div className="space-y-1.5 rounded-lg border border-line bg-panel2 p-3 text-xs text-muted">
-                <p>{t('Argus chạy CLI này ở chế độ không giao diện và dùng tài khoản đã đăng nhập sẵn trên máy bạn (hãy chạy CLI một lần trong terminal để đăng nhập). Khóa API trong biến môi trường không được dùng.')}</p>
-                <p>{t('Công cụ riêng của CLI bị tắt: Argus vẫn tự điều khiển công cụ nên phê duyệt, kế hoạch và trí nhớ hoạt động như thường. Mỗi bước mở một tiến trình CLI nên chậm hơn API trực tiếp, và không xem được ảnh.')}</p>
+                {p.cli === 'codex' && <p className="text-warn">{t('Chưa kiểm chứng với bản Codex thật (chưa cài trên máy phát triển): nếu gặp lỗi, hãy báo kèm thông báo lỗi.')}</p>}
                 <p className="text-warn">{t('Hãy đọc điều khoản của hãng về việc dùng gói thuê bao theo cách này. Nếu không chắc, dùng API key.')}</p>
               </div>
             </div>
@@ -137,7 +142,7 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
           <>
           <div className="grid gap-4 lg:grid-cols-2">
             {p.type === 'anthropic' || !isLocal(p) ? (
-              <Field label={t('Khóa API')} hint={needsKey ? t('Dán khóa lấy từ trang của nhà cung cấp. Khóa được mã hóa khi lưu.') : t('Đã lưu. Để nguyên nếu không đổi.')}>
+              <Field label={t('Khóa API')}>
                 <Input type="password" autoComplete="off" value={p.api_key} onChange={(e) => set('api_key', e.target.value)} placeholder={t('Dán khóa API vào đây')} />
               </Field>
             ) : <div />}
@@ -148,17 +153,17 @@ function ProviderCard({ name, p, isDefault, models, open, onToggle, onChange, on
           </div>
           <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm">
             <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={!!p.vision} onChange={(e) => set('vision', e.target.checked)} />
-            <span><span className="font-medium">{t('Model hiểu được ảnh (vision)')}</span><span className="block text-xs text-muted">{t('Bật thì ảnh bạn đính kèm trong chat được gửi trực tiếp cho model. Chỉ bật nếu model hỗ trợ.')}</span></span>
+            <span><span className="font-medium">{t('Model hiểu được ảnh (vision)')}</span></span>
           </label>
           <details>
             <summary className="cursor-pointer select-none text-sm text-muted hover:text-fg">{t('Tùy chọn nâng cao')}</summary>
             <div className="mt-3 grid gap-4 lg:grid-cols-2">
               {p.type === 'openai' && <div className="lg:col-span-2"><Field label={t('Địa chỉ máy chủ (Base URL)')}><Input value={p.base_url} onChange={(e) => set('base_url', e.target.value)} className="font-mono" /></Field></div>}
               <Field label={t('Hoặc lấy khóa từ biến môi trường')}><Input value={p.api_key_env} onChange={(e) => set('api_key_env', e.target.value)} placeholder="OPENAI_API_KEY" className="font-mono" /></Field>
-              <Field label={t('Độ sáng tạo (temperature): {v}', { v: p.temperature })} hint={t('Thấp = chắc chắn, cao = bay bổng. 0.7 là hợp lý.')}>
+              <Field label={t('Độ sáng tạo (temperature): {v}', { v: p.temperature })}>
                 <input type="range" min={0} max={2} step={0.1} value={p.temperature} onChange={(e) => set('temperature', parseFloat(e.target.value))} className="mt-2 w-full accent-[var(--accent)]" />
               </Field>
-              <Field label={t('Giá vào (USD / 1 triệu token)')} hint={t('Chỉ để ước tính chi phí ở trang Thống kê. Bỏ trống = 0.')}><Input type="number" min={0} step={0.01} value={p.price_in ?? 0} onChange={(e) => set('price_in', Number(e.target.value))} /></Field>
+              <Field label={t('Giá vào (USD / 1 triệu token)')}><Input type="number" min={0} step={0.01} value={p.price_in ?? 0} onChange={(e) => set('price_in', Number(e.target.value))} /></Field>
               <Field label={t('Giá ra (USD / 1 triệu token)')}><Input type="number" min={0} step={0.01} value={p.price_out ?? 0} onChange={(e) => set('price_out', Number(e.target.value))} /></Field>
               <label className="flex items-center gap-2 text-xs text-muted lg:col-span-2"><input type="checkbox" className="accent-[var(--accent)]" checked={allModels} onChange={(e) => setAllModels(e.target.checked)} />{t('Khi xem model, hiện cả loại không dùng để chat (giọng nói, embedding, ảnh, video)')}</label>
             </div>
@@ -218,7 +223,7 @@ export function ProvidersPage() {
 
   return (
     <Page>
-      <PageHeader title={t('Mô hình AI')} subtitle={t('Đây là “bộ não” của agent. Chọn một dịch vụ, dán khóa là dùng được. Bạn có thể thêm nhiều mô hình và đổi qua lại bất cứ lúc nào.')}
+      <PageHeader title={t('Mô hình AI')}
         action={<Button variant="primary" disabled={!dirty} loading={save.isPending} onClick={onSave}>{t('Lưu thay đổi')}</Button>} />
 
       <section className="mb-8">
@@ -234,7 +239,6 @@ export function ProvidersPage() {
 
       <section className="mb-8">
         <h2 className="text-sm font-semibold">{t('Thêm mô hình AI')}</h2>
-        <p className="mb-3 mt-0.5 text-xs text-muted">{t('Bấm vào một dịch vụ để thêm. Dịch vụ đám mây cần khóa API (lấy trên trang của họ); loại chạy trên máy bạn thì không cần.')}</p>
         {(['local', 'cloud', 'cli'] as const).map((g) => (
           <div key={g} className="mb-4">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted/80">{g === 'local' ? t('Chạy trên máy bạn') : g === 'cloud' ? t('Dịch vụ đám mây') : t('Dùng CLI đã đăng nhập (không cần API key)')}</p>
@@ -252,7 +256,6 @@ export function ProvidersPage() {
       {others.length > 0 && (
         <Card className="p-5">
           <h2 className="text-sm font-semibold">{t('Mô hình dự phòng')}</h2>
-          <p className="mb-3 mt-0.5 text-xs text-muted">{t('Nếu mô hình chính bị lỗi hoặc quá tải, agent tự chuyển sang các mô hình bạn tick dưới đây, theo thứ tự.')}</p>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {others.map((n) => (
               <label key={n} className="flex items-center gap-2 text-sm">

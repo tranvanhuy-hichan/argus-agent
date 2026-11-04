@@ -10,7 +10,7 @@ import type { McpServerCfg } from '@/lib/types'
 import { errMsg } from '@/lib/utils'
 import { t, tk } from '@/lib/i18n.ts'
 
-export const blankServer: McpServerCfg = { transport: 'stdio', command: '', args: [], env: {}, cwd: '', url: '', headers: {}, enabled: true, confirm: true }
+export const blankServer: McpServerCfg = { transport: 'stdio', command: '', args: [], env: {}, cwd: '', url: '', headers: {}, oauth: false, oauth_scope: '', enabled: true, confirm: true }
 
 const toLines = (o: Record<string, string>, sep: string) => Object.entries(o).map(([k, v]) => `${k}${sep}${v}`).join('\n')
 function fromLines(text: string, sep: string): Record<string, string> {
@@ -22,15 +22,17 @@ function fromLines(text: string, sep: string): Record<string, string> {
   return out
 }
 
-const PRESETS: Record<string, { name: string; cfg: Partial<McpServerCfg>; note: string }> = {
-  playwright: { name: 'playwright', cfg: { transport: 'stdio', command: 'npx', args: ['-y', '@playwright/mcp@latest'] }, note: tk('Điều khiển trình duyệt (cần Node.js). Tải trình duyệt ở lần chạy đầu.') },
-  filesystem: { name: 'filesystem', cfg: { transport: 'stdio', command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', tk('/đường/dẫn/thư-mục')] }, note: tk('Đọc/ghi file trong một thư mục (cần Node.js). Nhớ sửa đường dẫn thư mục.') },
+// Dich vu OAuth co san nam o tab "MCP dich vu"; hop thoai nay chi con dung cho dich vu tu them (nhap dia chi MCP)
+const PRESETS: Record<string, { name: string; cfg: Partial<McpServerCfg> }> = {
+  remote: { name: '', cfg: { transport: 'http', url: '', oauth: true } },
+  playwright: { name: 'playwright', cfg: { transport: 'stdio', command: 'npx', args: ['-y', '@playwright/mcp@latest'] } },
+  filesystem: { name: 'filesystem', cfg: { transport: 'stdio', command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', tk('/đường/dẫn/thư-mục')] } },
 }
 
 type TestResult = { ok: boolean; error?: string; tools?: { name: string; description: string }[] }
 
-export function McpServerModal({ open, name: initialName, initial, onClose, onSave }: {
-  open: boolean; name: string | null; initial: McpServerCfg; onClose: () => void; onSave: (name: string, cfg: McpServerCfg) => void
+export function McpServerModal({ open, name: initialName, initial, onClose, onSave, kind }: {
+  open: boolean; name: string | null; initial: McpServerCfg; kind?: 'service'; onClose: () => void; onSave: (name: string, cfg: McpServerCfg) => void
 }) {
   const [name, setName] = useState('')
   const [cfg, setCfg] = useState<McpServerCfg>(blankServer)
@@ -38,7 +40,6 @@ export function McpServerModal({ open, name: initialName, initial, onClose, onSa
   const [envText, setEnvText] = useState('')
   const [headersText, setHeadersText] = useState('')
   const [result, setResult] = useState<TestResult | null>(null)
-  const [presetNote, setPresetNote] = useState('')
   const [seed, setSeed] = useState<string | null | undefined>(undefined)
   const [picked, setPicked] = useState<string | null>(null)
 
@@ -47,7 +48,8 @@ export function McpServerModal({ open, name: initialName, initial, onClose, onSa
   if (key !== seed) {
     setSeed(key)
     if (open) {
-      setName(initialName ?? ''); setCfg(initial); setResult(null); setPresetNote('')
+      setName(initialName ?? ''); setCfg(initial); setResult(null)
+      if (kind === 'service' && !initialName) { setPicked('remote'); setCfg({ ...blankServer, ...PRESETS.remote.cfg }) } else setPicked(null)
       setArgsText(initial.args.join('\n')); setEnvText(toLines(initial.env, '=')); setHeadersText(toLines(initial.headers, ': '))
     }
   }
@@ -61,7 +63,7 @@ export function McpServerModal({ open, name: initialName, initial, onClose, onSa
   const applyPreset = (id: string) => {
     const p = PRESETS[id]
     if (!p) return
-    setName(p.name); setCfg({ ...blankServer, ...p.cfg }); setArgsText((p.cfg.args ?? []).map((a) => t(a)).join('\n')); setResult(null); setPresetNote(t(p.note))
+    setName(p.name); setCfg({ ...blankServer, ...p.cfg }); setArgsText((p.cfg.args ?? []).map((a) => t(a)).join('\n')); setResult(null)
   }
   const stdio = cfg.transport === 'stdio'
   const valid = /^[a-z0-9][a-z0-9_-]{0,30}$/.test(name) && (stdio ? cfg.command.trim() : cfg.url.trim())
@@ -74,10 +76,9 @@ export function McpServerModal({ open, name: initialName, initial, onClose, onSa
   const showForm = !!initialName || picked !== null
 
   return (
-    <Modal open={open} onClose={() => { setPicked(null); onClose() }} wide title={initialName ? t('Sửa {name}', { name: initialName }) : t('Thêm công cụ cho agent')}
+    <Modal open={open} onClose={() => { setPicked(null); onClose() }} wide title={initialName ? t('Sửa {name}', { name: initialName }) : kind === 'service' ? t('Thêm dịch vụ khác') : t('Thêm công cụ cho agent')}
       footer={showForm ? <><Button onClick={() => { setPicked(null); onClose() }}>{t('Hủy')}</Button><Button variant="primary" disabled={!valid} onClick={() => { onSave(name, built()); setPicked(null) }}>{t('Lưu')}</Button></> : undefined}>
       <div className="space-y-5">
-        <p className="text-sm text-muted">{t('MCP là cách “cắm thêm” công cụ cho agent, ví dụ duyệt web hoặc làm việc với file. Công cụ mới sẽ tự xuất hiện để agent dùng.')}</p>
         {!showForm ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {TEMPLATES.map((x) => (
@@ -91,20 +92,24 @@ export function McpServerModal({ open, name: initialName, initial, onClose, onSa
           </div>
         ) : (
           <>
-            {presetNote && <p className="rounded-lg border border-line bg-panel2 px-3 py-2 text-xs text-muted">{presetNote}</p>}
             <Field label={t('Đặt tên')} hint={t('Chỉ dùng chữ thường, số, - và _. Tên này đứng đầu tên các công cụ (vd. demo__add).')}><Input value={name} disabled={!!initialName} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder="my-project" /></Field>
             {stdio ? (
               <div className="grid gap-4 lg:grid-cols-2">
-                <Field label={t('Chương trình cần chạy')} hint={t('Ví dụ npx hoặc đường dẫn tới python.')}><Input value={cfg.command} onChange={(e) => setCfg({ ...cfg, command: e.target.value })} placeholder={t('/đường/dẫn/python  hoặc  npx')} className="font-mono" /></Field>
+                <Field label={t('Chương trình cần chạy')}><Input value={cfg.command} onChange={(e) => setCfg({ ...cfg, command: e.target.value })} placeholder={t('/đường/dẫn/python  hoặc  npx')} className="font-mono" /></Field>
                 <Field label={t('Tham số (mỗi dòng một tham số)')}><Textarea rows={3} value={argsText} onChange={(e) => setArgsText(e.target.value)} placeholder={t('/đường/dẫn/server.py') + '\n--flag'} /></Field>
               </div>
             ) : (
-              <Field label={t('Địa chỉ server (URL)')}><Input value={cfg.url} onChange={(e) => setCfg({ ...cfg, url: e.target.value })} placeholder="http://localhost:8000/mcp" className="font-mono" /></Field>
+              <div className="space-y-3">
+                <Field label={t('Địa chỉ server (URL)')}><Input value={cfg.url} onChange={(e) => setCfg({ ...cfg, url: e.target.value })} placeholder="http://localhost:8000/mcp" className="font-mono" /></Field>
+                <label className="flex items-start gap-3 rounded-lg border border-line bg-panel2 p-3 text-sm">
+                  <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={!!cfg.oauth} onChange={(e) => setCfg({ ...cfg, oauth: e.target.checked })} />
+                  <span><span className="font-medium">{t('Đăng nhập bằng tài khoản (OAuth)')}</span></span>
+                </label>
+              </div>
             )}
             <div className="flex items-start justify-between gap-4 rounded-lg border border-line bg-panel2 p-3">
               <div>
                 <p className="text-sm font-medium">{t('Hỏi tôi trước khi dùng công cụ này')}</p>
-                <p className="text-xs text-muted">{t('Khuyên bật. Công cụ chỉ để xem thông tin thì luôn chạy thẳng. Chỉ tắt với server bạn tin tưởng hoàn toàn.')}</p>
               </div>
               <Switch checked={cfg.confirm} onChange={(v) => setCfg({ ...cfg, confirm: v })} label={t('Hỏi xác nhận')} />
             </div>
@@ -121,15 +126,15 @@ export function McpServerModal({ open, name: initialName, initial, onClose, onSa
                 {stdio ? (
                   <div className="grid gap-4 lg:grid-cols-2">
                     <Field label={t('Thư mục chạy (tùy chọn)')}><Input value={cfg.cwd} onChange={(e) => setCfg({ ...cfg, cwd: e.target.value })} className="font-mono" /></Field>
-                    <Field label={t('Biến môi trường (KEY=VALUE mỗi dòng)')} hint={t('Giá trị đã lưu được che bằng ***, để nguyên nếu không đổi.')}><Textarea rows={3} value={envText} onChange={(e) => setEnvText(e.target.value)} /></Field>
+                    <Field label={t('Biến môi trường (KEY=VALUE mỗi dòng)')}><Textarea rows={3} value={envText} onChange={(e) => setEnvText(e.target.value)} /></Field>
                   </div>
                 ) : (
-                  <Field label={t('Header (Tên: giá trị, mỗi dòng một header)')} hint={t('Dùng cho xác thực, vd. Authorization: Bearer …')}><Textarea rows={3} value={headersText} onChange={(e) => setHeadersText(e.target.value)} /></Field>
+                  <Field label={t('Header (Tên: giá trị, mỗi dòng một header)')}><Textarea rows={3} value={headersText} onChange={(e) => setHeadersText(e.target.value)} /></Field>
                 )}
               </div>
             </details>
             <div className="flex flex-wrap items-center gap-3">
-              <Button loading={test.isPending} onClick={() => { setResult(null); test.mutate() }}>{t('Thử kết nối')}</Button>
+              {cfg.oauth ? <p className="text-xs text-muted">{t('Máy chủ dùng OAuth không thử được ở đây: bấm Lưu rồi “Đăng nhập” ở danh sách.')}</p> : <Button loading={test.isPending} onClick={() => { setResult(null); test.mutate() }}>{t('Thử kết nối')}</Button>}
               {result && (
                 <span className={`flex items-center gap-1.5 text-sm ${result.ok ? 'text-ok' : 'text-bad'}`}>
                   {result.ok ? <CircleCheck className="size-4" /> : <CircleX className="size-4 shrink-0" />}

@@ -34,7 +34,6 @@ function CurateButton({ onApplied }: { onApplied: () => void }) {
       <Button loading={propose.isPending} onClick={() => propose.mutate()}><Sparkles className="size-4" />{t('Dọn bằng AI')}</Button>
       <Modal open={!!res} onClose={() => setRes(null)} wide title={t('Đề xuất dọn trí nhớ')}
         footer={<><Button onClick={() => setRes(null)}>{t('Hủy')}</Button><Button variant="primary" loading={apply.isPending} onClick={() => apply.mutate()}>{t('Áp dụng')}</Button></>}>
-        <p className="mb-3 text-sm text-muted">{t('AI gộp mục trùng, bỏ thông tin lỗi thời và sắp xếp lại. Chưa có gì bị ghi cho tới khi bạn bấm Áp dụng.')}</p>
         {res && (
           <div className="space-y-3 text-sm">
             <div><p className="mb-1 font-medium text-bad">{t('Sẽ bỏ ({n})', { n: res.removed.length })}</p>{res.removed.length ? <ul className="list-disc space-y-0.5 pl-5 text-muted">{res.removed.map((x) => <li key={x}>{x}</li>)}</ul> : <p className="text-muted">—</p>}</div>
@@ -46,7 +45,7 @@ function CurateButton({ onApplied }: { onApplied: () => void }) {
   )
 }
 
-function Editor({ file, hint }: { file: string; hint: string }) {
+function Editor({ file }: { file: string }) {
   const qc = useQueryClient()
   const toast = useToast()
   const q = useQuery({ queryKey: ['file', file], queryFn: () => api.get<{ content: string }>(`/api/workspace/${file}`) })
@@ -60,7 +59,6 @@ function Editor({ file, hint }: { file: string; hint: string }) {
   if (q.isLoading) return <Loading />
   return (
     <Card className="p-5">
-      <p className="mb-3 text-sm text-muted">{t(hint)}</p>
       <Textarea rows={18} value={text} onChange={(e) => setText(e.target.value)} aria-label={file} />
       <div className="mt-4 flex items-center gap-3">
         <Button variant="primary" loading={save.isPending} disabled={text === q.data?.content} onClick={() => save.mutate()}>{t('Lưu')}</Button>
@@ -76,9 +74,9 @@ export function WorkspacePage() {
   const f = FILES.find((x) => x.id === tab)!
   return (
     <Page>
-      <PageHeader title={t('Không gian làm việc')} subtitle={t('Các file markdown định hình tính cách và bộ nhớ của agent.')} />
+      <PageHeader title={t('Không gian làm việc')} />
       <Tabs value={tab} onChange={setTab} tabs={FILES.map((x) => ({ id: x.id, label: x.label }))} />
-      <div className="mt-5"><Editor key={f.id} file={f.id} hint={f.hint} /></div>
+      <div className="mt-5"><Editor key={f.id} file={f.id} /></div>
     </Page>
   )
 }

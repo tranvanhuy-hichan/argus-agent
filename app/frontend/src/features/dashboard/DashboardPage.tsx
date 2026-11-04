@@ -36,7 +36,7 @@ export function DashboardPage() {
 
   return (
     <Page>
-      <PageHeader title={t('Bảng điều khiển')} subtitle={t('Tổng quan hoạt động của agent.')} action={
+      <PageHeader title={t('Bảng điều khiển')} action={
         <div className="w-64"><Tabs value={days} onChange={setDays} tabs={[{ id: '7', label: t('{n} ngày', { n: 7 }) }, { id: '30', label: t('{n} ngày', { n: 30 }) }, { id: '90', label: t('{n} ngày', { n: 90 }) }]} /></div>
       } />
 
