@@ -255,15 +255,15 @@ Trong **Chỉnh sửa → Tùy chọn nâng cao** có: địa chỉ máy chủ (
 
 ## 9. Kết nối: công cụ ngoài, Telegram, API
 
-Trang **Kết nối** có ba tab.
+Trang **Kết nối** có ba tab (MCP server, Kênh chat, API & Token). Các dịch vụ bên ngoài nằm ở mục **Plugin** riêng trên thanh bên.
 
-### MCP truyền thống và MCP dịch vụ
+### MCP server và Plugin
 
-MCP là cách "cắm thêm" công cụ cho agent. Trang **Kết nối** chia làm hai tab:
+MCP là cách "cắm thêm" công cụ cho agent. Có hai nơi:
 
-**Tab "MCP truyền thống"**: máy chủ chạy trên máy bạn hoặc tự khai báo (duyệt web bằng Playwright, đọc/ghi file, server MCP của bạn). Bấm **Thêm MCP server**, chọn một mẫu (**Duyệt web**, **Đọc/ghi file**) hoặc **Tự cấu hình**, đặt tên, bấm **Thử kết nối** để thấy các công cụ nó cung cấp, rồi **Lưu**. Công cụ mới tự xuất hiện cho agent, tên dạng `tênserver__têntool`.
+**Kết nối → tab "MCP server"**: máy chủ chạy trên máy bạn hoặc tự khai báo (duyệt web bằng Playwright, đọc/ghi file, server MCP của bạn). Bấm **Thêm MCP server**, chọn một mẫu (**Duyệt web**, **Đọc/ghi file**) hoặc **Tự cấu hình**, đặt tên, bấm **Thử kết nối** để thấy các công cụ nó cung cấp, rồi **Lưu**. Công cụ mới tự xuất hiện cho agent, tên dạng `tênserver__têntool`.
 
-**Tab "MCP dịch vụ"**: danh mục **42 dịch vụ đã kiểm chứng** chia theo lĩnh vực, kể cả những cái bạn chưa dùng: Lập trình và triển khai (GitHub, GitLab, Vercel, Netlify, Cloudflare, Sentry, Datadog, Context7, DeepWiki, Microsoft Learn…), Dữ liệu và hạ tầng (Neon, Supabase, PostHog, Apify, Hugging Face…), Tìm kiếm và tài liệu (Exa, Firecrawl, Tavily), Công việc và cộng tác (Notion, Linear, Asana, Atlassian, ClickUp, monday, Airtable, Todoist, Miro, Zapier…), Thiết kế và website (Canva, Webflow, Wix), Kinh doanh và thanh toán (Stripe, PayPal, Square, Intercom, Ramp). Gõ vào ô tìm kiếm để lọc. Muốn dùng dịch vụ nào, bấm **Dùng** ở dòng đó. Có ba kiểu, ghi rõ ở từng dòng:
+**Mục "Plugin"** (thanh bên, nhóm Khả năng của agent): danh mục **54 dịch vụ đã kiểm chứng** chia theo lĩnh vực, kể cả những cái bạn chưa dùng: Lập trình và triển khai (GitHub, GitLab, Vercel, Netlify, Cloudflare, Sentry, Datadog, Context7, DeepWiki, Microsoft Learn…), Dữ liệu và hạ tầng (Neon, Supabase, PostHog, Apify, Hugging Face…), Tìm kiếm và tài liệu (Exa, Firecrawl, Tavily), Công việc và cộng tác (Notion, Linear, Asana, Atlassian, ClickUp, monday, Airtable, Todoist, Miro, Zapier…), Thiết kế và website (Canva, Webflow, Wix), Kinh doanh và thanh toán (Stripe, PayPal, Square, Intercom, Ramp, Clay, Close, Shopify, GoDaddy), cùng Buildkite, Better Stack, Grafana, Globalping, AWS Knowledge, AllTrails, Amplitude, Cloudinary. Gõ vào ô tìm kiếm để lọc. Muốn dùng dịch vụ nào, bấm **Dùng** ở dòng đó. Có ba kiểu, ghi rõ ở từng dòng:
 
 - **Đăng nhập bằng tài khoản** (đa số): Argus thêm kết nối và mở trang đăng nhập của dịch vụ trong tab mới. Bạn bấm **Cho phép** (trong vòng 5 phút) rồi đóng tab; dòng dịch vụ chuyển sang **Đã kết nối** kèm số công cụ.
 - **Không cần đăng nhập** (nhãn xanh): kết nối ngay.
