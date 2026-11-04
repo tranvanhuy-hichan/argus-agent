@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Bot, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Form'
-import { Loading } from '@/components/ui/misc'
+import { Splash } from '@/components/ui/Splash'
 import { api } from '@/lib/api'
 import { errMsg } from '@/lib/utils'
 import { t } from '@/lib/i18n.ts'
@@ -34,16 +34,37 @@ function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 }
 
 /** Chan toan bo ung dung bang trang dang nhap khi da dat mat khau; bat su kien 401 tu moi lenh goi API. */
+const INTRO_MS = 1400
+const introSeen = () => { try { return sessionStorage.getItem('argus-intro') === '1' } catch { return false } }
+
 export function AuthGate({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
   const [state, setState] = useState<'loading' | 'ok' | 'login'>('loading')
+  // man hinh chao hien it nhat INTRO_MS moi lan mo app (chi mot lan moi tab de khong lam phien khi tai lai trang)
+  const [intro, setIntro] = useState(() => !introSeen())
+  const [gone, setGone] = useState(() => introSeen())
+  useEffect(() => {
+    if (!intro) return
+    const t1 = setTimeout(() => { setIntro(false); try { sessionStorage.setItem('argus-intro', '1') } catch { /* khong luu duoc thi thoi */ } }, INTRO_MS)
+    return () => clearTimeout(t1)
+  }, [intro])
+  useEffect(() => {  // nut "Xem man hinh chao" o Trang chu
+    const replay = () => { setIntro(true); setGone(false) }
+    window.addEventListener('argus-intro', replay)
+    return () => window.removeEventListener('argus-intro', replay)
+  }, [])
+  const ready = state !== 'loading' && !intro
+  useEffect(() => {
+    if (!ready || gone) return
+    const t2 = setTimeout(() => setGone(true), 520)
+    return () => clearTimeout(t2)
+  }, [ready, gone])
   useEffect(() => {
     api.get<{ required: boolean; authenticated: boolean }>('/api/auth/status').then((s) => setState(!s.required || s.authenticated ? 'ok' : 'login')).catch(() => setState('ok'))
     const onAuth = () => setState('login')
     window.addEventListener('auth-required', onAuth)
     return () => window.removeEventListener('auth-required', onAuth)
   }, [])
-  if (state === 'loading') return <Loading />
-  if (state === 'login') return <LoginPage onSuccess={() => { qc.clear(); setState('ok') }} />
-  return <>{children}</>
+  const body = state === 'login' ? <LoginPage onSuccess={() => { qc.clear(); setState('ok') }} /> : state === 'ok' ? <>{children}</> : null
+  return <>{body}{!gone && <Splash leaving={ready} />}</>
 }

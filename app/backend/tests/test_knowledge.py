@@ -271,3 +271,24 @@ def test_analysis_job_uses_only_documents_and_gets_overview(tmp_path, monkeypatc
     done = jobs.execute(jid)
     assert done["status"] == "done" and "Tóm tắt" in done["result"]
     assert seen["tools"] == {"kb_search"} and "PHÂN TÍCH TÀI LIỆU" in seen["system"] and "500 triệu" in seen["system"] and "[[src:" in seen["system"]
+
+
+def test_passage_returns_only_that_chunk_text(tmp_env, tmp_path):
+    from fastapi.testclient import TestClient
+    from argus.main import app
+    from argus.services import knowledge
+    f = tmp_path / "note.txt"
+    f.write_text("Alpha paragraph about budgets.\n\nBeta paragraph about schedules.")
+    doc = knowledge.add_file(f, "note.txt")
+    from argus.core.db import db
+    with db() as c:
+        loc = c.execute("SELECT loc FROM kb_chunks WHERE doc_id=? ORDER BY ord LIMIT 1", (doc["id"],)).fetchone()["loc"]
+    r = TestClient(app).get(f"/api/knowledge/{doc['id']}/passage", params={"loc": loc})
+    assert r.status_code == 200 and "budgets" in r.json()["text"] and r.json()["name"].endswith("note.txt") and r.json()["has_file"]
+    assert TestClient(app).get("/api/knowledge/nope/passage", params={"loc": "x"}).status_code == 404
+
+
+def test_telegram_reply_sources_become_footer():
+    from argus.services.telegram_channel import clean_reply
+    out = clean_reply("Cần có ngân sách. [[src:ab12|bao-cao.docx|đoạn 1-32]] Và tiến độ. [[src:ab12|bao-cao.docx|đoạn 1-32]]")
+    assert "[[" not in out and out.endswith("Nguồn: bao-cao.docx (đoạn 1-32)") and out.startswith("Cần có ngân sách. Và tiến độ.")

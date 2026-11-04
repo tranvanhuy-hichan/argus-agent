@@ -1,6 +1,6 @@
 // Ứng dụng desktop Argus Agent: mở một cửa sổ riêng, bên trong là giao diện web do server Argus (đóng gói sẵn) phục vụ.
 // Người dùng không cần biết server, cổng hay dòng lệnh: bấm mở là dùng được. Dữ liệu nằm ở thư mục dữ liệu của người dùng.
-const { app, BrowserWindow, Menu, dialog, shell } = require('electron')
+const { app, BrowserWindow, Menu, dialog, nativeTheme, shell } = require('electron')
 const { spawn, execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -83,12 +83,33 @@ async function onServerCrashed(code) {
   app.quit()
 }
 
-const splash = (msg) => 'data:text/html;charset=utf-8,' + encodeURIComponent(
-  `<body style="margin:0;height:100vh;display:grid;place-items:center;background:#0c0c0e;color:#9a9aa5;font:15px system-ui,sans-serif"><div style="text-align:center"><div style="width:44px;height:44px;border-radius:10px;background:#2563eb;margin:0 auto 18px"></div>${msg}</div></body>`)
+const img = (name) => { try { return 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, 'assets', name)).toString('base64') } catch { return '' } }
+
+// Màn hình chào hiện ngay khi mở app, trong lúc máy chủ nội bộ khởi động: logo lớn, tên và khẩu hiệu, theo giao diện sáng/tối của hệ điều hành.
+const splash = (msg) => {
+  const dark = nativeTheme.shouldUseDarkColors
+  const bg = dark ? '#0c0c0e' : '#ffffff'
+  const fg = dark ? '#eef0f6' : '#14213d'
+  const muted = dark ? '#9a9aa5' : '#5b6475'
+  const mark = img(dark ? 'argus-mark.png' : 'argus-mark-light.png')
+  const word = img('argus-wordmark.png')
+  const slogan = 'Intelligence that works the way you do.'  // luôn bằng tiếng Anh
+  return 'data:text/html;charset=utf-8,' + encodeURIComponent(`<!doctype html><meta charset="utf-8"><title>Argus</title><style>
+body{margin:0;height:100vh;display:grid;place-items:center;background:${bg};color:${muted};font:16px system-ui,sans-serif;overflow:hidden}
+.c{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 24px}
+.mark{height:min(30vh,150px)}
+.word{display:block;height:min(8vh,38px);aspect-ratio:7.33/1;margin-top:22px;background:${fg};-webkit-mask:url(${word}) center/contain no-repeat;mask:url(${word}) center/contain no-repeat}
+.s{margin:30px 0 0;max-width:460px;font-size:17px;line-height:1.5}
+.bar{margin-top:38px;width:160px;height:2px;border-radius:2px;background:${dark ? '#1c1c22' : '#e5e8ee'};overflow:hidden}
+.bar i{display:block;width:33%;height:100%;background:#2563eb;border-radius:2px;animation:s 1.2s ease-in-out infinite}
+.m{margin-top:14px;font-size:12px;opacity:.8}
+@keyframes s{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+</style><div class="c"><img class="mark" src="${mark}" alt=""><span class="word"></span><p class="s">${slogan}</p><div class="bar"><i></i></div><div class="m">${msg}</div></div>`)
+}
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1360, height: 880, minWidth: 900, minHeight: 600, show: false, backgroundColor: '#0c0c0e', title: 'Argus Agent',
+    width: 1360, height: 880, minWidth: 900, minHeight: 600, show: false, backgroundColor: nativeTheme.shouldUseDarkColors ? '#0c0c0e' : '#ffffff', title: 'Argus Agent',
     icon: path.join(__dirname, 'assets', 'icon.png'), autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   })

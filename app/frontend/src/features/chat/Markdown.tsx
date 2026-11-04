@@ -1,5 +1,10 @@
 import { Fragment, useState, type ReactNode } from 'react'
-import { Check, Copy, FileText } from 'lucide-react'
+import { Check, Copy, Download, FileText } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
+import { ErrorNote, Loading } from '@/components/ui/misc'
+import { api } from '@/lib/api'
 import { t, useLang } from '@/lib/i18n.ts'
 
 function Code({ code, lang }: { code: string; lang: string }) {
@@ -22,18 +27,34 @@ function Code({ code, lang }: { code: string; lang: string }) {
   )
 }
 
-/** Thẻ nguồn của kho tài liệu: [[src:id|tên file|vị trí]] hiện thành chip nhỏ, bấm để mở file gốc. */
+/** Thẻ nguồn của kho tài liệu: [[src:id|tên file|vị trí]] hiện thành chip nhỏ; bấm để xem đúng đoạn trích trong một thẻ, tải file gốc là tùy chọn. */
 function SourceChip({ id, name, loc }: { id: string; name: string; loc: string }) {
   const lang = useLang()
+  const [open, setOpen] = useState(false)
   const shown = lang === 'en' ? loc.replace(/^trang /, 'page ').replace(/d\u00f2ng /, 'rows ').replace(/^m\u1ee5c /, 'section ').replace(/^\u0111o\u1ea1n /, 'paragraphs ') : loc
   const ext = /\.[A-Za-z0-9]{2,5}$/.exec(name)?.[0] ?? ''
   const base = name.slice(0, name.length - ext.length)
   const short = base.length > 24 ? `${base.slice(0, 22)}…${ext}` : name
+  const passage = useQuery({ queryKey: ['kb-passage', id, loc], queryFn: () => api.get<{ text: string; truncated: boolean; has_file: boolean }>(`/api/knowledge/${id}/passage?loc=${encodeURIComponent(loc)}`), enabled: open, staleTime: 600_000 })
   return (
-    <a href={`/api/knowledge/${id}/file`} target="_blank" rel="noreferrer noopener" title={`${name} · ${loc}`}
-      className="mx-0.5 inline-flex max-w-full translate-y-[-1px] items-center gap-1 rounded-md border border-line bg-panel2 px-1.5 py-px align-middle text-[11px] leading-5 text-muted no-underline transition hover:border-accent/60 hover:text-fg">
-      <FileText className="size-3 shrink-0" /><span className="truncate">{short}</span><span className="shrink-0 text-accent">{shown}</span>
-    </a>
+    <>
+      <button type="button" onClick={() => setOpen(true)} title={`${name} · ${loc}`}
+        className="mx-0.5 inline-flex max-w-full translate-y-[-1px] items-center gap-1 rounded-md border border-line bg-panel2 px-1.5 py-px align-middle text-[11px] leading-5 text-muted transition hover:border-accent/60 hover:text-fg">
+        <FileText className="size-3 shrink-0" /><span className="truncate">{short}</span><span className="shrink-0 text-accent">{shown}</span>
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} wide title={<span className="flex min-w-0 items-center gap-2"><FileText className="size-4 shrink-0 text-muted" /><span className="truncate">{name}</span><span className="shrink-0 text-sm font-normal text-accent">{shown}</span></span>}
+        footer={<>
+          <Button onClick={() => setOpen(false)}>{t('Đóng')}</Button>
+          {passage.data?.has_file && <a href={`/api/knowledge/${id}/file`} target="_blank" rel="noreferrer noopener"><Button><Download className="size-4" />{t('Tải file gốc')}</Button></a>}
+        </>}>
+        {passage.isLoading ? <Loading /> : passage.error ? <ErrorNote error={passage.error} /> : passage.data && (
+          <div>
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{passage.data.text || t('(không có nội dung)')}</p>
+            {passage.data.truncated && <p className="mt-3 text-xs text-muted">{t('Đoạn trích dài nên chỉ hiện phần đầu. Tải file gốc để xem đầy đủ.')}</p>}
+          </div>
+        )}
+      </Modal>
+    </>
   )
 }
 

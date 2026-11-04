@@ -23,12 +23,12 @@ export function AgentOwl({ className }: { className?: string }) {
 }
 
 /** Logo đứng như bản gốc: con cú ở trên, chữ ARGUS ở dưới; không có nền và đổi màu theo giao diện. */
-export function AgentLogoStacked({ className, large = false }: { className?: string; large?: boolean }) {
+export function AgentLogoStacked({ className, large = false, xl = false }: { className?: string; large?: boolean; xl?: boolean }) {
   const url = `url(${wordmark})`
   return (
-    <span role="img" aria-label="Argus" className={cn('flex flex-col items-center gap-2', className)}>
-      <AgentOwl className={large ? 'h-14' : 'h-10'} />
-      <span aria-hidden className={cn('block bg-fg', large ? 'h-5' : 'h-[14px]')} style={{ aspectRatio: '7.33 / 1', WebkitMaskImage: url, maskImage: url, WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }} />
+    <span role="img" aria-label="Argus" className={cn('flex flex-col items-center', xl ? 'gap-5' : 'gap-2', className)}>
+      <AgentOwl className={xl ? 'h-28 sm:h-36' : large ? 'h-14' : 'h-10'} />
+      <span aria-hidden className={cn('block bg-fg', xl ? 'h-8 sm:h-10' : large ? 'h-5' : 'h-[14px]')} style={{ aspectRatio: '7.33 / 1', WebkitMaskImage: url, maskImage: url, WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }} />
     </span>
   )
 }

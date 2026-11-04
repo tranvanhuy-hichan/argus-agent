@@ -94,7 +94,7 @@ export function HomePage() {
         <section className="rounded-xl border border-line bg-panel p-5">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-center">
             <header className="flex items-center gap-4">
-              <AgentLogoStacked className="shrink-0" />
+              <button onClick={() => window.dispatchEvent(new Event('argus-intro'))} title={t('Xem màn hình chào')} aria-label={t('Xem màn hình chào')} className="shrink-0 rounded-md transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-accent"><AgentLogoStacked /></button>
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">{greet}</h1>
                 <p className="text-sm text-muted">{t('Hôm nay bạn muốn agent giúp gì?')}</p>

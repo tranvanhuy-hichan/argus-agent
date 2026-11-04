@@ -68,6 +68,9 @@ button:disabled { cursor: not-allowed; }
 .caret::after { content: "▍"; margin-left: 1px; color: var(--accent); animation: blink 1s steps(1) infinite; }
 @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .fade-in { animation: fade-in .18s ease-out; }
+@keyframes splash-slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+.splash-bar { animation: splash-slide 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .splash-bar { animation: none; width: 100%; opacity: .5; } }
 
 /* tô màu cú pháp (highlight.js) cho trình soạn thảo ở chế độ Code */
 .hljs-code { color: var(--fg); }

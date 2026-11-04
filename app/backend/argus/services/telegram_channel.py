@@ -1,5 +1,6 @@
 """Kenh Telegram (long polling, khong can cong mo ra ngoai): nhan tin -> agent -> tra loi, xin phep bang nut bam."""
 import logging
+import re
 import secrets
 import threading
 import time
@@ -37,6 +38,18 @@ def _link_get(chat_id: int) -> str | None:
 def _link_set(chat_id: int, sid: str) -> None:
     with db() as c:
         c.execute("INSERT OR REPLACE INTO channel_links(channel,external_id,session_id) VALUES('telegram',?,?)", (str(chat_id), sid))
+
+
+_SRC = re.compile(r"\s*\[\[src:[^|\]]+\|([^|\]]+)\|([^\]]+)\]\]")
+
+
+def clean_reply(text: str) -> str:
+    """Telegram khong ve duoc the nguon [[src:...]]: bo khoi cau va dua thanh dong 'Nguon' o cuoi."""
+    found: dict[str, None] = {}
+    for m in _SRC.finditer(text):
+        found[f"{m.group(1).strip()} ({m.group(2).strip()})"] = None
+    out = _SRC.sub("", text).strip()
+    return out + ("\n\nNguồn: " + "; ".join(found)) if found else out
 
 
 def _chunks(text: str) -> list[str]:
@@ -133,6 +146,12 @@ class TelegramChannel:
                 self._run(chat, msg, text)
         except Exception as e:  # noqa: BLE001 - mot tin loi khong duoc lam chet luong polling
             log.warning("telegram handle: %s", e)
+            try:
+                chat = (u.get("message") or {}).get("chat", {}).get("id")
+                if chat:
+                    self.api("sendMessage", chat_id=chat, text=f"⚠ Lỗi khi xử lý: {str(e)[:300]}", http_timeout=15)
+            except Exception:  # noqa: BLE001
+                pass
 
     def _deny_pending(self, chat: int) -> bool:
         pending = self._pending.pop(chat, set())
@@ -141,8 +160,17 @@ class TelegramChannel:
         return bool(pending)
 
     def _say(self, chat: int, text: str) -> None:
+        text = clean_reply(text)
         for part in _chunks(text):
-            self.api("sendMessage", chat_id=chat, text=part)
+            for attempt in range(3):  # mang cham/timeout khong duoc lam mat cau tra loi
+                try:
+                    self.api("sendMessage", chat_id=chat, text=part)
+                    break
+                except Exception as e:  # noqa: BLE001
+                    log.warning("telegram sendMessage (lan %d): %s", attempt + 1, e)
+                    if attempt == 2:
+                        raise
+                    time.sleep(2 * (attempt + 1))
 
     def _download(self, sid: str, msg: dict) -> list[str]:
         file_id = name = None
@@ -168,7 +196,17 @@ class TelegramChannel:
             _link_set(chat, sid)
         attachments = self._download(sid, msg)
         text = text or "(người dùng gửi tệp đính kèm)"
-        self.api("sendChatAction", chat_id=chat, action="typing")
+        typing_stop = threading.Event()
+
+        def keep_typing() -> None:  # chi bao "dang go" duoc ~5s, lam moi de nguoi dung biet agent van dang lam
+            t_end = time.time() + 1800  # phong khi luot chay loi giua chung va khong ai goi typing_stop.set()
+            while not typing_stop.is_set() and time.time() < t_end:
+                try:
+                    self.api("sendChatAction", chat_id=chat, action="typing", http_timeout=10)
+                except Exception:  # noqa: BLE001
+                    pass
+                typing_stop.wait(4)
+        threading.Thread(target=keep_typing, daemon=True).start()
         before = {t["path"]: t["mtime"] for t in workfiles.tree(workfiles.session_dir(cfgmod.load(), sid)) if not t["dir"]}
         reply, error = "", ""
         for ev in chat_runner.stream_chat(sid, text, None, source="telegram", attachments=attachments):
@@ -180,7 +218,8 @@ class TelegramChannel:
                 reply = ev["content"]
             elif ev["type"] == "error":
                 error = ev["message"]
-        self._say(chat, reply or (f"⚠ {error}" if error else "(agent không trả lời)"))
+        typing_stop.set()
+        self._say(chat, reply or (f"⚠ {error}" if error else "⚠ Agent không trả lời được lần này (model trả về rỗng). Hãy thử gửi lại tin nhắn."))
         if error and reply:
             self._say(chat, f"⚠ {error}")
         base = workfiles.session_dir(cfgmod.load(), sid)

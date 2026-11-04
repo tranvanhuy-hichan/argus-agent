@@ -508,3 +508,20 @@ def stats() -> dict:
         r = c.execute("SELECT COUNT(*) docs, COALESCE(SUM(chunks),0) chunks FROM kb_docs WHERE status='ready'").fetchone()
         pending = c.execute("SELECT COUNT(*) n FROM kb_docs WHERE status='indexing'").fetchone()["n"]
     return {"docs": r["docs"], "chunks": r["chunks"], "indexing": pending}
+
+
+def passage(did: str, loc: str, limit_chars: int = 6000) -> dict | None:
+    """Noi dung doan van ma mot the nguon [[src:id|ten|vi tri]] tro toi (de hien tren the xem nhanh, khong phai tai ca file)."""
+    d = get(did)
+    if not d:
+        return None
+    with db() as c:
+        rows = c.execute("SELECT text FROM kb_chunks WHERE doc_id=? AND loc=? ORDER BY ord", (did, loc)).fetchall()
+    text, truncated = "", False
+    for r in rows:
+        if len(text) + len(r["text"]) > limit_chars:
+            text += r["text"][: max(0, limit_chars - len(text))]
+            truncated = True
+            break
+        text += r["text"] + "\n\n"
+    return {"name": d["name"], "loc": loc, "text": text.strip(), "truncated": truncated, "has_file": bool(d.get("path") and Path(d["path"]).is_file())}

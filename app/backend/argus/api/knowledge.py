@@ -79,6 +79,14 @@ def delete(did: str):
     return {"ok": True}
 
 
+@router.get("/knowledge/{did}/passage")
+def passage(did: str, loc: str):
+    p = knowledge.passage(did, loc)
+    if not p:
+        raise HTTPException(404, "không có tài liệu này")
+    return p
+
+
 @router.get("/knowledge/{did}/file")
 def file(did: str):
     d = knowledge.get(did)
