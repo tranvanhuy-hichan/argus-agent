@@ -1,6 +1,7 @@
 ---
 name: example
-description: "Mau skill. Dung khi nguoi dung hoi cach viet skill."
+description: "Template skill. Use when the user asks how to write a skill."
 ---
-Skill la thu muc co SKILL.md. Phan mo ta (description) luon duoc nap vao prompt;
-phan noi dung chi nap khi agent goi tool use_skill.
+A skill is a folder with a SKILL.md file. The description in the header is always loaded into the prompt;
+the body is loaded only when the agent calls the skills_read tool. Put helper scripts in a `scripts/` folder
+and call them as `python3 "{baseDir}/scripts/your_script.py"`.

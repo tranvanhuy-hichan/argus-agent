@@ -245,7 +245,7 @@ export function CodeWorkspace() {
               </div>
             </div>
             <PlanCard items={chat.plan} />
-            <Composer mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))}
+            <Composer skill={null} onSkill={() => {}} mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))}
               value={text} onChange={setText} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={false}
               onAttach={() => toast(t('Chế độ Code đọc file trực tiếp từ dự án, không cần đính kèm.'))} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
               docs={false} onDocs={() => {}} docsReady={false} permission={permission} onPermission={setPermission} provider={prov} onProvider={setProvider} effort={effort} onEffort={setEffort}

@@ -223,7 +223,7 @@ Xóa hết nội dung file để tạm dừng. Bấm **Tùy chọn** để đổ
 
 Bạn cũng tự tạo kỹ năng bằng nút **Tạo kỹ năng**. Một kỹ năng là một thư mục trong `user-data/workspace/skills/<tên>/` có file `SKILL.md`. Dùng trong chat bằng cách gõ `/` rồi chọn tên.
 
-**Kỹ năng có sẵn.** Lần đầu chạy, Argus tự thêm 22 kỹ năng dùng hằng ngày: soạn email, tóm tắt, biên bản họp, dịch thuật, văn bản hành chính, viết CV, luyện phỏng vấn, kế hoạch học tập, giải thích dễ hiểu, ôn thi và flashcard, viết bài luận, soát lỗi chính tả, kế hoạch ngày/tuần, thuyết trình, bài đăng mạng xã hội, so sánh lựa chọn, quản lý chi tiêu, lịch trình du lịch, thực đơn tuần, bảng tính Excel, xử lý sự cố máy tính và trả lời khách hàng. Mỗi kỹ năng chỉ được thêm một lần: bạn xóa cái nào thì nó không quay lại, còn kỹ năng mới ở bản cập nhật sẽ được thêm vào.
+**Kỹ năng có sẵn.** Lần đầu chạy, Argus tự thêm 10 kỹ năng (viết bằng tiếng Anh, chạy với mọi ngôn ngữ): viết email, tóm tắt tài liệu, biên bản họp (kèm file lịch `.ics`), tạo tài liệu Word, trợ lý bảng tính (phân tích CSV, công thức, xuất Excel), tạo bài thuyết trình (file HTML, in ra PDF), nghiên cứu trên web có nguồn, huấn luyện học tập (flashcard xuất sang Anki), CV và phỏng vấn thử, lập kế hoạch ngày (xuất lịch). Nhiều kỹ năng kèm script nhỏ chạy ngay trên máy bạn, chỉ cần Python 3. Gõ `/` trong khung chat để chọn; kỹ năng đã chọn hiện thành thẻ phía trên ô nhập. Mỗi kỹ năng chỉ được thêm một lần: bạn xóa cái nào thì nó không quay lại, còn kỹ năng mới ở bản cập nhật sẽ được thêm vào.
 
 > **Cẩn thận:** kỹ năng tải từ internet chỉ là hướng dẫn, nhưng có thể bảo agent chạy lệnh. Hãy đọc `SKILL.md` trước khi cài và giữ bật xác nhận chạy lệnh. Bạn cũng có thể cài nhanh từ dòng lệnh: `argus skills install <chủ>/<tên>`.
 

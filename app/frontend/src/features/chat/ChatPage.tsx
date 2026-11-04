@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AgentMark } from '../../components/ui/AgentMark'
+import { AgentLogoStacked } from '../../components/ui/AgentMark'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Activity, Download, FileSearch, Folder, FolderTree, GitCompare, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -56,6 +56,7 @@ export function ChatPage() {
   const location = useLocation()
   const [params, setParams] = useSearchParams()
   const [text, setText] = useState('')
+  const [skill, setSkill] = useState<string | null>(null)
   const [provider, setProvider] = useState<string | null>(null)
   const [permission, setPermission] = useState<Permission>('default') // moi hoi thoai bat dau o 'Mac dinh', khong luu lai
   const [effort, setEffort] = useState<Effort>(() => (store.get('effort', 'auto') as Effort))
@@ -153,8 +154,9 @@ export function ChatPage() {
   const submit = () => {
     if (!text.trim() || chat.busy || uploading) return
     stick.current = true
-    void chat.send(text, active, attachments, { permission, effort, docs: isDocs })
+    void chat.send(skill ? `${t('Dùng skill `{name}`: ', { name: skill })}${text}` : text, active, attachments, { permission, effort, docs: isDocs })
     setText('')
+    setSkill(null)
     setAttachments([])
   }
   const resend = async (override?: string) => {
@@ -240,7 +242,7 @@ export function ChatPage() {
           <div className="mx-auto max-w-4xl space-y-4 px-5 py-6">
             {chat.items.length === 0 ? (
               <div className="flex flex-col items-center pt-[10vh] text-center">
-                {isDocs ? <FileSearch className="mb-4 size-12 text-accent" /> : <AgentMark className="mb-4" />}
+                {isDocs ? <FileSearch className="mb-4 size-12 text-accent" /> : <AgentLogoStacked large className="mb-5" />}
                 <h2 className="text-xl font-semibold">{isDocs ? t('Hỏi đáp trên tài liệu của bạn') : t('Mình có thể giúp gì cho bạn?')}</h2>
                 {isDocs && <p className="mt-1 text-sm text-muted">{t('Argus chỉ trả lời dựa trên tài liệu bạn đã thêm và ghi rõ nguồn.')}</p>}
                 <div className="mt-6 grid w-full max-w-xl gap-2 sm:grid-cols-2">
@@ -259,7 +261,7 @@ export function ChatPage() {
         </div>
 
         <PlanCard items={chat.plan} />
-        <Composer mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
+        <Composer mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
           docs={isDocs} onDocs={setUseDocs} docsReady={docsReady} permission={permission} onPermission={setPermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
           providers={providers.map((id) => ({ id, model: cfg.data.config.providers[id].model, type: cfg.data.config.providers[id].type }))} />

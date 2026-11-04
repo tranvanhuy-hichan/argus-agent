@@ -87,10 +87,33 @@ def test_bundled_skills_seed_once(tmp_path):
     src, dst = template_dir() / "skills", tmp_path / "skills"
     seed_skills(src, dst)
     names = {d.name for d in src.iterdir() if d.is_dir()}
-    assert len(names) >= 20 and {d.name for d in dst.iterdir() if d.is_dir()} == names
+    assert len(names) >= 10 and {d.name for d in dst.iterdir() if d.is_dir()} == names
     for n in names:  # moi skill co frontmatter hop le va mo ta
         front, body = sk.split_frontmatter((dst / n / "SKILL.md").read_text())
-        assert front["name"] == n and len(front["description"]) > 30 and body.strip()
-    sk.shutil.rmtree(dst / "viet-email")
+        assert front["name"] == n and 30 < len(front["description"]) <= 200 and body.strip()
+    sk.shutil.rmtree(dst / "email-writer")
     seed_skills(src, dst)
-    assert not (dst / "viet-email").exists()  # da xoa thi khong quay lai
+    assert not (dst / "email-writer").exists()  # da xoa thi khong quay lai
+
+
+def test_bundled_skill_scripts_work(tmp_path):
+    import subprocess
+    import sys
+    import zipfile
+    from argus.core.workspace import template_dir
+    root = template_dir() / "skills"
+    (tmp_path / "a.md").write_text("# T\n\nHi **b**\n\n- x\n\n| H | I |\n|---|---|\n| 1 | 2 |\n")
+    (tmp_path / "a.csv").write_text("n,q\nx,1\ny,2\n")
+    (tmp_path / "e.json").write_text('[{"title":"Hi, there","start":"2026-11-05 09:00","remind_min":10}]')
+    (tmp_path / "c.json").write_text('[{"front":"Q","back":"A\\nB"}]')
+    runs = [("word-document-writer/scripts/md2docx.py", "a.md", "a.docx"), ("spreadsheet-helper/scripts/csv2xlsx.py", "a.csv", "a.xlsx"),
+            ("presentation-builder/scripts/md2slides.py", "a.md", "a.html"), ("meeting-notes/scripts/make_ics.py", "e.json", "a.ics"),
+            ("study-coach/scripts/anki_export.py", "c.json", "a.tsv")]
+    for script, src, out in runs:
+        r = subprocess.run([sys.executable, str(root / script), str(tmp_path / src), str(tmp_path / out)], capture_output=True, text=True)
+        assert r.returncode == 0, (script, r.stderr)
+        assert (tmp_path / out).stat().st_size > 50
+    assert zipfile.ZipFile(tmp_path / "a.docx").testzip() is None and zipfile.ZipFile(tmp_path / "a.xlsx").testzip() is None
+    assert "SUMMARY:Hi\\, there" in (tmp_path / "a.ics").read_text()
+    r = subprocess.run([sys.executable, str(root / "spreadsheet-helper/scripts/csv_profile.py"), str(tmp_path / "a.csv")], capture_output=True, text=True)
+    assert "Rows: 2" in r.stdout

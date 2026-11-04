@@ -35,6 +35,8 @@ interface Props {
   docs: boolean
   onDocs: (v: boolean) => void
   docsReady: boolean
+  skill: string | null
+  onSkill: (name: string | null) => void
 }
 
 export function Composer(p: Props) {
@@ -50,7 +52,7 @@ export function Composer(p: Props) {
   const dictation = useDictation(lang, (text) => p.onChange(valueRef.current + (valueRef.current && !/\s$/.test(valueRef.current) ? ' ' : '') + text))
 
   const slash = p.value.startsWith('/') && !p.value.includes(' ') ? p.value.slice(1).toLowerCase() : null
-  const matches = useMemo(() => (slash === null ? [] : p.skills.filter((s) => s.enabled && s.eligible).filter((s) => s.name.toLowerCase().includes(slash)).slice(0, 6)), [slash, p.skills])
+  const matches = useMemo(() => (slash === null ? [] : p.skills.filter((s) => s.enabled && s.eligible).filter((s) => s.name.toLowerCase().includes(slash))), [slash, p.skills])
   // Dau @ (dau tu hoac sau khoang trang) -> goi y MCP server/dich vu theo ten
   const at = /(^|\s)@([\w-]*)$/.exec(p.value.slice(0, caret))
   const atQuery = at ? at[2].toLowerCase() : null
@@ -62,7 +64,7 @@ export function Composer(p: Props) {
     setHi(0)
     setTimeout(() => { const el = textarea.current; if (el) { el.focus(); el.setSelectionRange(pos, pos); setCaret(pos) } }, 0)
   }
-  const pick = (name: string) => { p.onChange(t('Dùng skill `{name}`: ', { name })); setHi(0); textarea.current?.focus() }
+  const pick = (name: string) => { p.onSkill(name); p.onChange(''); setHi(0); setTimeout(() => textarea.current?.focus(), 0) }
   const current = p.providers.find((x) => x.id === p.provider)
   const effortOff = current?.type === 'anthropic' || current?.type === 'cli'
 
@@ -87,6 +89,7 @@ export function Composer(p: Props) {
       if (e.key === 'ArrowUp') { e.preventDefault(); setHi((hi - 1 + matches.length) % matches.length); return }
       if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); pick(matches[hi].name); return }
     }
+    if (e.key === 'Backspace' && !p.value && p.skill) { e.preventDefault(); p.onSkill(null); return }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); p.onSend() }
   }
 
@@ -107,15 +110,21 @@ export function Composer(p: Props) {
           </div>
         )}
         {matches.length > 0 && (
-          <div className="absolute bottom-full z-20 mb-2 w-full overflow-hidden rounded-xl border border-line bg-panel shadow-xl" role="listbox" aria-label={t('Kỹ năng')}>
+          <div className="absolute bottom-full z-20 mb-2 max-h-72 w-full overflow-y-auto rounded-xl border border-line bg-panel shadow-xl" role="listbox" aria-label={t('Kỹ năng')}>
             {matches.map((s, i) => (
-              <button key={s.name} role="option" aria-selected={i === hi} onMouseEnter={() => setHi(i)} onClick={() => pick(s.name)} className={cn('flex w-full items-center gap-3 px-3 py-2 text-left text-sm', i === hi && 'bg-panel2')}>
-                <Puzzle className="size-4 shrink-0 text-muted" /><span className="font-medium">/{s.name}</span><span className="truncate text-xs text-muted">{s.description}</span>
+              <button key={s.name} role="option" aria-selected={i === hi} ref={(el) => { if (el && i === hi) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setHi(i)} onClick={() => pick(s.name)} className={cn('flex w-full items-center gap-3 px-3 py-2 text-left text-sm', i === hi && 'bg-panel2')}>
+                <Puzzle className="size-4 shrink-0 text-muted" /><span className="shrink-0 whitespace-nowrap font-medium">/{s.name}</span><span className="min-w-0 truncate text-xs text-muted">{s.description}</span>
               </button>
             ))}
           </div>
         )}
         <div className="rounded-2xl border border-line bg-panel p-2 transition focus-within:border-accent">
+          {p.skill && (
+            <div className="flex px-1.5 pb-1.5">
+              <span className="flex items-center gap-1.5 rounded-md bg-accent/15 py-0.5 pl-2 pr-1 text-xs font-medium text-accent"><Puzzle className="size-3" />{p.skill}
+                <button onClick={() => { p.onSkill(null); textarea.current?.focus() }} aria-label={t('Bỏ {name}', { name: p.skill })} className="grid size-4 place-items-center rounded hover:bg-accent/20"><X className="size-3" /></button></span>
+            </div>
+          )}
           {(p.attachments.length > 0 || p.uploading) && (
             <div className="flex flex-wrap gap-1.5 px-1.5 pb-2">
               {p.attachments.map((a) => (
