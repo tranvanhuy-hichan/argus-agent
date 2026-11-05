@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowUp, AtSign, Code2, FileSearch, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, Code2, FileSearch, GitBranch, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
 import { t, useLang } from '@/lib/i18n.ts'
@@ -38,6 +38,7 @@ interface Props {
   project?: string
   onCode?: () => void
   codeExtra?: React.ReactNode
+  gitBadge?: { branch: string; changes: number } | null
   skill: string | null
   onSkill: (name: string | null) => void
   temperature?: number
@@ -171,8 +172,9 @@ export function Composer(p: Props) {
               <div ref={codeBox} className="relative">
                 <button onClick={() => (p.project ? setCodeOpen((o) => !o) : p.onCode?.())} aria-pressed={!!p.project} aria-expanded={codeOpen}
                   title={p.project ? p.project : t('Bật chế độ Lập trình: agent làm việc trực tiếp trong một dự án trên máy')}
-                  className={cn('flex h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-3 text-sm transition', p.project ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>
+                  className={cn('flex h-8 max-w-[20rem] items-center gap-1.5 rounded-full px-3 text-sm transition', p.project ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>
                   <Code2 className="size-4 shrink-0" /><span className="truncate">{p.project ? p.project.split('/').filter(Boolean).pop() : t('Lập trình')}</span>
+                  {p.project && p.gitBadge && <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] opacity-80"><GitBranch className="size-3" />{p.gitBadge.branch}{p.gitBadge.changes > 0 && <span className="rounded-full bg-accent/20 px-1.5">{p.gitBadge.changes}</span>}</span>}
                 </button>
                 {codeOpen && p.project && (
                   <div role="dialog" className="fade-in absolute bottom-full left-0 z-30 mb-2 w-[22rem] space-y-3 rounded-xl border border-line bg-panel p-3.5 shadow-2xl">

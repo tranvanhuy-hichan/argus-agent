@@ -237,6 +237,7 @@ class CommitBody(BaseModel):
     message: str
     files: list[str]
     allow_protected: bool = False
+    new_branch: str = ""  # co ten: tao va chuyen sang nhanh nay roi moi commit (mot buoc, dung khi dang o main)
 
 
 @router.post("/sessions/{sid}/git/commit")
@@ -248,16 +249,21 @@ def git_commit(sid: str, b: CommitBody):
         raise HTTPException(400, "chưa nhập nội dung commit")
     if not b.files:
         raise HTTPException(400, "chưa chọn file nào")
-    if _current(p) in PROTECTED and not b.allow_protected:
+    nb = b.new_branch.strip()
+    if nb and (not BRANCH_RE.match(nb) or ".." in nb or nb.endswith((".lock", "/", "."))):
+        raise HTTPException(400, "tên nhánh không hợp lệ (chỉ chữ, số, . _ - /)")
+    if not nb and _current(p) in PROTECTED and not b.allow_protected:
         raise HTTPException(409, f"đang ở nhánh {_current(p)}: hãy tạo nhánh mới hoặc xác nhận commit thẳng")
     for f in b.files:
         try:
             workfiles.safe_path(p, f)
         except workfiles.PathError as e:
             raise HTTPException(400, str(e)) from e
+    if nb:
+        _git(p, "switch", "-c", nb)
     _git(p, "add", "-A", "--", *b.files)  # -A chi trong pham vi cac file da chon (de ghi nhan ca file bi xoa)
     _git(p, "commit", "-m", msg, "--", *b.files)
-    return {"commit": _git(p, "rev-parse", "--short", "HEAD").strip()}
+    return {"commit": _git(p, "rev-parse", "--short", "HEAD").strip(), "branch": _current(p)}
 
 
 class PushBody(BaseModel):
@@ -278,3 +284,63 @@ def git_push(sid: str, b: PushBody):
         raise HTTPException(400, "đang ở trạng thái detached HEAD")
     out = _git(p, "push", "-u", "origin", branch, timeout=90)
     return {"branch": branch, "output": out.strip()[-500:]}
+
+
+def _branches(p: Path) -> list[str]:
+    return [x for x in _git(p, "for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/heads").splitlines() if x]
+
+
+@router.get("/sessions/{sid}/git/branches")
+def git_branches(sid: str):
+    p = _need_repo(sid)
+    return {"current": _current(p), "branches": _branches(p)}
+
+
+@router.post("/sessions/{sid}/git/switch")
+def git_switch(sid: str, b: BranchBody):
+    """Chuyển sang một nhánh có sẵn. Git từ chối nếu thay đổi chưa commit bị xung đột (thông báo lỗi được trả về nguyên văn)."""
+    p = _need_repo(sid)
+    if b.name not in _branches(p):
+        raise HTTPException(400, "không có nhánh này")
+    _git(p, "switch", b.name)
+    return {"branch": b.name}
+
+
+class SuggestBody(BaseModel):
+    files: list[str]
+
+
+def _fallback_message(files: list[str]) -> str:
+    names = [Path(f).name for f in files[:3]]
+    return "update " + ", ".join(names) + (f" and {len(files) - 3} more" if len(files) > 3 else "")
+
+
+@router.post("/sessions/{sid}/git/suggest")
+def git_suggest(sid: str, b: SuggestBody):
+    """Gợi ý nội dung commit (Conventional Commits, tiếng Anh) từ diff của các file chọn; lỗi model thì dùng tên file."""
+    p = _need_repo(sid)
+    files = [f for f in b.files if f][:50]
+    if not files:
+        raise HTTPException(400, "chưa chọn file nào")
+    for f in files:
+        try:
+            workfiles.safe_path(p, f)
+        except workfiles.PathError as e:
+            raise HTTPException(400, str(e)) from e
+    diff = _git(p, "diff", "HEAD", "--no-color", "--stat", "-p", "--", *files)[:6000]
+    new = [f for f in files if f not in diff]
+    try:
+        from ..core import config as cfgmod
+        from ..services.providers import make_provider
+        cfg = cfgmod.load()
+        name = cfg.agent.fast_provider if cfg.agent.fast_provider in cfg.providers else cfg.default_provider
+        prompt = ("Write ONE git commit message in Conventional Commits style (type: short summary, max 72 chars, English, no quotes, no explanation) "
+                  f"for this change.\nNew files: {', '.join(new) or '(none)'}\n\n{diff}")
+        text = ""
+        for ev in make_provider(cfg.providers[name]).stream([{"role": "user", "content": prompt}], tools=[]):
+            if ev.get("type") == "delta":
+                text += ev.get("text", "")
+        msg = text.strip().splitlines()[0].strip("`\"' ") if text.strip() else ""
+        return {"message": msg[:100] or _fallback_message(files)}
+    except Exception:  # noqa: BLE001 - goi y khong duoc lam hong viec commit
+        return {"message": _fallback_message(files)}

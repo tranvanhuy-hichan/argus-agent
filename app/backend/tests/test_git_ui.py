@@ -50,3 +50,29 @@ def test_push_needs_confirm_and_blocks_main(setup):
     assert c.post(f"/api/sessions/{sid}/git/push", json={"confirm": True}).status_code == 200
     st = c.get(f"/api/sessions/{sid}/git").json()
     assert st["upstream"] == "origin/feat/y" and st["ahead"] == 0
+
+
+def test_one_step_branch_and_commit_from_main(setup):
+    c, sid, repo, g = setup
+    (repo / "a.txt").write_text("3\n")
+    r = c.post(f"/api/sessions/{sid}/git/commit", json={"message": "fix: a", "files": ["a.txt"], "new_branch": "fix/a"})
+    assert r.status_code == 200 and r.json()["branch"] == "fix/a"
+    assert g(repo, "log", "-1", "--format=%s").stdout.strip() == "fix: a"
+    assert g(repo, "rev-parse", "--abbrev-ref", "main").stdout.strip() == "main"  # main khong bi dung toi
+
+
+def test_list_and_switch_branches(setup):
+    c, sid, repo, g = setup
+    g(repo, "branch", "dev")
+    b = c.get(f"/api/sessions/{sid}/git/branches").json()
+    assert b["current"] == "main" and set(b["branches"]) == {"main", "dev"}
+    assert c.post(f"/api/sessions/{sid}/git/switch", json={"name": "dev"}).status_code == 200
+    assert c.get(f"/api/sessions/{sid}/git/branches").json()["current"] == "dev"
+    assert c.post(f"/api/sessions/{sid}/git/switch", json={"name": "--detach"}).status_code == 400
+
+
+def test_suggest_falls_back_without_model(setup):
+    c, sid, repo, g = setup
+    (repo / "a.txt").write_text("9\n")
+    r = c.post(f"/api/sessions/{sid}/git/suggest", json={"files": ["a.txt"]})
+    assert r.status_code == 200 and r.json()["message"]

@@ -11,6 +11,7 @@ import { useConfig, useMcp, useSessions, useSkills } from '@/lib/queries'
 import { mcpBrand } from '@/features/integrations/brands'
 import { t, tk } from '@/lib/i18n.ts'
 import { cn, errMsg } from '@/lib/utils'
+import type { GitStatus } from '@/lib/types'
 import { GitPanel } from './GitMenu'
 import { ProjectPicker } from './ProjectPicker'
 import { Composer } from './Composer'
@@ -108,6 +109,7 @@ export function ChatPage() {
   const docsReady = (kb.data?.stats.docs ?? 0) > 0
   const isDocs = useDocs && docsReady
   const [pickOpen, setPickOpen] = useState(false)
+  const gitInfo = useQuery({ queryKey: ['git', chat.sessionId, chat.filesTick], queryFn: () => api.get<GitStatus>(`/api/sessions/${chat.sessionId}/git`), enabled: !!project && !!chat.sessionId, refetchInterval: 15000 })
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const [exportOpen, setExportOpen] = useState(false)
@@ -386,7 +388,7 @@ export function ChatPage() {
         </div>
 
         <PlanCard items={chat.plan} />
-        <Composer codeExtra={chat.sessionId ? <GitPanel sid={chat.sessionId} tick={chat.filesTick} /> : null} project={project} onCode={() => (project ? void setProject(null) : setPickOpen(true))} mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
+        <Composer gitBadge={gitInfo.data?.repo ? { branch: gitInfo.data.branch, changes: gitInfo.data.files.length } : null} codeExtra={chat.sessionId ? <GitPanel sid={chat.sessionId} tick={chat.filesTick} /> : null} project={project} onCode={() => (project ? void setProject(null) : setPickOpen(true))} mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
           docs={isDocs} onDocs={setUseDocs} docsReady={docsReady} permission={permission} onPermission={changePermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
           temperature={temperature} onTemperature={changeTemperature} maxTokens={maxTokens} onMaxTokens={changeMaxTokens}
