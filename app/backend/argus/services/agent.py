@@ -56,7 +56,7 @@ def coding_prompt(project, workspace=None) -> str:
             "khám phá trước (list_dir, glob, grep để tìm đúng chỗ, rồi read file liên quan), sửa nhỏ và đúng chỗ (dùng edit thay vì ghi đè cả file), giữ phong cách code hiện có, "
             "tự tìm cách chạy test/lint/build của dự án (package.json, pyproject, Makefile...) và chạy sau mỗi thay đổi, đọc kết quả để tự sửa lỗi cho đến khi qua. "
             "Việc lớn thì lập kế hoạch bằng plan_set trước. Đừng hỏi lại những gì có thể xem trong code. Không xóa file, không đổi git (commit, push, reset) "
-            "trừ khi người dùng yêu cầu rõ. Cuối cùng báo ngắn gọn đã đổi gì; người dùng xem diff ở tab Thay đổi.")
+            "trừ khi người dùng yêu cầu rõ; người dùng đã có nút Git trong chat để tự tạo nhánh, commit và push nên đừng tự làm. Nếu được nhờ commit thì chỉ `git add` đúng các file bạn đã sửa (không `git add -A`), không force push, không commit thẳng lên main/master. Cuối cùng báo ngắn gọn đã đổi gì; người dùng xem diff ở tab Thay đổi.")
     if workspace is not None:
         np = tools.project_notes_path(workspace, project)
         if np.is_file():

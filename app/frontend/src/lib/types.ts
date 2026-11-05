@@ -117,7 +117,7 @@ export interface HabitDraft { kind: 'skill' | 'automation'; name: string; title:
 export interface HabitSuggestion { id: string; status: string; count: number; examples: string[]; draft: HabitDraft | null; created: number }
 
 export interface GitFile { path: string; status: 'new' | 'modified' | 'deleted' }
-export interface GitStatus { repo: boolean; branch: string; files: GitFile[] }
+export interface GitStatus { repo: boolean; branch: string; files: GitFile[]; upstream?: string; ahead?: number; protected?: boolean }
 export interface BrowseResult { path: string; parent: string | null; git: boolean; dirs: { name: string; path: string; git: boolean }[] }
 export interface RecentProject { path: string; name: string; ts: number; git?: boolean; branch?: string }
 

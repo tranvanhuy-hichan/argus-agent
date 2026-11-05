@@ -37,6 +37,7 @@ interface Props {
   docsReady: boolean
   project?: string
   onCode?: () => void
+  codeExtra?: React.ReactNode
   skill: string | null
   onSkill: (name: string | null) => void
   temperature?: number
@@ -55,6 +56,14 @@ export function Composer(p: Props) {
   const [hi, setHi] = useState(0)
   const [caret, setCaret] = useState(0)
   const [plusOpen, setPlusOpen] = useState(false)
+  const [codeOpen, setCodeOpen] = useState(false)
+  const codeBox = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!codeOpen) return
+    const down = (e: MouseEvent) => { if (!codeBox.current?.contains(e.target as Node)) setCodeOpen(false) }
+    document.addEventListener('mousedown', down)
+    return () => document.removeEventListener('mousedown', down)
+  }, [codeOpen])
   const dictation = useDictation(lang, (text) => p.onChange(valueRef.current + (valueRef.current && !/\s$/.test(valueRef.current) ? ' ' : '') + text))
 
   const slash = p.value.startsWith('/') && !p.value.includes(' ') ? p.value.slice(1).toLowerCase() : null
@@ -152,22 +161,36 @@ export function Composer(p: Props) {
                 <div role="menu" className="fade-in absolute bottom-full left-0 z-30 mb-2 w-56 rounded-xl border border-line bg-panel p-1.5 shadow-2xl">
                   <button role="menuitem" onClick={() => { setPlusOpen(false); fileInput.current?.click() }} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-panel2"><Paperclip className="size-4 text-muted" />{t('Đính kèm tệp')}</button>
                   <button role="menuitem" onClick={() => { setPlusOpen(false); const v = p.value; const sep = v && !/\s$/.test(v) ? ' ' : ''; p.onChange(`${v}${sep}@`); setTimeout(() => { const el = textarea.current; if (el) { el.focus(); setCaret(el.value.length) } }, 0) }} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-panel2"><AtSign className="size-4 text-muted" />{t('Gọi một dịch vụ (@)')}</button>
+                  <button role="menuitem" disabled={!p.docsReady} onClick={() => { setPlusOpen(false); p.onDocs(!p.docs) }} title={p.docsReady ? t('Trả lời dựa trên tài liệu bạn đã thêm, có ghi nguồn') : t('Chưa có tài liệu nào. Thêm ở mục Tài liệu.')} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-panel2 disabled:opacity-40"><FileSearch className="size-4 text-muted" />{t('Hỏi từ tài liệu')}{p.docs && <span className="ml-auto text-xs text-accent">✓</span>}</button>
                   <button role="menuitem" onClick={() => { setPlusOpen(false); p.onChange('/'); textarea.current?.focus() }} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-panel2"><Puzzle className="size-4 text-muted" />{t('Dùng một skill')}</button>
                 </div>
               )}
             </div>
 
             {p.onCode && (
-              <button onClick={p.onCode} aria-pressed={!!p.project} title={p.project ? t('Đang ở chế độ Lập trình: {path}. Bấm để tắt.', { path: p.project }) : t('Bật chế độ Lập trình: agent làm việc trực tiếp trong một dự án trên máy')}
-                className={cn('flex h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-3 text-sm transition', p.project ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>
-                <Code2 className="size-4 shrink-0" /><span className="truncate">{p.project ? p.project.split('/').filter(Boolean).pop() : t('Lập trình')}</span>
-              </button>
+              <div ref={codeBox} className="relative">
+                <button onClick={() => (p.project ? setCodeOpen((o) => !o) : p.onCode?.())} aria-pressed={!!p.project} aria-expanded={codeOpen}
+                  title={p.project ? p.project : t('Bật chế độ Lập trình: agent làm việc trực tiếp trong một dự án trên máy')}
+                  className={cn('flex h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-3 text-sm transition', p.project ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>
+                  <Code2 className="size-4 shrink-0" /><span className="truncate">{p.project ? p.project.split('/').filter(Boolean).pop() : t('Lập trình')}</span>
+                </button>
+                {codeOpen && p.project && (
+                  <div role="dialog" className="fade-in absolute bottom-full left-0 z-30 mb-2 w-[22rem] space-y-3 rounded-xl border border-line bg-panel p-3.5 shadow-2xl">
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1"><p className="text-xs font-medium">{t('Chế độ Lập trình đang bật')}</p><p className="truncate font-mono text-[11px] text-muted" title={p.project}>{p.project.replace(/^\/home\/[^/]+/, '~')}</p></div>
+                      <button onClick={() => { setCodeOpen(false); p.onCode?.() }} className="rounded-md border border-line px-2 py-1 text-xs hover:bg-panel2">{t('Tắt')}</button>
+                    </div>
+                    {p.codeExtra && <div className="border-t border-line pt-3">{p.codeExtra}</div>}
+                  </div>
+                )}
+              </div>
             )}
 
-            <button onClick={() => p.onDocs(!p.docs)} aria-pressed={p.docs} disabled={!p.docsReady} title={p.docsReady ? t('Trả lời dựa trên tài liệu bạn đã thêm, có ghi nguồn') : t('Chưa có tài liệu nào. Thêm ở mục Tài liệu.')}
-              className={cn('flex h-8 items-center gap-1.5 rounded-full px-3 text-sm transition disabled:opacity-40', p.docs ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>
-              <FileSearch className="size-4" />{t('Hỏi từ tài liệu')}
-            </button>
+            {p.docs && (
+              <button onClick={() => p.onDocs(false)} title={t('Đang trả lời từ tài liệu. Bấm để tắt.')} className="flex h-8 items-center gap-1.5 rounded-full bg-accent/15 px-3 text-sm text-accent">
+                <FileSearch className="size-4" />{t('Hỏi từ tài liệu')}<X className="size-3" />
+              </button>
+            )}
 
             <div className="ml-auto flex items-center gap-0.5">
               <SettingsMenu providers={p.providers} provider={p.provider} onProvider={p.onProvider} effort={p.effort} onEffort={p.onEffort} effortOff={effortOff} permission={p.permission} onPermission={p.onPermission} temperature={p.temperature} onTemperature={p.onTemperature} maxTokens={p.maxTokens} onMaxTokens={p.onMaxTokens} />

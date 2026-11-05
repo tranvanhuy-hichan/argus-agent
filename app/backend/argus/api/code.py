@@ -1,6 +1,7 @@
 """Chế độ Code: mở một dự án trên máy làm thư mục làm việc của phiên, xem thay đổi (git) và hoàn tác từng file."""
 import json
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -12,6 +13,7 @@ from ..core.db import db
 from ..services import sessions, workfiles
 
 AUTO = True
+PROTECTED = ("main", "master")
 router = APIRouter()
 MAX_DIFF = 200_000
 RECENT_KEY = "code_recent"
@@ -123,9 +125,9 @@ def _project(sid: str) -> Path:
     return p
 
 
-def _git(p: Path, *args: str, ok: tuple[int, ...] = (0,)) -> str:
+def _git(p: Path, *args: str, ok: tuple[int, ...] = (0,), timeout: int = 20) -> str:
     try:
-        r = subprocess.run(["git", "-c", "core.quotepath=false", *args], cwd=p, capture_output=True, text=True, timeout=20, env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"})
+        r = subprocess.run(["git", "-c", "core.quotepath=false", *args], cwd=p, capture_output=True, text=True, timeout=timeout, env={**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0"})
     except (OSError, subprocess.TimeoutExpired) as e:
         raise HTTPException(500, f"không chạy được git: {e}") from e
     if r.returncode not in ok:
@@ -147,16 +149,21 @@ def git_status(sid: str):
     if not _is_repo(p):
         return {"repo": False, "branch": "", "files": []}
     out = _git(p, "status", "--porcelain=v1", "-b", "-uall")
-    branch, files = "", []
+    branch, files, upstream, ahead = "", [], "", 0
     for line in out.splitlines():
         if line.startswith("## "):
-            branch = line[3:].split("...")[0]
+            head = line[3:]
+            branch = head.split("...")[0].removeprefix("No commits yet on ")
+            if "..." in head:
+                upstream = head.split("...")[1].split(" ")[0]
+            if "[ahead " in head:
+                ahead = int(head.split("[ahead ")[1].split("]")[0].split(",")[0])
             continue
         code, path = line[:2], line[3:]
         if " -> " in path:
             path = path.split(" -> ", 1)[1]
         files.append({"path": path.strip('"'), "status": "new" if code == "??" or "A" in code else "deleted" if "D" in code else "modified"})
-    return {"repo": True, "branch": branch, "files": files[:500]}
+    return {"repo": True, "branch": branch, "files": files[:500], "upstream": upstream, "ahead": ahead, "protected": branch in PROTECTED}
 
 
 @router.get("/sessions/{sid}/git/diff")
@@ -195,3 +202,79 @@ def git_revert(sid: str, b: RevertBody):
         subprocess.run(["git", "rm", "-f", "--cached", "--ignore-unmatch", "--", b.path], cwd=p, capture_output=True, timeout=10)
         target.unlink(missing_ok=True)
     return {"ok": True}
+
+
+# ---------- thao tac git co rao chan (giao dien nut Git trong chat)
+BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$")
+
+
+def _need_repo(sid: str) -> Path:
+    p = _project(sid)
+    if not _is_repo(p):
+        raise HTTPException(400, "dự án này chưa phải kho git")
+    return p
+
+
+def _current(p: Path) -> str:
+    return _git(p, "rev-parse", "--abbrev-ref", "HEAD").strip()
+
+
+class BranchBody(BaseModel):
+    name: str
+
+
+@router.post("/sessions/{sid}/git/branch")
+def git_branch(sid: str, b: BranchBody):
+    """Tạo và chuyển sang nhánh mới (thay đổi chưa commit được giữ nguyên)."""
+    p = _need_repo(sid)
+    if not BRANCH_RE.match(b.name) or ".." in b.name or b.name.endswith((".lock", "/", ".")):
+        raise HTTPException(400, "tên nhánh không hợp lệ (chỉ chữ, số, . _ - /)")
+    _git(p, "switch", "-c", b.name)
+    return {"branch": b.name}
+
+
+class CommitBody(BaseModel):
+    message: str
+    files: list[str]
+    allow_protected: bool = False
+
+
+@router.post("/sessions/{sid}/git/commit")
+def git_commit(sid: str, b: CommitBody):
+    """Commit đúng các file được chọn (không bao giờ `git add -A`). Từ chối trên main/master trừ khi người dùng xác nhận."""
+    p = _need_repo(sid)
+    msg = b.message.strip()
+    if not msg:
+        raise HTTPException(400, "chưa nhập nội dung commit")
+    if not b.files:
+        raise HTTPException(400, "chưa chọn file nào")
+    if _current(p) in PROTECTED and not b.allow_protected:
+        raise HTTPException(409, f"đang ở nhánh {_current(p)}: hãy tạo nhánh mới hoặc xác nhận commit thẳng")
+    for f in b.files:
+        try:
+            workfiles.safe_path(p, f)
+        except workfiles.PathError as e:
+            raise HTTPException(400, str(e)) from e
+    _git(p, "add", "-A", "--", *b.files)  # -A chi trong pham vi cac file da chon (de ghi nhan ca file bi xoa)
+    _git(p, "commit", "-m", msg, "--", *b.files)
+    return {"commit": _git(p, "rev-parse", "--short", "HEAD").strip()}
+
+
+class PushBody(BaseModel):
+    confirm: bool = False
+    allow_protected: bool = False
+
+
+@router.post("/sessions/{sid}/git/push")
+def git_push(sid: str, b: PushBody):
+    """Đẩy nhánh hiện tại lên origin. Luôn cần confirm=true; không bao giờ force; main/master cần xác nhận riêng."""
+    p = _need_repo(sid)
+    if not b.confirm:
+        raise HTTPException(400, "cần xác nhận trước khi push")
+    branch = _current(p)
+    if branch in PROTECTED and not b.allow_protected:
+        raise HTTPException(409, f"đang ở nhánh {branch}: hãy xác nhận riêng để push thẳng")
+    if branch == "HEAD":
+        raise HTTPException(400, "đang ở trạng thái detached HEAD")
+    out = _git(p, "push", "-u", "origin", branch, timeout=90)
+    return {"branch": branch, "output": out.strip()[-500:]}
