@@ -109,6 +109,7 @@ export function ChatPage() {
   const docsReady = (kb.data?.stats.docs ?? 0) > 0
   const isDocs = useDocs && docsReady
   const [pickOpen, setPickOpen] = useState(false)
+  const mentionFiles = useQuery({ queryKey: ['mention-files', chat.sessionId, chat.filesTick], queryFn: () => api.get<{ path: string; dir: boolean }[]>(`/api/sessions/${chat.sessionId}/files`), enabled: !!chat.sessionId, staleTime: 5000 })
   const gitInfo = useQuery({ queryKey: ['git', chat.sessionId, chat.filesTick], queryFn: () => api.get<GitStatus>(`/api/sessions/${chat.sessionId}/git`), enabled: !!project && !!chat.sessionId, refetchInterval: 15000 })
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
@@ -224,11 +225,12 @@ export function ChatPage() {
   const lastUser = [...chat.items].reverse().find((i) => i.kind === 'user')
   const lastAssistant = [...chat.items].reverse().find((i) => i.kind === 'assistant')
 
-  const submit = () => {
-    if (!text.trim() || chat.busy || uploading) return
+  const submit = (override?: string) => {
+    const raw = override ?? text
+    if (!raw.trim() || chat.busy || uploading) return
     stick.current = true
-    void chat.send(skill ? `${t('Dùng skill `{name}`: ', { name: skill })}${text}` : text, active, attachments, { permission, effort, docs: isDocs, temperature, max_tokens: maxTokens })
-    setText('')
+    void chat.send(skill && override === undefined ? `${t('Dùng skill `{name}`: ', { name: skill })}${raw}` : raw, active, attachments, { permission, effort, docs: isDocs, temperature, max_tokens: maxTokens })
+    if (override === undefined) setText('')
     setSkill(null)
     setAttachments([])
   }
@@ -388,7 +390,7 @@ export function ChatPage() {
         </div>
 
         <PlanCard items={chat.plan} />
-        <Composer gitBadge={gitInfo.data?.repo ? { branch: gitInfo.data.branch, changes: gitInfo.data.files.length } : null} codeExtra={chat.sessionId ? <GitPanel sid={chat.sessionId} tick={chat.filesTick} /> : null} project={project} onCode={() => (project ? void setProject(null) : setPickOpen(true))} mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
+        <Composer gitBadge={gitInfo.data?.repo ? { branch: gitInfo.data.branch, changes: gitInfo.data.files.length } : null} codeExtra={chat.sessionId ? <GitPanel sid={chat.sessionId} tick={chat.filesTick} /> : null} project={project} onCode={() => (project ? void setProject(null) : setPickOpen(true))} mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={() => submit()} onRunCommand={(c) => submit(c)} files={mentionFiles.data} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
           docs={isDocs} onDocs={setUseDocs} docsReady={docsReady} permission={permission} onPermission={changePermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
           temperature={temperature} onTemperature={changeTemperature} maxTokens={maxTokens} onMaxTokens={changeMaxTokens}

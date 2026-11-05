@@ -9,7 +9,7 @@ from datetime import datetime
 from threading import Event
 
 from ..core import config as cfgmod
-from . import audit, checkpoints, compaction, knowledge, mcp_client, tools_kb, plans, sessions, skills as skillmod, tools, usage, workfiles
+from . import audit, checkpoints, commands, compaction, knowledge, mcp_client, tools_kb, plans, sessions, skills as skillmod, tools, usage, workfiles
 from .providers import ProviderError, make_provider
 
 PROMPT_FILES = ("SOUL.md", "USER.md", "MEMORY.md")
@@ -103,11 +103,35 @@ def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str 
     return "\n\n".join(parts)
 
 
-def _augment(m: dict) -> dict:
-    """Them dong liet ke tep dinh kem vao noi dung gui cho model."""
-    if m["role"] == "user" and m.get("attachments"):
-        return {"role": "user", "content": f"{m['content']}\n\n[Tệp đính kèm trong thư mục làm việc: {', '.join(m['attachments'])}]"}
-    return {k: v for k, v in m.items() if k not in ("attachments", "_id")}
+MENTION_RE = re.compile(r"(?<![\w@])@([\w][\w./-]*)")
+
+
+def _mentioned_paths(text: str, workdir) -> list[str]:
+    """`@duong/dan` trong tin nhan tro toi file/thu muc co that trong thu muc lam viec (khong the thoat ra ngoai)."""
+    out: list[str] = []
+    if workdir is None:
+        return out
+    for m in MENTION_RE.finditer(text):
+        rel = m.group(1).rstrip(".")
+        try:
+            p = workfiles.safe_path(Path(workdir), rel)
+        except workfiles.PathError:
+            continue
+        if p.exists() and rel not in out:
+            out.append(rel + ("/" if p.is_dir() else ""))
+    return out[:10]
+
+
+def _augment(m: dict, workdir=None) -> dict:
+    """Them dong liet ke tep dinh kem / tep duoc @nhac toi, va mo rong lenh `/` dung san, vao noi dung gui cho model."""
+    if m["role"] != "user":
+        return {k: v for k, v in m.items() if k not in ("attachments", "_id")}
+    content = commands.expand(m["content"]) or m["content"]
+    if m.get("attachments"):
+        content = f"{content}\n\n[Tệp đính kèm trong thư mục làm việc: {', '.join(m['attachments'])}]"
+    if mentioned := _mentioned_paths(m["content"], workdir):
+        content += f"\n\n[Người dùng nhắc tới các tệp/thư mục này bằng @: {', '.join(mentioned)}. Hãy đọc chúng (read/list_dir/grep) trước khi làm.]"
+    return {"role": "user", "content": content} if content != m["content"] else {k: v for k, v in m.items() if k not in ("attachments", "_id")}
 
 
 def _images(workdir, names: list[str]) -> list[dict]:
@@ -310,13 +334,13 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
     if attachments:
         user_msg["attachments"] = attachments
     sessions.add_message(sid, user_msg)
-    current = _augment(user_msg)
+    current = _augment(user_msg, workdir)
     if attachments and cfg.providers[first].vision:
         current["images"] = _images(workdir, attachments)
     has_planning = "plan_set" in tools.TOOLS and ctx.enabled.get("plan_set", True)
     system = build_system_prompt(cfg, skills, workdir, sess.get("summary", ""), sid, has_planning, bool(project)) + (f"\n\n{perm_note}" if perm_note else "") + (f"\n\n{mention_note}" if mention_note else "") + (f"\n\n{system_extra}" if system_extra else "")
     messages = [{"role": "system", "content": system}] \
-        + [_augment(m) for m in _window(history, cfg.agent.max_history)] + [current]
+        + [_augment(m, workdir) for m in _window(history, cfg.agent.max_history)] + [current]
 
     limit = max_steps or cfg.agent.max_steps
     empty_retries = 0
