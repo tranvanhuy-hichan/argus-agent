@@ -257,6 +257,14 @@ class CliProvider:
             raise ProviderError(f"không chạy được CLI: {e}") from e
         timer = threading.Timer(TIMEOUT, proc.kill)
         timer.start()
+        cancel = getattr(self, "cancel", None)
+        if cancel is not None:  # bam Dung: kill CLI ngay, khong doi no tra loi xong
+            def _watch():
+                while proc.poll() is None:
+                    if cancel.wait(0.3):
+                        proc.kill()
+                        return
+            threading.Thread(target=_watch, daemon=True).start()
         err_lines: list[str] = []
         threading.Thread(target=lambda: err_lines.extend(proc.stderr), daemon=True).start()
         threading.Thread(target=lambda: (proc.stdin.write(stdin_text or ""), proc.stdin.close()), daemon=True).start()

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowUp, AtSign, FileSearch, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, Code2, FileSearch, Mic, Paperclip, Plus, Puzzle, Square, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BrandIcon, type Brand } from '@/components/ui/BrandIcon'
 import { t, useLang } from '@/lib/i18n.ts'
@@ -35,6 +35,8 @@ interface Props {
   docs: boolean
   onDocs: (v: boolean) => void
   docsReady: boolean
+  project?: string
+  onCode?: () => void
   skill: string | null
   onSkill: (name: string | null) => void
   temperature?: number
@@ -154,6 +156,13 @@ export function Composer(p: Props) {
                 </div>
               )}
             </div>
+
+            {p.onCode && (
+              <button onClick={p.onCode} aria-pressed={!!p.project} title={p.project ? t('Đang ở chế độ Lập trình: {path}. Bấm để tắt.', { path: p.project }) : t('Bật chế độ Lập trình: agent làm việc trực tiếp trong một dự án trên máy')}
+                className={cn('flex h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-3 text-sm transition', p.project ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>
+                <Code2 className="size-4 shrink-0" /><span className="truncate">{p.project ? p.project.split('/').filter(Boolean).pop() : t('Lập trình')}</span>
+              </button>
+            )}
 
             <button onClick={() => p.onDocs(!p.docs)} aria-pressed={p.docs} disabled={!p.docsReady} title={p.docsReady ? t('Trả lời dựa trên tài liệu bạn đã thêm, có ghi nguồn') : t('Chưa có tài liệu nào. Thêm ở mục Tài liệu.')}
               className={cn('flex h-8 items-center gap-1.5 rounded-full px-3 text-sm transition disabled:opacity-40', p.docs ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-panel2 hover:text-fg')}>

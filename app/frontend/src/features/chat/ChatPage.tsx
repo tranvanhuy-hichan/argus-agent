@@ -2,18 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AgentLogoStacked } from '../../components/ui/AgentMark'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Activity, Copy, Download, FileCode, FileSearch, FileText, Folder, FolderTree, GitCompare, LoaderCircle, PanelLeft, Terminal, Upload } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { BrandIcon, detectBrand } from '@/components/ui/BrandIcon'
 import { Loading } from '@/components/ui/misc'
 import { useToast } from '@/components/ui/Toast'
 import { useConfig, useMcp, useSessions, useSkills } from '@/lib/queries'
-import { CODE_MODE } from '@/lib/features'
 import { mcpBrand } from '@/features/integrations/brands'
 import { t, tk } from '@/lib/i18n.ts'
 import { cn, errMsg } from '@/lib/utils'
+import { ProjectPicker } from './ProjectPicker'
 import { Composer } from './Composer'
-import type { Effort, Permission } from './permissions'
+import { permStore, type Effort, type Permission } from './permissions'
 import { MessageView } from './MessageView'
 import { PlanCard } from './PlanCard'
 import { SessionContext } from './session'
@@ -22,7 +22,7 @@ import { useChat, type Item } from './useChat'
 import { WorkspacePanel, type PanelTab } from './WorkspacePanel'
 
 const DOC_SUGGESTIONS = [tk('Tóm tắt các tài liệu này trong 5 ý chính'), tk('Những mốc thời gian hoặc hạn chót nào được nhắc đến?'), tk('Có những con số hoặc chi phí quan trọng nào?'), tk('Có điều khoản hay yêu cầu nào tôi cần đặc biệt lưu ý?')]
-const SUGGESTIONS = [tk('Bạn làm được những gì?'), tk('Viết script Python đọc file CSV tôi đính kèm và vẽ biểu đồ, lưu ra file .png'), tk('Tìm trên web tin mới nhất về Python 3.14 và tóm tắt'), tk('Liệt kê các skill bạn đang có')]
+const SUGGESTIONS = [tk('Bạn làm được những gì?'), tk('Soạn giúp tôi một email chuyên nghiệp xin dời lịch họp sang tuần sau'), tk('Tìm trên web tin mới nhất về Python 3.14 và tóm tắt'), tk('Viết script Python đọc file CSV tôi đính kèm và vẽ biểu đồ, lưu ra file .png'), tk('Sắp xếp và đặt tên lại các file trong thư mục làm việc theo loại'), tk('Lập kế hoạch học tiếng Anh 30 ngày, lưu thành file Excel')]
 
 const store = {
   get: (k: string, d: string) => { try { return localStorage.getItem(k) ?? d } catch { return d } },
@@ -69,10 +69,11 @@ export function ChatPage() {
   const chat = useChat()
   const cfg = useConfig()
   const allSessions = useSessions()
-  const sessions = { ...allSessions, data: CODE_MODE ? allSessions.data : allSessions.data?.filter((s) => !s.project) }
+  const sessions = allSessions
   const skills = useSkills()
   const mcp = useMcp()
   const toast = useToast()
+  const qc = useQueryClient()
   const nav = useNavigate()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
@@ -80,6 +81,11 @@ export function ChatPage() {
   const [skill, setSkill] = useState<string | null>(null)
   const [provider, setProvider] = useState<string | null>(null)
   const [permission, setPermission] = useState<Permission>('default') // moi hoi thoai bat dau o 'Mac dinh', khong luu lai
+  const changePermission = (p: Permission) => { setPermission(p); permStore.set(chat.sessionId, p) }
+  useEffect(() => { // hoi thoai moi vua co id: giu quyen da chon luc chua co id
+    const sid = chat.sessionId
+    if (sid && !permStore.get(sid)) { const n = permStore.get(null); if (n) permStore.set(sid, n) }
+  }, [chat.sessionId])
   const [effort, setEffort] = useState<Effort>(() => (store.get('effort', 'auto') as Effort))
   const [temperature, setTemperature] = useState(() => Number(store.get('chat_temperature', '0.7')))
   const [maxTokens, setMaxTokens] = useState(() => Number(store.get('chat_max_tokens', '4096')))
@@ -100,7 +106,7 @@ export function ChatPage() {
   const kb = useQuery({ queryKey: ['kb'], queryFn: () => api.get<{ stats: { docs: number } }>('/api/knowledge'), refetchInterval: 15_000 })
   const docsReady = (kb.data?.stats.docs ?? 0) > 0
   const isDocs = useDocs && docsReady
-  const projectSeen = useRef<string | null>(null)
+  const [pickOpen, setPickOpen] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const [exportOpen, setExportOpen] = useState(false)
@@ -129,10 +135,18 @@ export function ChatPage() {
   }, [wantDocs, nav])
 
   const wanted = params.get('session')
+  // quay lai trang chat (sau khi mo muc khac) thi hien lai hoi thoai truoc do, ke ca khi agent van dang chay
+  const restored = useRef(false)
+  useEffect(() => {
+    if (restored.current || wanted || initial) return
+    restored.current = true
+    const last = store.get('last-session', '')
+    if (last && !chat.sessionId) { setPermission(permStore.get(last) ?? 'default'); void chat.open(last).catch(() => store.set('last-session', '')) }
+  }, [wanted, initial, chat])
+  useEffect(() => { if (chat.sessionId) store.set('last-session', chat.sessionId) }, [chat.sessionId])
   useEffect(() => {
     if (!wanted) return
-    if (sessions.data?.find((s) => s.id === wanted)?.project) { nav(`/code/${wanted}`, { replace: true }); return }
-    void chat.open(wanted); setParams({}, { replace: true })
+    setPermission(permStore.get(wanted) ?? 'default'); void chat.open(wanted); setParams({}, { replace: true })
   }, [wanted, chat, setParams, sessions.data, nav])
 
   useEffect(() => {
@@ -141,7 +155,6 @@ export function ChatPage() {
   }, [chat.items, chat.status])
   // mở dự án: tự bật panel Thay đổi; phiên thường thì không có tab này
   useEffect(() => {
-    if (project && projectSeen.current !== chat.sessionId) { projectSeen.current = chat.sessionId; setTab('changes'); setPanelOpen(true) }
     if (!project && tab === 'changes') setTab('files')
   }, [project, chat.sessionId, tab])
   useEffect(() => { store.set('effort', effort) }, [effort])
@@ -154,7 +167,16 @@ export function ChatPage() {
     else { setTab(id); setPanelOpen(true) }
   }
   const openFile = useCallback((p: string) => { setPanelOpen(true); setTab('files'); setOpenPath(p) }, [])
-  const onNew = () => { chat.reset(); setAttachments([]); setOpenPath(null); setPermission('default'); setUseDocs(false) }
+  const setProject = async (path: string | null) => {
+    try {
+      const sid = await chat.ensureSession()
+      await api.post(`/api/sessions/${sid}/project`, { path })
+      await qc.invalidateQueries({ queryKey: ['sessions'] })
+      setPickOpen(false)
+      toast(path ? t('Đã bật chế độ Lập trình: agent làm việc trong dự án này') : t('Đã tắt chế độ Lập trình'))
+    } catch (e) { toast(errMsg(e), 'bad') }
+  }
+  const onNew = () => { chat.reset(); store.set('last-session', ''); setAttachments([]); setOpenPath(null); setPermission('default'); permStore.clear(null); setUseDocs(false) }
 
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
@@ -171,8 +193,7 @@ export function ChatPage() {
   }, [onNew])
 
   const onOpen = (id: string) => {
-    if (sessions.data?.find((s) => s.id === id)?.project) { nav(`/code/${id}`); return }
-    setOpenPath(null); setAttachments([]); setPermission('default'); void chat.open(id) }
+    setOpenPath(null); setAttachments([]); setPermission(permStore.get(id) ?? 'default'); void chat.open(id) }
 
   const upload = async (files: File[]) => {
     if (!files.length) return
@@ -346,7 +367,7 @@ export function ChatPage() {
               </div>
             ) : (
               chat.items.map((it) => (
-                <MessageView key={it.key} item={it} sid={chat.sessionId} onDecide={(aid, ok) => void chat.decide(aid, ok)} onOpenFile={openFile}
+                <MessageView key={it.key} item={it} sid={chat.sessionId} onDecide={(aid, ok) => void chat.decide(aid, ok)} onAnswer={(q, a) => void chat.answer(q, a)} onUndo={() => void chat.undo()} onOpenFile={openFile}
                   canAct={!chat.busy} isLastUser={it === lastUser} isLastAssistant={it === lastAssistant}
                   onEdit={(txt) => void resend(txt)} onRegenerate={() => void resend()} />
               ))
@@ -364,15 +385,16 @@ export function ChatPage() {
         </div>
 
         <PlanCard items={chat.plan} />
-        <Composer mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
+        <Composer project={project} onCode={() => (project ? void setProject(null) : setPickOpen(true))} mentions={(mcp.data ?? []).filter((s) => s.config.enabled).map((s) => ({ name: s.name, brand: mcpBrand(s.config), status: s.status, tools: s.tools.length }))} value={text} onChange={setText} skill={skill} onSkill={setSkill} onSend={submit} onStop={chat.stop} busy={chat.busy} attachments={attachments} uploading={uploading}
           onAttach={(f) => void upload(f)} onRemoveAttachment={(p) => setAttachments((a) => a.filter((x) => x !== p))} skills={skills.data ?? []}
-          docs={isDocs} onDocs={setUseDocs} docsReady={docsReady} permission={permission} onPermission={setPermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
+          docs={isDocs} onDocs={setUseDocs} docsReady={docsReady} permission={permission} onPermission={changePermission} provider={active} onProvider={setProvider} effort={effort} onEffort={setEffort}
           temperature={temperature} onTemperature={changeTemperature} maxTokens={maxTokens} onMaxTokens={changeMaxTokens}
           providers={providers.map((id) => ({ id, model: cfg.data.config.providers[id].model, type: cfg.data.config.providers[id].type }))} />
 
         {dragging && <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center border-2 border-dashed border-accent bg-bg/80"><p className="flex items-center gap-2 text-sm font-medium"><Upload className="size-5 text-accent" />{t('Thả file để đính kèm')}</p></div>}
       </section>
 
+      <ProjectPicker open={pickOpen} onClose={() => setPickOpen(false)} onPick={(p) => void setProject(p)} />
       {panelOpen && <WorkspacePanel sid={chat.sessionId} project={!!project} items={chat.items} filesTick={chat.filesTick} tab={tab} onTab={setTab} openPath={openPath} onOpenPath={setOpenPath} onClose={() => setPanelOpen(false)} width={panelWidth} onWidth={setPanelWidth} />}
     </div>
     </SessionContext.Provider>

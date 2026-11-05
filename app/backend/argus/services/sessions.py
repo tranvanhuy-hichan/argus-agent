@@ -40,6 +40,11 @@ def delete(sid: str) -> None:
         pass
 
 
+def set_project(sid: str, project: str) -> None:
+    with db() as c:
+        c.execute("UPDATE sessions SET project=? WHERE id=?", (project, sid))
+
+
 def rename(sid: str, title: str) -> None:
     with db() as c:
         c.execute("UPDATE sessions SET title=? WHERE id=?", (title[:60], sid))

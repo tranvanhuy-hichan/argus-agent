@@ -18,7 +18,7 @@ import { MessageView } from '@/features/chat/MessageView'
 import { PlanCard } from '@/features/chat/PlanCard'
 import { SessionContext } from '@/features/chat/session'
 import { TerminalTab } from '@/features/chat/TerminalTab'
-import type { Effort, Permission } from '@/features/chat/permissions'
+import { permStore, type Effort, type Permission } from '@/features/chat/permissions'
 import { useChat } from '@/features/chat/useChat'
 import { CodeEditor } from './CodeEditor'
 import { ProjectTree } from './ProjectTree'
@@ -86,7 +86,9 @@ export function CodeWorkspace() {
   const [chatW, setChatW] = useState(() => Number(store.get('code-chat-w', '440')))
   const [text, setText] = useState('')
   const [provider, setProvider] = useState<string | null>(null)
-  const [permission, setPermission] = useState<Permission>('default')
+  const [permission, setPermissionState] = useState<Permission>(() => permStore.get(sid) ?? 'default')
+  const setPermission = (p: Permission) => { setPermissionState(p); permStore.set(sid, p) }
+  useEffect(() => { setPermissionState(permStore.get(sid) ?? 'default') }, [sid])
   const [effort, setEffort] = useState<Effort>('auto')
   const [attachments, setAttachments] = useState<string[]>([])
   const wide = useMediaQuery('(min-width: 768px)')
@@ -238,7 +240,7 @@ export function CodeWorkspace() {
                     <div className="mt-4 grid gap-2">{IDEAS.map((s) => <button key={s} onClick={() => idea(t(s))} className="rounded-lg border border-line bg-bg px-3 py-2 text-left text-[13px] text-muted transition hover:border-accent/60 hover:text-fg">{t(s)}</button>)}</div>
                   </div>
                 ) : chat.items.map((it) => (
-                  <MessageView key={it.key} item={it} onDecide={(aid, ok) => void chat.decide(aid, ok)} onOpenFile={(p) => openTab(p)}
+                  <MessageView key={it.key} item={it} onDecide={(aid, ok) => void chat.decide(aid, ok)} onAnswer={(q, a) => void chat.answer(q, a)} onUndo={() => void chat.undo()} onOpenFile={(p) => openTab(p)}
                     canAct={!chat.busy} isLastUser={it === lastUser} isLastAssistant={it === lastAssistant} onEdit={(txt) => void resend(txt)} onRegenerate={() => void resend()} />
                 ))}
                 {chat.busy && chat.status && <p className="flex items-center gap-2 text-xs text-muted" role="status"><LoaderCircle className="size-3.5 animate-spin text-accent" />{chat.status}</p>}

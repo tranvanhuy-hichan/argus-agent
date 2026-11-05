@@ -190,6 +190,16 @@ export function SettingsPage() {
               </div>
               <Switch checked={agent.confirm_exec} onChange={(v) => setAgent({ ...agent, confirm_exec: v })} label={t('Xác nhận lệnh shell')} />
             </div>
+            <div className="-mx-5 flex flex-wrap items-center justify-between gap-4 border-b border-line/60 px-5 pb-4 col-span-full">
+              <div className="max-w-md">
+                <p className="text-sm font-medium">{t('Model nhanh cho câu đơn giản')}</p>
+                <p className="text-xs text-muted">{t('Khi đang dùng model mặc định, câu ngắn và đơn giản (chào hỏi, hỏi đáp nhanh) sẽ dùng model này để nhanh và rẻ hơn. Việc code, file, nhiều bước vẫn dùng model chính.')}</p>
+              </div>
+              <Select value={agent.fast_provider ?? ''} onChange={(e) => setAgent({ ...agent, fast_provider: e.target.value })} className="w-56">
+                <option value="">{t('Tắt')}</option>
+                {Object.keys(cfg.data.config.providers).filter((n) => n !== cfg.data.config.default_provider).map((n) => <option key={n} value={n}>{n}</option>)}
+              </Select>
+            </div>
             <div className="-mx-5 flex items-center justify-between gap-4 border-b border-line/60 px-5 pb-4 last:border-b-0 last:pb-0 col-span-full">
               <p className="text-sm font-medium">{t('Gợi ý tạo kỹ năng từ việc lặp lại')}</p>
               <Switch checked={agent.suggest_habits} onChange={(v) => setAgent({ ...agent, suggest_habits: v })} label={t('Gợi ý kỹ năng')} />

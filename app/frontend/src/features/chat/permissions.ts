@@ -18,3 +18,14 @@ export const EFFORTS: { id: Effort; label: string }[] = [
   { id: 'high', label: tk('Cao') },
   { id: 'thinking', label: tk('Suy nghĩ (Thinking)') },
 ]
+
+/** Quyền đã chọn được nhớ theo từng phiên (không bị đặt lại khi đổi phiên/đổi trang). '__new' là lựa chọn cho hội thoại chưa có id. */
+const KEY = 'argus-perm:'
+const VALID = new Set<string>(['default', 'readonly', 'guarded', 'full'])
+export const permStore = {
+  get(sid: string | null): Permission | null {
+    try { const v = localStorage.getItem(KEY + (sid ?? '__new')); return v && VALID.has(v) ? (v as Permission) : null } catch { return null }
+  },
+  set(sid: string | null, p: Permission) { try { localStorage.setItem(KEY + (sid ?? '__new'), p) } catch { /* che do rieng tu */ } },
+  clear(sid: string | null) { try { localStorage.removeItem(KEY + (sid ?? '__new')) } catch { /* */ } },
+}

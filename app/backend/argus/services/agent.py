@@ -9,7 +9,7 @@ from datetime import datetime
 from threading import Event
 
 from ..core import config as cfgmod
-from . import audit, compaction, knowledge, mcp_client, tools_kb, plans, sessions, skills as skillmod, tools, usage, workfiles
+from . import audit, checkpoints, compaction, knowledge, mcp_client, tools_kb, plans, sessions, skills as skillmod, tools, usage, workfiles
 from .providers import ProviderError, make_provider
 
 PROMPT_FILES = ("SOUL.md", "USER.md", "MEMORY.md")
@@ -42,12 +42,26 @@ DOCS_PROMPT = ("CHẾ ĐỘ HỎI TỪ TÀI LIỆU. Chỉ trả lời dựa trê
 CODING_DOCS = ("AGENTS.md", "CLAUDE.md", "README.md")
 
 
-def coding_prompt(project) -> str:
+AUTONOMY = ("Cách làm việc: hãy tự quyết và làm cho xong, đừng dừng lại hỏi người dùng những điều bạn tự suy ra được hoặc tự tra được bằng tool "
+            "(đọc file, tìm kiếm, chạy thử). Chỉ hỏi khi thiếu thông tin thật sự không thể đoán và sai sẽ tốn công làm lại; khi đó hỏi MỘT câu ngắn kèm lựa chọn bạn đề xuất. "
+            "Không xin phép cho từng bước nhỏ, không hỏi \"bạn có muốn tôi tiếp tục không\". Việc nhiều bước thì làm liền một mạch rồi báo kết quả. "
+            "Gặp lỗi thì tự đọc lỗi, sửa và thử lại vài lần trước khi báo cáo. Gọi nhiều tool độc lập trong cùng một lượt khi có thể. "
+            "Trước khi báo xong, TỰ KIỂM CHỨNG kết quả: chạy lại/mở lại thứ vừa làm (test, file vừa tạo, trang web, số liệu) và đối chiếu với yêu cầu ban đầu; chưa kiểm chứng được thì nói rõ. "
+            "Khi cần hỏi người dùng, dùng tool ask_user với vài lựa chọn bấm nhanh thay vì viết câu hỏi dài. Tiến trình chạy lâu (dev server, watcher) dùng exec_bg/exec_read/exec_stop.")
+
+
+def coding_prompt(project, workspace=None) -> str:
     """Chế độ Code: thư mục làm việc là một dự án thật của người dùng."""
     text = (f"CHẾ ĐỘ LẬP TRÌNH. Thư mục làm việc là dự án của người dùng: {project}. Làm việc như một kỹ sư cẩn thận: "
-            "đọc code liên quan trước khi sửa, sửa nhỏ và đúng chỗ (dùng edit thay vì ghi đè cả file), giữ phong cách code hiện có, "
-            "chạy test hoặc build của dự án sau khi sửa và đọc kết quả để tự sửa lỗi. Không xóa file, không đổi git (commit, push, reset) "
+            "khám phá trước (list_dir, glob, grep để tìm đúng chỗ, rồi read file liên quan), sửa nhỏ và đúng chỗ (dùng edit thay vì ghi đè cả file), giữ phong cách code hiện có, "
+            "tự tìm cách chạy test/lint/build của dự án (package.json, pyproject, Makefile...) và chạy sau mỗi thay đổi, đọc kết quả để tự sửa lỗi cho đến khi qua. "
+            "Việc lớn thì lập kế hoạch bằng plan_set trước. Đừng hỏi lại những gì có thể xem trong code. Không xóa file, không đổi git (commit, push, reset) "
             "trừ khi người dùng yêu cầu rõ. Cuối cùng báo ngắn gọn đã đổi gì; người dùng xem diff ở tab Thay đổi.")
+    if workspace is not None:
+        np = tools.project_notes_path(workspace, project)
+        if np.is_file():
+            text += f"\n\n## Ghi nhớ của bạn về dự án này (project_note)\n{np.read_text(errors='replace')[-2000:].strip()}"
+        text += "\nKhi học được điều hữu ích về dự án (cách chạy test, quy ước, cấu trúc), ghi lại bằng project_note."
     for name in CODING_DOCS:
         p = Path(project) / name
         if p.is_file():
@@ -74,8 +88,9 @@ def build_system_prompt(cfg: cfgmod.Config, skills: dict, workdir, summary: str 
         parts.append(kb_note)
     if note := tools.shell_note():
         parts.append(note)
+    parts.append(AUTONOMY)
     if coding:
-        parts.append(coding_prompt(workdir))
+        parts.append(coding_prompt(workdir, ws))
     if summary:
         parts.append(f"Tóm tắt phần hội thoại trước đó:\n{summary}")
     block = skillmod.prompt_block(skills)
@@ -111,6 +126,14 @@ PERMISSIONS = ("default", "readonly", "guarded", "full")
 READONLY_BLOCKED = {"write", "edit", "remember", "http_request", "generate_image", "browser_click", "browser_type", "browser_press", "task_start"} | {
     "computer_screenshot", "computer_click", "computer_type", "computer_key", "computer_move", "computer_scroll"}
 READONLY_NOTE = "Chế độ CHỈ ĐỌC: bạn không được ghi/sửa file, chạy lệnh shell hay thay đổi dữ liệu; các tool đó đã bị tắt. Hãy chỉ đọc và tra cứu."
+
+
+_HARD = re.compile(r"(code|script|file|tệp|tập tin|sửa|viết|tạo|chạy|cài|lỗi|bug|debug|build|test|tìm|phân tích|so sánh|báo cáo|excel|pdf|docx|web|http|```)", re.I)
+
+
+def is_simple(text: str, attachments, in_project: bool, only_tools) -> bool:
+    """Cau ngan, khong dinh kem, khong co dau hieu can cong cu/viec nang: dung duoc model nhanh."""
+    return not (attachments or in_project or only_tools is not None) and len(text) <= 140 and text.count("\n") < 2 and not _HARD.search(text)
 
 
 def apply_permission(ctx: tools.ToolContext, mode: str) -> str:
@@ -183,6 +206,7 @@ def _stream_with_retry(name: str, pcfg: cfgmod.ProviderCfg, messages: list[dict]
         started = False
         try:
             prov = make_provider(pcfg)
+            prov.cancel = cancel  # CLI provider dung de kill tien trinh ngay khi bam Dung
             kwargs = {}
             if effort is not None:
                 kwargs["effort"] = effort
@@ -194,10 +218,18 @@ def _stream_with_retry(name: str, pcfg: cfgmod.ProviderCfg, messages: list[dict]
             sig = inspect.signature(prov.stream)
             if not any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
                 kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
-            for ev in prov.stream(messages, schemas, **kwargs):
-                if ev["type"] in ("delta", "thinking"):
-                    started = True
-                yield ev
+            gen = prov.stream(messages, schemas, **kwargs)
+            try:
+                for ev in gen:
+                    if cancel and cancel.is_set():
+                        return  # bam Dung: bo luong dang doc (dong ket noi / kill CLI)
+                    if ev["type"] in ("delta", "thinking"):
+                        started = True
+                    yield ev
+            finally:
+                close = getattr(gen, "close", None)
+                if close:
+                    close()
             return
         except ProviderError as e:
             if started or not e.retryable or attempt == RETRIES - 1:
@@ -215,7 +247,8 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
              emit: Callable[[dict], None], cancel: Event | None = None, only_tools: list[str] | None = None,
              source: str = "chat", attachments: list[str] | None = None, permission: str = "default", effort: str | None = None,
              system_extra: str = "", max_steps: int | None = None, depth: int = 0, job_id: str | None = None, workdir_sid: str | None = None,
-             use_docs: bool = False, docs_pre: str | None = None, temperature: float | None = None, max_tokens: int | None = None) -> None:
+             use_docs: bool = False, docs_pre: str | None = None, temperature: float | None = None, max_tokens: int | None = None,
+             asker: Callable[[str, list[str]], str] | None = None) -> None:
     cfg = cfgmod.load()
     skills = skillmod.discover(cfg)
     workdir = workfiles.workdir_for(cfg, workdir_sid or sid)  # agent con/viec nen dung chung thu muc voi phien da giao viec
@@ -232,6 +265,9 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
                             env=skillmod.env_for(skills, cfg), enabled=cfg.agent.tools_enabled, skills={n: s for n, s in skills.items() if s.active},
                             sandbox={"mode": cfg.agent.exec_sandbox, "image": cfg.agent.sandbox_image, "network": cfg.agent.sandbox_network})
     ctx.depth = depth
+    ctx.asker = asker
+    if depth == 0:
+        checkpoints.begin(sid)
     ctx.project = workdir if project else None
     # khong gui dinh nghia cua cong cu khong dung duoc (moi cong cu ton ~100 token o MOI luot goi mo hinh)
     hidden = [n for n in tools.TOOLS if (n.startswith("computer_") and not cfg.computer.enabled) or (n.startswith("browser_") and not cfg.browser.enabled)]
@@ -260,6 +296,8 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
         permission = "default"
     perm_note = apply_permission(ctx, permission)
     first = provider if provider in cfg.providers else cfg.default_provider
+    if first == cfg.default_provider and cfg.agent.fast_provider in cfg.providers and cfg.agent.fast_provider != first and is_simple(user_text, attachments, bool(project), only_tools):
+        first = cfg.agent.fast_provider  # cau don gian: dung model nhanh/re de tiet kiem
     names = [first] + [n for n in cfg.fallback if n != first and n in cfg.providers]
 
     emit(ui_event("status", "Đang chuẩn bị…"))
@@ -298,11 +336,17 @@ def run_turn(sid: str, user_text: str, provider: str | None, approver: Callable[
                         emit(ev)
                     else:
                         result = ev
+                if cancel and cancel.is_set():
+                    emit(ui_event("notice", "Đã dừng"))
+                    return
                 u = result["usage"]
                 usage.record_llm(name, pcfg.model, u["prompt"], u["completion"], int((time.time() - t0) * 1000), True, sid)
                 result["provider"] = name
                 break
             except ProviderError as e:
+                if cancel and cancel.is_set():
+                    emit(ui_event("notice", "Đã dừng"))
+                    return
                 usage.record_llm(name, pcfg.model, 0, 0, int((time.time() - t0) * 1000), False, sid)
                 if started or name == names[-1]:
                     emit({"type": "error", "message": f"{name}: {e}"})

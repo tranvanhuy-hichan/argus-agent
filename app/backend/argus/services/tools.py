@@ -1,4 +1,5 @@
 """Registry tool. Ten tool (read/write/exec/web_fetch) trung voi ten ma skill ClawHub thuong goi, de skill chay duoc."""
+import fnmatch
 import html
 import ipaddress
 import json
@@ -15,6 +16,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
 import httpx
+
+from . import checkpoints
 
 
 @dataclass
@@ -36,6 +39,7 @@ class ToolContext:
     cancel: object | None = None  # threading.Event; tool chay lau nen kiem tra de dung som
     confirm_writes: bool = False  # che do 'Hoi truoc': hoi ca khi ghi file/goi HTTP thay doi trong phien
     full_access: bool = False  # che do 'Toan quyen': khong hoi xac nhan nao
+    asker: Callable[[str, list[str]], str] | None = None  # hoi nguoi dung mot cau (ask_user); None = khong hoi duoc (API/CLI)
     sandbox: dict = field(default_factory=dict)  # {"mode": "none|docker", "image", "network"}
 
     @property
@@ -136,6 +140,7 @@ def read_file(ctx, path):
 @tool("write", "Ghi nội dung vào file (ghi đè), tự tạo thư mục cha.", {"path": ("string", "đường dẫn file"), "content": ("string", "nội dung")}, risk="file")
 def write_file(ctx, path, content):
     p = _resolve(ctx, path, "write")
+    checkpoints.record(ctx.session_id, p)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content)
     return f"da ghi {len(content)} ky tu vao {p}"
@@ -172,6 +177,44 @@ def _docker_cmd(ctx: ToolContext, command: str) -> list[str]:
     return cmd + [sb.get("image") or "python:3.12-slim", "bash", "-c", command]
 
 
+class _Cancelled(Exception):
+    pass
+
+
+def _run_cancellable(ctx, cmd, timeout, **kw):
+    """Nhu subprocess.run nhung dung ngay (kill ca nhom tien trinh) khi nguoi dung bam Dung."""
+    import time
+    posix = os.name == "posix"
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
+                            start_new_session=posix, **kw)
+    end = time.time() + timeout
+    chunks: list[str] = []
+    import threading
+    t = threading.Thread(target=lambda: chunks.append(proc.stdout.read()), daemon=True)
+    t.start()
+
+    def kill():
+        try:
+            if posix:
+                import signal
+                os.killpg(proc.pid, signal.SIGKILL)
+            else:
+                proc.kill()
+        except OSError:
+            pass
+
+    while proc.poll() is None:
+        if ctx.cancel is not None and ctx.cancel.is_set():
+            kill()
+            raise _Cancelled()
+        if time.time() > end:
+            kill()
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        time.sleep(0.1)
+    t.join(2)
+    return subprocess.CompletedProcess(cmd, proc.returncode, "".join(chunks), "")
+
+
 @tool("exec", "Chạy lệnh shell (bash) trong thư mục làm việc của phiên. Người dùng có thể phải xác nhận.",
       {"command": ("string", "lệnh cần chạy"), "timeout": ("integer", "số giây tối đa (mặc định 60)")}, required=["command"], risk="exec")
 def exec_tool(ctx, command, timeout=60):
@@ -183,12 +226,13 @@ def exec_tool(ctx, command, timeout=60):
         return "loi: da bat sandbox Docker nhung may khong co lenh docker"
     try:
         if sandboxed:
-            r = subprocess.run(_docker_cmd(ctx, command), capture_output=True, text=True, timeout=min(int(timeout), 300) + 30)
+            r = _run_cancellable(ctx, _docker_cmd(ctx, command), min(int(timeout), 300) + 30)
         else:
-            r = subprocess.run(command, shell=True, executable=_shell()[0], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=ctx.workdir,
-                               env={**os.environ, **ctx.env}, timeout=min(int(timeout), 300))
+            r = _run_cancellable(ctx, command, min(int(timeout), 300), shell=True, executable=_shell()[0], cwd=ctx.workdir, env={**os.environ, **ctx.env})
     except subprocess.TimeoutExpired:
         return f"loi: lenh chay qua {timeout}s va bi dung"
+    except _Cancelled:
+        return "loi: da dung lenh theo yeu cau cua nguoi dung"
     out = (r.stdout + r.stderr)[-6000:] or "(khong co output)"
     out = out if r.returncode == 0 else f"{out}\n[exit code {r.returncode}]"
     return f"[sandbox docker]\n{out}" if sandboxed else out
@@ -213,6 +257,162 @@ def http_request(ctx, url, method="GET", body="", headers=""):
     return f"HTTP {r.status_code}\n{r.text[:8000]}"
 
 
+SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".next", ".mypy_cache", ".pytest_cache", "target"}
+
+
+def _walk(root: Path):
+    for dp, dns, fns in os.walk(root):
+        dns[:] = [d for d in dns if d not in SKIP_DIRS]
+        for fn in fns:
+            yield Path(dp) / fn
+
+
+@tool("glob", "Tìm file theo mẫu tên (vd. **/*.py, src/**/*.tsx) trong thư mục, bỏ qua .git/node_modules.",
+      {"pattern": ("string", "mẫu glob"), "path": ("string", "thư mục gốc (mặc định thư mục làm việc)")}, required=["pattern"], risk="file")
+def glob_tool(ctx, pattern, path="."):
+    root = _resolve(ctx, path, "read")
+    out = []
+    for p in _walk(root):
+        rel = p.relative_to(root).as_posix()
+        if fnmatch.fnmatch(rel, pattern) or fnmatch.fnmatch(rel, pattern.replace("**/", "")) or fnmatch.fnmatch(p.name, pattern):
+            out.append(rel)
+            if len(out) >= 300:
+                break
+    return "\n".join(sorted(out)) or "(không có file nào khớp)"
+
+
+@tool("grep", "Tìm văn bản/regex trong nội dung các file (như ripgrep). Trả về file:dòng: nội dung.",
+      {"pattern": ("string", "regex hoặc chuỗi cần tìm"), "path": ("string", "thư mục hoặc file (mặc định thư mục làm việc)"),
+       "include": ("string", "chỉ tìm trong file khớp mẫu này, vd. *.py"), "ignore_case": ("boolean", "không phân biệt hoa thường")},
+      required=["pattern"], risk="file")
+def grep_tool(ctx, pattern, path=".", include="", ignore_case=False):
+    root = _resolve(ctx, path, "read")
+    rx = re.compile(pattern, re.I if ignore_case else 0)
+    files = [root] if root.is_file() else _walk(root)
+    out = []
+    for p in files:
+        if include and not fnmatch.fnmatch(p.name, include):
+            continue
+        try:
+            if p.stat().st_size > 1_000_000:
+                continue
+            lines = p.read_text(errors="strict").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for n, ln in enumerate(lines, 1):
+            if rx.search(ln):
+                out.append(f"{p.relative_to(root) if root.is_dir() else p.name}:{n}: {ln.strip()[:200]}")
+                if len(out) >= 200:
+                    return "\n".join(out) + "\n[đã cắt ở 200 kết quả, hãy thu hẹp mẫu tìm]"
+    return "\n".join(out) or "(không có kết quả)"
+
+
+@tool("ask_user", "Hỏi người dùng MỘT câu khi thiếu thông tin thật sự không thể tự suy ra. Kèm 2-4 lựa chọn ngắn để họ bấm nhanh (có thể để trống nếu cần câu trả lời tự do). Không dùng cho việc bạn tự quyết được.",
+      {"question": ("string", "câu hỏi ngắn gọn"), "options": ("array", "các lựa chọn gợi ý (tùy chọn)")}, required=["question"])
+def ask_user(ctx, question, options=None):
+    if not ctx.asker:
+        return "Không hỏi được người dùng ở chế độ này: hãy tự chọn phương án hợp lý nhất, nêu rõ giả định rồi làm tiếp."
+    ans = ctx.asker(question, [str(o) for o in (options or [])][:4]).strip()
+    return f"Người dùng trả lời: {ans}" if ans else "Người dùng chưa trả lời: hãy tự chọn phương án hợp lý nhất, nêu rõ giả định rồi làm tiếp."
+
+
+# ---- lenh chay nen (dev server, test watch...): khong chan luot cua agent
+_BG: dict[str, dict] = {}
+MAX_BG = 5
+
+
+def _bg_kill(job: dict) -> None:
+    proc = job["proc"]
+    if proc.poll() is None:
+        try:
+            if os.name == "posix":
+                import signal
+                os.killpg(proc.pid, signal.SIGTERM)
+            else:
+                proc.terminate()
+        except OSError:
+            proc.kill()
+
+
+def _bg_cleanup() -> None:
+    for j in _BG.values():
+        _bg_kill(j)
+
+
+import atexit  # noqa: E402
+
+atexit.register(_bg_cleanup)
+
+
+@tool("exec_bg", "Chạy một lệnh shell NỀN (dev server, watcher, tiến trình dài) và trả về mã job ngay. Dùng exec_read xem output, exec_stop để dừng. Không dùng cho lệnh ngắn (dùng exec).",
+      {"command": ("string", "lệnh cần chạy nền")}, risk="exec")
+def exec_bg(ctx, command):
+    if ctx.confirm_exec and not ctx.approve("exec", command):
+        return DENIED
+    if ctx.sandbox.get("mode") == "docker":
+        return "loi: lenh nen chua ho tro khi bat sandbox Docker"
+    if sum(1 for j in _BG.values() if j["proc"].poll() is None) >= MAX_BG:
+        return f"loi: da co {MAX_BG} lenh nen dang chay, hay exec_stop bot"
+    from ..core import db as dbmod
+    ctx.workdir.mkdir(parents=True, exist_ok=True)
+    jid = uuid_hex()
+    log = Path(dbmod.DATA) / "bg" / f"{jid}.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    f = log.open("wb")
+    proc = subprocess.Popen(command, shell=True, executable=_shell()[0], stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ctx.workdir,
+                            env={**os.environ, **ctx.env}, start_new_session=(os.name == "posix"))
+    _BG[jid] = {"proc": proc, "log": log, "cmd": command, "file": f}
+    return f"đã chạy nền job {jid} (pid {proc.pid}). Dùng exec_read job={jid} để xem output."
+
+
+def _bg_job(job: str) -> dict:
+    j = _BG.get(job)
+    if not j:
+        raise ValueError(f"không có job '{job}'. Đang có: {', '.join(_BG) or '(không có)'}")
+    return j
+
+
+@tool("exec_read", "Xem output mới nhất của một lệnh nền và trạng thái (đang chạy / đã thoát). Có thể chờ vài giây để output kịp xuất hiện.",
+      {"job": ("string", "mã job từ exec_bg"), "wait": ("integer", "chờ tối đa bấy nhiêu giây trước khi đọc (mặc định 0, tối đa 30)")}, required=["job"], risk="exec")
+def exec_read(ctx, job, wait=0):
+    import time
+    j = _bg_job(job)
+    time.sleep(max(0, min(int(wait or 0), 30)))
+    j["file"].flush()
+    out = j["log"].read_bytes()[-6000:].decode("utf-8", "replace") or "(chưa có output)"
+    rc = j["proc"].poll()
+    return f"[{'đang chạy' if rc is None else f'đã thoát, mã {rc}'}] {j['cmd']}\n{out}"
+
+
+@tool("exec_stop", "Dừng một lệnh nền.", {"job": ("string", "mã job từ exec_bg")}, risk="exec")
+def exec_stop(ctx, job):
+    j = _bg_job(job)
+    _bg_kill(j)
+    return f"đã dừng job {job}"
+
+
+def uuid_hex() -> str:
+    import uuid
+    return uuid.uuid4().hex[:6]
+
+
+def project_notes_path(workspace: Path, project) -> Path:
+    import hashlib
+    return workspace / "project-notes" / f"{hashlib.sha1(str(project).encode()).hexdigest()[:10]}.md"
+
+
+@tool("project_note", "Ghi nhớ một điều học được về DỰ ÁN đang mở (cách chạy test, quy ước code, cấu trúc, lỗi hay gặp) để lần sau nhớ lại. Chỉ dùng trong chế độ lập trình.",
+      {"note": ("string", "một ý ngắn gọn, hữu ích về dự án")})
+def project_note(ctx, note):
+    if not ctx.project:
+        return "loi: chi dung trong che do lap trinh"
+    p = project_notes_path(ctx.workspace, ctx.project)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as f:
+        f.write(f"- {note.strip()}\n")
+    return "đã ghi nhớ về dự án"
+
+
 @tool("remember", "Lưu một điều quan trọng vào bộ nhớ dài hạn (MEMORY.md).", {"note": ("string", "nội dung cần nhớ")})
 def remember(ctx, note):
     with (ctx.workspace / "MEMORY.md").open("a") as f:
@@ -233,6 +433,7 @@ def skills_read(ctx, name):
       {"path": ("string", "đường dẫn file"), "old": ("string", "đoạn văn bản cũ, phải khớp chính xác"), "new": ("string", "đoạn văn bản mới")}, risk="file")
 def edit_file(ctx, path, old, new):
     p = _resolve(ctx, path, "write")
+    checkpoints.record(ctx.session_id, p)
     text = p.read_text()
     n = text.count(old)
     if n != 1:

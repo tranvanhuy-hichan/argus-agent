@@ -92,6 +92,24 @@ def open_project(b: OpenBody):
     return {"id": sessions.create(p.name or str(p), source="code", project=str(p)), "project": str(p)}
 
 
+class ProjectBody(BaseModel):
+    path: str | None = None  # None/rong = tat che do lap trinh cho phien nay
+
+
+@router.post("/sessions/{sid}/project")
+def set_session_project(sid: str, b: ProjectBody):
+    """Bật/tắt chế độ lập trình ngay trong một hội thoại: gắn thư mục dự án làm thư mục làm việc (hoặc bỏ đi)."""
+    if not sessions.get(sid):
+        raise HTTPException(404, "không có phiên này")
+    if not b.path:
+        sessions.set_project(sid, "")
+        return {"project": ""}
+    p = _dir(b.path)
+    _remember(str(p))
+    sessions.set_project(sid, str(p))
+    return {"project": str(p)}
+
+
 # ---------- git cho phien co du an
 def _project(sid: str) -> Path:
     s = sessions.get(sid)

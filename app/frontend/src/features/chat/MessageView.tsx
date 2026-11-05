@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AgentMark } from '../../components/ui/AgentMark'
-import { Brain, Cable, Check, ChevronRight, ExternalLink, Eye, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
+import { Brain, Cable, HelpCircle, Undo2, Check, ChevronRight, ExternalLink, Eye, FileText, Globe, Info, Paperclip, Pencil, RefreshCw, ShieldAlert, Terminal, TriangleAlert, Wrench, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { BrandIcon, detectBrand } from '@/components/ui/BrandIcon'
 import { Button } from '@/components/ui/Button'
@@ -93,6 +93,27 @@ function FileChips({ text, sid, onOpen }: { text: string; sid?: string | null; o
   )
 }
 
+/** Thay đổi file hiện ngay trong chat: edit = đoạn cũ/mới, write = nội dung ghi vào. */
+function InlineDiff({ item }: { item: ToolItem }) {
+  const a = item.args
+  const lines = (txt: unknown, sign: '-' | '+') => String(txt ?? '').split('\n').map((l) => ({ sign, l }))
+  let rows: { sign: '-' | '+'; l: string }[] = []
+  if (item.name === 'edit') rows = [...lines(a.old, '-'), ...lines(a.new, '+')]
+  else if (item.name === 'write') rows = lines(a.content, '+')
+  if (!rows.length || item.ok === false) return null
+  const MAX = 40
+  return (
+    <div className="mx-3 mb-2 overflow-hidden rounded-md border border-line bg-bg font-mono text-xs">
+      <div className="max-h-72 overflow-auto">
+        {rows.slice(0, MAX).map((r, i) => (
+          <div key={i} className={cn('whitespace-pre-wrap break-all px-2', r.sign === '+' ? 'bg-ok/10 text-ok' : 'bg-bad/10 text-bad')}>{r.sign} {r.l}</div>
+        ))}
+        {rows.length > MAX && <div className="px-2 py-1 text-muted">{t('… còn {n} dòng nữa', { n: rows.length - MAX })}</div>}
+      </div>
+    </div>
+  )
+}
+
 function ToolCard({ item, sid, onOpenFile }: { item: ToolItem; sid?: string | null; onOpenFile: (p: string) => void }) {
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
@@ -117,6 +138,7 @@ function ToolCard({ item, sid, onOpenFile }: { item: ToolItem; sid?: string | nu
         {path && sid && PREVIEWABLE.test(path) && <button onClick={() => setPreview(path)} className="flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-accent hover:bg-panel2"><Eye className="size-3" />{t('Xem trước')}</button>}
       </div>
       {preview && sid && <LivePreviewModal path={preview} sid={sid} onClose={() => setPreview(null)} />}
+      {(item.name === 'edit' || item.name === 'write') && <InlineDiff item={item} />}
       {item.result && <div className="px-3 pb-2"><Images text={item.result} onOpen={onOpenFile} /></div>}
       {open && (
         <div className="space-y-2 border-t border-line p-3">
@@ -169,6 +191,46 @@ function ApprovalCard({ item, onDecide }: { item: Extract<Item, { kind: 'approva
   )
 }
 
+function QuestionCard({ item, onAnswer }: { item: Extract<Item, { kind: 'question' }>; onAnswer: (qid: string, text: string) => void }) {
+  const [text, setText] = useState('')
+  return (
+    <div className="fade-in ml-10 rounded-lg border border-accent/40 bg-accent/5 p-3.5">
+      <div className="flex items-start gap-2 text-sm font-medium"><HelpCircle className="mt-0.5 size-4 shrink-0 text-accent" />{item.question}</div>
+      {item.answer === null ? (
+        <div className="mt-2.5 space-y-2">
+          {item.options.length > 0 && <div className="flex flex-wrap gap-2">{item.options.map((o) => <Button key={o} size="sm" variant="primary" onClick={() => onAnswer(item.qid, o)}>{o}</Button>)}</div>}
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (text.trim()) onAnswer(item.qid, text.trim()) }}>
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('Hoặc gõ câu trả lời khác…')} className="min-w-0 flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent" />
+            <Button size="sm" type="submit" disabled={!text.trim()}>{t('Gửi')}</Button>
+          </form>
+        </div>
+      ) : <p className="mt-2 text-sm text-muted">{t('Bạn trả lời:')} <span className="text-fg">{item.answer}</span></p>}
+    </div>
+  )
+}
+
+function SummaryCard({ item, onUndo, canAct }: { item: Extract<Item, { kind: 'summary' }>; onUndo?: () => void; canAct?: boolean }) {
+  const add = item.files.reduce((n, f) => n + f.added, 0)
+  const del = item.files.reduce((n, f) => n + f.removed, 0)
+  const [busy, setBusy] = useState(false)
+  return (
+    <div className="fade-in ml-10 rounded-lg border border-line bg-panel p-3 text-[13px]">
+      <div className="flex items-center gap-2">
+        <span className="font-medium">{t('Đã thay đổi {n} file', { n: item.files.length })}</span>
+        <span className="font-mono text-xs text-ok">+{add}</span><span className="font-mono text-xs text-bad">−{del}</span>
+        {item.undone ? <Badge tone="warn">{t('Đã hoàn tác')}</Badge> : onUndo && (
+          <button disabled={!canAct || busy} onClick={() => { setBusy(true); onUndo() }} className="ml-auto flex items-center gap-1 rounded border border-line px-2 py-0.5 text-xs text-accent hover:bg-panel2 disabled:opacity-40"><Undo2 className="size-3" />{t('Hoàn tác lượt này')}</button>
+        )}
+      </div>
+      <ul className="mt-1.5 space-y-0.5">
+        {item.files.map((f) => (
+          <li key={f.path} className="flex items-center gap-2 font-mono text-xs text-muted"><span className="min-w-0 flex-1 truncate" title={f.path}>{f.path.split('/').slice(-3).join('/')}</span>{f.status === 'new' && <Badge tone="info">{t('mới')}</Badge>}<span className="text-ok">+{f.added}</span><span className="text-bad">−{f.removed}</span></li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 interface Props {
   item: Item
   sid?: string | null
@@ -179,9 +241,11 @@ interface Props {
   canAct?: boolean
   onEdit?: (text: string) => void
   onRegenerate?: () => void
+  onAnswer?: (qid: string, text: string) => void
+  onUndo?: () => void
 }
 
-export function MessageView({ item, sid, onDecide, onOpenFile, isLastUser, isLastAssistant, canAct, onEdit, onRegenerate }: Props) {
+export function MessageView({ item, sid, onDecide, onOpenFile, isLastUser, isLastAssistant, canAct, onEdit, onRegenerate, onAnswer, onUndo }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   switch (item.kind) {
@@ -233,6 +297,10 @@ export function MessageView({ item, sid, onDecide, onOpenFile, isLastUser, isLas
       return <ToolCard item={item} sid={sid} onOpenFile={onOpenFile} />
     case 'approval':
       return <ApprovalCard item={item} onDecide={onDecide} />
+    case 'question':
+      return <QuestionCard item={item} onAnswer={onAnswer ?? (() => undefined)} />
+    case 'summary':
+      return <SummaryCard item={item} onUndo={onUndo} canAct={canAct} />
     case 'notice':
       return <p className="ml-10 flex items-center gap-1.5 text-xs text-muted"><Info className="size-3.5" />{item.text}</p>
     case 'error':

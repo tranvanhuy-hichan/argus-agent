@@ -37,6 +37,7 @@ class AgentCfg(BaseModel):
     exec_sandbox: Literal["none", "docker"] = "none"
     sandbox_image: str = "python:3.12-slim"
     sandbox_network: bool = False
+    fast_provider: str = ""  # model nhanh/re cho cau don gian khi dang dung model mac dinh; rong = tat
     suggest_habits: bool = True  # nhận ra việc lặp lại và gợi ý tạo skill/automation
 
 

@@ -82,6 +82,13 @@ def delete_session(sid: str):
     return {"ok": True}
 
 
+SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+
+def _sse(ev: dict) -> str:
+    return ": ping\n\n" if ev["type"] == "ping" else f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+
+
 class ChatBody(BaseModel):
     text: str
     session: str | None = None
@@ -99,13 +106,31 @@ def chat(body: ChatBody):
     def gen():
         for ev in chat_runner.stream_chat(body.session, body.text, body.provider, attachments=body.attachments, permission=body.permission,
                                             effort=None if body.effort == "auto" else body.effort, docs=body.docs,
-                                            temperature=body.temperature, max_tokens=body.max_tokens):
-            if ev["type"] == "ping":
-                yield ": ping\n\n"
-            else:
-                yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+                                            temperature=body.temperature, max_tokens=body.max_tokens, detach=True):
+            yield _sse(ev)
 
-    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+@router.get("/sessions/{sid}/run")
+def run_state(sid: str):
+    """Phiên có đang chạy agent không (giao diện dùng để nối lại sau khi đổi trang)."""
+    return chat_runner.state(sid)
+
+
+@router.get("/sessions/{sid}/attach")
+def attach(sid: str, start: int = 0):
+    """Nối lại luồng sự kiện của lượt đang chạy, phát lại từ sự kiện thứ `start`."""
+    def gen():
+        for ev in chat_runner.attach(sid, max(0, start)):
+            yield _sse(ev)
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+@router.post("/sessions/{sid}/stop")
+def stop_run(sid: str):
+    return {"ok": chat_runner.stop(sid)}
 
 
 class Approval(BaseModel):
@@ -115,3 +140,27 @@ class Approval(BaseModel):
 @router.post("/approvals/{aid}")
 def approve(aid: str, body: Approval):
     return {"ok": chat_runner.resolve_approval(aid, body.ok)}
+
+
+class Answer(BaseModel):
+    answer: str
+
+
+@router.post("/questions/{qid}")
+def answer_question(qid: str, body: Answer):
+    return {"ok": chat_runner.answer_question(qid, body.answer)}
+
+
+@router.get("/sessions/{sid}/checkpoint")
+def checkpoint_state(sid: str):
+    from ..services import checkpoints
+    return {"files": checkpoints.last(sid)}
+
+
+@router.post("/sessions/{sid}/undo")
+def undo_last_turn(sid: str):
+    """Hoàn tác các file agent đã ghi/sửa trong lượt gần nhất (không gồm thay đổi do lệnh shell)."""
+    from ..services import checkpoints
+    if chat_runner.active(sid):
+        raise HTTPException(409, "agent đang chạy, hãy dừng rồi hoàn tác")
+    return {"restored": checkpoints.undo(sid)}

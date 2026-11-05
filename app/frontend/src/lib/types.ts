@@ -34,7 +34,7 @@ export interface AppConfig {
   default_provider: string
   fallback: string[]
   providers: Record<string, ProviderCfg>
-  agent: { workspace: string; max_steps: number; max_history: number; confirm_exec: boolean; tools_enabled: Record<string, boolean>; compact_chars: number; exec_sandbox: 'none' | 'docker'; sandbox_image: string; sandbox_network: boolean; suggest_habits: boolean }
+  agent: { workspace: string; max_steps: number; max_history: number; confirm_exec: boolean; tools_enabled: Record<string, boolean>; compact_chars: number; exec_sandbox: 'none' | 'docker'; sandbox_image: string; sandbox_network: boolean; suggest_habits: boolean; fast_provider: string }
   heartbeat: { enabled: boolean; interval_minutes: number; provider: string | null }
   auth: { has_password: boolean }
   skills: Record<string, SkillEntry>
